@@ -45,22 +45,17 @@
 # - sampling for the fairness?
 
 """FairFederatedDataset."""
-import warnings
-from os import PathLike
-from typing import Any, Optional, Union
 
-import datasets
+from os import PathLike
+from typing import Any, Optional, Union, Literal
+
+
 import pandas as pd
 from datasets import Dataset, DatasetDict
 from flwr_datasets import FederatedDataset
-from flwr_datasets.common import EventType, event
 from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.preprocessor import Preprocessor
-from flwr_datasets.utils import (
-    _check_if_dataset_tested,
-    _instantiate_merger_if_needed,
-    _instantiate_partitioners,
-)
+from flwr_datasets.preprocessor import Preprocessor, Divider, Merger
+
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 
 from evaluation import evaluate_fairness
@@ -158,8 +153,11 @@ class FairFederatedDataset (FederatedDataset):
         binary: Optional[bool]=False,
         fairness_modification: Optional[bool]=False,
         sensitive_attribute: Optional[list[str]]="sex",
-        individual_fairness: Optional[str] ='attribute',
-        fairness_metric: Optional[str]="dis",
+        individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
+        fairness_metric:  Literal["DP", "EO"] = "DP",
+        train_test_split: Literal["cross-silo", "cross-device", None]= None,
+        perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
+        path: Optional[PathLike] = None,
         **load_dataset_kwargs: Any,
     ) -> None:
         super().__init__(dataset, subset, preprocessor, partitioners, shuffle, seed, **load_dataset_kwargs)
@@ -169,11 +167,48 @@ class FairFederatedDataset (FederatedDataset):
         self._horizon = horizon
         self._binary = binary
         self._fairness_modification = fairness_modification
+        self._sensitive_attribute = sensitive_attribute
+        self._individual_fairness = individual_fairness
+        self._fairness_metric = fairness_metric
+        self._train_test_split = train_test_split
+        self._perc_train_test_split = perc_train_val_test
+        self._path = path
 
 
     def save_dataset(self, dataset_path: PathLike) -> None:
-        #TODO
-        pass
+        self._dataset.save_to_disk(dataset_dict_path = self._path)
+
+    def evaluate(self, file):
+        titles = list(self._dataset.keys())
+        fig_dis,axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(partitioner_list=self.partitioners,
+                                                                              max_num_partitions=None,
+                                                                              fairness_metric=self._fairness_metric,
+                                                                              fairness=self._individual_fairness,
+                                                                              titles=titles,
+                                                                              legend=True,
+                                                                              class_label=self._label)
+        for i in range(len(df_list_dis)):
+            df_list_dis[i].to_csv(path_or_buf = f"{self._path}/{titles[i]}_count.csv")
+            df_list[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_{self._fairness_metric}.csv")
+
+
+    def _split_into_train_val_test(self ):
+        divider_dict= {}
+        for entry in self._dataset.keys():
+            divider_dict[entry] = {f"{entry}_train": self._perc_train_test_split[0], f"{entry}_val": self._perc_train_test_split[1], f"{entry}_test": self._perc_train_test_split[2]}
+        divider = Divider(divide_config=divider_dict)
+        if self._train_test_split == "cross-silo":
+            self._dataset = divider(self._dataset)
+        elif self._train_test_split == "cross-device":
+            merger_tuple = tuple([f"{entry}_test" for entry in self._dataset.keys()])
+            self._dataset = divider(self._dataset)
+            merger_dict = {f"{entry}": (f"{entry}", ) for entry in self._dataset.keys()}
+            merger_dict["test"] = merger_tuple
+            merger = Merger(merge_config=merger_dict)
+            self._dataset = merger(self._dataset)
+
+        else:
+            raise ValueError("This train-val-test split strategy is not supported.")
 
     def _prepare_dataset(self) -> None:
         """This is overwritten from FederatedDataset to fit to our Datasets.
@@ -191,21 +226,21 @@ class FairFederatedDataset (FederatedDataset):
 
         """
         data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
-        self._dataset = {}
+        self._dataset = DatasetDict()
         for state in self._states:
             acs_data = data_source.get_data(states=[state], download=True)
             if self._dataset_prepared == "ACSEmployment":
                 features, label, group = ACSEmployment.df_to_pandas(acs_data)
+                self._label = "ESR"
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
+                self._label = "PINCP"
             state_data=pd.concat([features, label], axis=1)
             if self._binary:
                 # TODO:add implementation here
                 pass
-            if self._fairness_modification:
-                self._modify_for_fairness()
             self._dataset[state] = Dataset.from_pandas(state_data)
-        if not isinstance(self._dataset, datasets.DatasetDict):
+        if not isinstance(self._dataset, DatasetDict):
             raise ValueError(
                 "Probably one of the specified parameter in `load_dataset_kwargs` "
                 "change the return type of the datasets.load_dataset function. "
@@ -218,7 +253,14 @@ class FairFederatedDataset (FederatedDataset):
             self._dataset = self._dataset.shuffle(seed=self._seed)
         if self._preprocessor:
             self._dataset = self._preprocessor(self._dataset)
-
+        if self._fairness_modification:
+            self._modify_for_fairness()
+        if self._train_test_split is not None:
+            self._split_into_train_val_test()
+        self.evaluate()
+        # TODO: add implementation for throwing out sensitive columns here
+        if self._path is not None:
+            self.save_dataset(self._path)
         available_splits = list(self._dataset.keys())
         self._event["load_split"] = {split: False for split in available_splits}
         self._dataset_prepared = True
@@ -230,7 +272,7 @@ class FairFederatedDataset (FederatedDataset):
             )
 
     def _initilize_states(self, states):
-        if states == None:
+        if states is None:
             self._states = [
     "AL",
     "AK",
@@ -290,6 +332,5 @@ class FairFederatedDataset (FederatedDataset):
 
     def _modify_for_fairness(self):
         #TODO
-        evaluate_fairness(self.partitioners, )
         pass
 

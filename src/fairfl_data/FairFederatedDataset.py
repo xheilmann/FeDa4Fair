@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-#TODO:
+# TODO:
 # 1. overall
 # -natural output (that can be used for normal FL)
 # -modified output
@@ -34,7 +34,7 @@
 # -overall statistics global model FedAVG((  # datapoints, fairness metrics(gender, race mar), performance metrics) before modifications and after
 # - global model on pooled dataset
 # - the datasets as csv files, local model training as numpy array
-#TODO:
+# TODO:
 # 4. the fairness metric used to evaluate the model unfairness,
 # - measure on simple models(logistic regression), raw data
 # -unfairness on different attribute values
@@ -46,6 +46,7 @@
 
 """FairFederatedDataset."""
 import inspect
+import warnings
 from os import PathLike
 from typing import Any, Optional, Union, Literal
 
@@ -61,7 +62,7 @@ from folktables import ACSDataSource, ACSEmployment, ACSIncome
 from evaluation import evaluate_fairness
 
 
-class FairFederatedDataset (FederatedDataset):
+class FairFederatedDataset(FederatedDataset):
     """Representation of a dataset for federated learning/evaluation/analytics.
 
     Download, partition data among clients (edge devices), or load full dataset.
@@ -158,7 +159,8 @@ class FairFederatedDataset (FederatedDataset):
         train_test_split: Literal["cross-silo", "cross-device", None]= None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
-        wo_sens_columns: Optional[ bool] = True, **load_dataset_kwargs: Any,
+        wo_sens_columns: Optional[ bool] = True,
+        **load_dataset_kwargs: Any,
     ) -> None:
         super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
         self._wo_sens_columns = wo_sens_columns
@@ -229,6 +231,10 @@ class FairFederatedDataset (FederatedDataset):
             raise ValueError("This train-val-test split strategy is not supported.")
         self._partitioners = partitioners_dict
 
+    def save_dataset(self, dataset_path: PathLike) -> None:
+        # TODO
+        pass
+
     def _prepare_dataset(self) -> None:
         """This is overwritten from FederatedDataset to fit to our Datasets.
         Prepars the dataset (prior to partitioning) by download, shuffle,preprocessing, binary.
@@ -254,7 +260,7 @@ class FairFederatedDataset (FederatedDataset):
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
                 self._label = "PINCP"
-            state_data=pd.concat([features, label], axis=1)
+            state_data = pd.concat([features, label], axis=1)
             if self._binary:
                 # TODO:add implementation here
                 pass
@@ -288,74 +294,73 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def _check_dataset(self):
-       if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
-            raise ValueError(
-                f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
-            )
+        if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
+            raise ValueError(f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment.")
 
     def _initilize_states(self, states):
         if states is None:
             self._states = [
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "PR",
-]
+                "AL",
+                "AK",
+                "AZ",
+                "AR",
+                "CA",
+                "CO",
+                "CT",
+                "DE",
+                "FL",
+                "GA",
+                "HI",
+                "ID",
+                "IL",
+                "IN",
+                "IA",
+                "KS",
+                "KY",
+                "LA",
+                "ME",
+                "MD",
+                "MA",
+                "MI",
+                "MN",
+                "MS",
+                "MO",
+                "MT",
+                "NE",
+                "NV",
+                "NH",
+                "NJ",
+                "NM",
+                "NY",
+                "NC",
+                "ND",
+                "OH",
+                "OK",
+                "OR",
+                "PA",
+                "RI",
+                "SC",
+                "SD",
+                "TN",
+                "TX",
+                "UT",
+                "VT",
+                "VA",
+                "WA",
+                "WV",
+                "WI",
+                "WY",
+                "PR",
+            ]
 
         else:
             self._states = states
 
     def _modify_for_fairness(self):
-        #TODO
+        evaluate_fairness(
+            self.partitioners,
+        )
         pass
-
 
 
     def _clone_partitioner(self, obj):
@@ -378,6 +383,5 @@ class FairFederatedDataset (FederatedDataset):
     def delete_sens_columns(self):
         #TODO: add implementation to delete the sensitive columns
         pass
-
 
 

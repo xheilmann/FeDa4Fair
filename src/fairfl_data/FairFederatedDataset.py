@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-#TODO:
+# TODO:
 # 1. overall
 # -natural output (that can be used for normal FL)
 # -modified output
@@ -34,7 +34,7 @@
 # -overall statistics global model FedAVG((  # datapoints, fairness metrics(gender, race mar), performance metrics) before modifications and after
 # - global model on pooled dataset
 # - the datasets as csv files, local model training as numpy array
-#TODO:
+# TODO:
 # 4. the fairness metric used to evaluate the model unfairness,
 # - measure on simple models(logistic regression), raw data
 # -unfairness on different attribute values
@@ -45,6 +45,7 @@
 # - sampling for the fairness?
 
 """FairFederatedDataset."""
+
 import warnings
 from os import PathLike
 from typing import Any, Optional, Union
@@ -66,7 +67,7 @@ from folktables import ACSDataSource, ACSEmployment, ACSIncome
 from evaluation import evaluate_fairness
 
 
-class FairFederatedDataset (FederatedDataset):
+class FairFederatedDataset(FederatedDataset):
     """Representation of a dataset for federated learning/evaluation/analytics.
 
     Download, partition data among clients (edge devices), or load full dataset.
@@ -152,14 +153,14 @@ class FairFederatedDataset (FederatedDataset):
         partitioners: dict[str, Union[Partitioner, int]],
         shuffle: bool = True,
         seed: Optional[int] = 42,
-        states: Optional[list[str]] =  None,
-        year: Optional[list[str]] =['2018'],
-        horizon: Optional[str]= '1-Year',
-        binary: Optional[bool]=False,
-        fairness_modification: Optional[bool]=False,
-        sensitive_attribute: Optional[list[str]]="sex",
-        individual_fairness: Optional[str] ='attribute',
-        fairness_metric: Optional[str]="dis",
+        states: Optional[list[str]] = None,
+        year: Optional[list[str]] = ["2018"],
+        horizon: Optional[str] = "1-Year",
+        binary: Optional[bool] = False,
+        fairness_modification: Optional[bool] = False,
+        sensitive_attribute: Optional[list[str]] = "sex",
+        individual_fairness: Optional[str] = "attribute",
+        fairness_metric: Optional[str] = "dis",
         **load_dataset_kwargs: Any,
     ) -> None:
         super().__init__(dataset, subset, preprocessor, partitioners, shuffle, seed, **load_dataset_kwargs)
@@ -170,9 +171,8 @@ class FairFederatedDataset (FederatedDataset):
         self._binary = binary
         self._fairness_modification = fairness_modification
 
-
     def save_dataset(self, dataset_path: PathLike) -> None:
-        #TODO
+        # TODO
         pass
 
     def _prepare_dataset(self) -> None:
@@ -190,7 +190,7 @@ class FairFederatedDataset (FederatedDataset):
         end of the function.
 
         """
-        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
+        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey="person")
         self._dataset = {}
         for state in self._states:
             acs_data = data_source.get_data(states=[state], download=True)
@@ -198,7 +198,7 @@ class FairFederatedDataset (FederatedDataset):
                 features, label, group = ACSEmployment.df_to_pandas(acs_data)
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
-            state_data=pd.concat([features, label], axis=1)
+            state_data = pd.concat([features, label], axis=1)
             if self._binary:
                 # TODO:add implementation here
                 pass
@@ -224,72 +224,71 @@ class FairFederatedDataset (FederatedDataset):
         self._dataset_prepared = True
 
     def _check_dataset(self):
-       if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
-            raise ValueError(
-                f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
-            )
+        if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
+            raise ValueError(f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment.")
 
     def _initilize_states(self, states):
         if states == None:
             self._states = [
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "PR",
-]
+                "AL",
+                "AK",
+                "AZ",
+                "AR",
+                "CA",
+                "CO",
+                "CT",
+                "DE",
+                "FL",
+                "GA",
+                "HI",
+                "ID",
+                "IL",
+                "IN",
+                "IA",
+                "KS",
+                "KY",
+                "LA",
+                "ME",
+                "MD",
+                "MA",
+                "MI",
+                "MN",
+                "MS",
+                "MO",
+                "MT",
+                "NE",
+                "NV",
+                "NH",
+                "NJ",
+                "NM",
+                "NY",
+                "NC",
+                "ND",
+                "OH",
+                "OK",
+                "OR",
+                "PA",
+                "RI",
+                "SC",
+                "SD",
+                "TN",
+                "TX",
+                "UT",
+                "VT",
+                "VA",
+                "WA",
+                "WV",
+                "WI",
+                "WY",
+                "PR",
+            ]
 
         else:
             self._states = states
 
     def _modify_for_fairness(self):
-        #TODO
-        evaluate_fairness(self.partitioners, )
+        # TODO
+        evaluate_fairness(
+            self.partitioners,
+        )
         pass
-

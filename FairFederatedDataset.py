@@ -45,7 +45,7 @@
 # - sampling for the fairness?
 
 """FairFederatedDataset."""
-
+import inspect
 from os import PathLike
 from typing import Any, Optional, Union, Literal
 
@@ -148,7 +148,7 @@ class FairFederatedDataset (FederatedDataset):
         shuffle: bool = True,
         seed: Optional[int] = 42,
         states: Optional[list[str]] =  None,
-        year: Optional[list[str]] =['2018'],
+        year: Optional[str] ='2018',
         horizon: Optional[str]= '1-Year',
         binary: Optional[bool]=False,
         fairness_modification: Optional[bool]=False,
@@ -158,9 +158,10 @@ class FairFederatedDataset (FederatedDataset):
         train_test_split: Literal["cross-silo", "cross-device", None]= None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
-        **load_dataset_kwargs: Any,
+        wo_sens_columns: Optional[ bool] = True, **load_dataset_kwargs: Any,
     ) -> None:
-        super().__init__(dataset, subset, preprocessor, partitioners, shuffle, seed, **load_dataset_kwargs)
+        super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
+        self._wo_sens_columns = wo_sens_columns
         self._check_dataset()
         self._initilize_states(states)
         self._year = year
@@ -174,41 +175,59 @@ class FairFederatedDataset (FederatedDataset):
         self._perc_train_test_split = perc_train_val_test
         self._path = path
 
-
     def save_dataset(self, dataset_path: PathLike) -> None:
+        if not self._dataset_prepared:
+            self._prepare_dataset()
+        if self._wo_sens_columns:
+            self.delete_sens_columns()
         self._dataset.save_to_disk(dataset_dict_path = self._path)
 
-    def evaluate(self, file):
+    def evaluate(self, file ):
+        if not self._dataset_prepared:
+            self._prepare_dataset()
         titles = list(self._dataset.keys())
-        fig_dis,axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(partitioner_list=self.partitioners,
+        fig_dis,axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(partitioner_dict=self.partitioners,
                                                                               max_num_partitions=None,
                                                                               fairness_metric=self._fairness_metric,
                                                                               fairness=self._individual_fairness,
                                                                               titles=titles,
                                                                               legend=True,
                                                                               class_label=self._label)
-        for i in range(len(df_list_dis)):
-            df_list_dis[i].to_csv(path_or_buf = f"{self._path}/{titles[i]}_count.csv")
-            df_list[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_{self._fairness_metric}.csv")
+        if file is not None:
+            for i in range(len(df_list_dis)):
+                df_list_dis[i].to_csv(path_or_buf = f"{self._path}/{titles[i]}_count.csv")
+                df_list[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_{self._fairness_metric}.csv")
 
 
     def _split_into_train_val_test(self ):
         divider_dict= {}
+        partitioners_dict= {}
         for entry in self._dataset.keys():
             divider_dict[entry] = {f"{entry}_train": self._perc_train_test_split[0], f"{entry}_val": self._perc_train_test_split[1], f"{entry}_test": self._perc_train_test_split[2]}
+
         divider = Divider(divide_config=divider_dict)
         if self._train_test_split == "cross-silo":
+            for entry in self._dataset.keys():
+                partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
+                partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
+                partitioners_dict[f"{entry}_test"] = self._clone_partitioner(self._partitioners[entry])
             self._dataset = divider(self._dataset)
         elif self._train_test_split == "cross-device":
+            for entry in self._dataset.keys():
+                partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
+                partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
             merger_tuple = tuple([f"{entry}_test" for entry in self._dataset.keys()])
             self._dataset = divider(self._dataset)
-            merger_dict = {f"{entry}": (f"{entry}", ) for entry in self._dataset.keys()}
+            merger_dict = {f"{entry}": (f"{entry}", ) for entry in self._dataset.keys() if "test" not in entry}
+
             merger_dict["test"] = merger_tuple
             merger = Merger(merge_config=merger_dict)
+            partitioners_dict["test"] = self._clone_partitioner(self._partitioners[entry])
             self._dataset = merger(self._dataset)
 
         else:
             raise ValueError("This train-val-test split strategy is not supported.")
+        self._partitioners = partitioners_dict
 
     def _prepare_dataset(self) -> None:
         """This is overwritten from FederatedDataset to fit to our Datasets.
@@ -257,13 +276,16 @@ class FairFederatedDataset (FederatedDataset):
             self._modify_for_fairness()
         if self._train_test_split is not None:
             self._split_into_train_val_test()
-        self.evaluate()
-        # TODO: add implementation for throwing out sensitive columns here
+        self._dataset_prepared = True
+        self._check_partitioners_correctness()
+        available_splits = list(self._dataset.keys())
+        print(available_splits)
+        self._event["load_split"] = {split: False for split in available_splits}
+        self.evaluate(self._path)
         if self._path is not None:
             self.save_dataset(self._path)
-        available_splits = list(self._dataset.keys())
-        self._event["load_split"] = {split: False for split in available_splits}
-        self._dataset_prepared = True
+
+
 
     def _check_dataset(self):
        if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
@@ -333,4 +355,29 @@ class FairFederatedDataset (FederatedDataset):
     def _modify_for_fairness(self):
         #TODO
         pass
+
+
+
+    def _clone_partitioner(self, obj):
+        """
+        Creates a new instance of the same class as obj with the same arguments.
+        Assumes that arguments to __init__ are stored as attributes in obj.
+        """
+        cls = obj.__class__  # Get the class of obj
+        init_signature = inspect.signature(cls.__init__)
+
+        # Get argument names from __init__ (excluding 'self')
+        arg_names = [param for param in init_signature.parameters if param != "self"]
+
+        # Retrieve values from obj attributes
+        init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
+
+        # Create a new instance with the same arguments
+        return cls(**init_args)
+
+    def delete_sens_columns(self):
+        #TODO: add implementation to delete the sensitive columns
+        pass
+
+
 

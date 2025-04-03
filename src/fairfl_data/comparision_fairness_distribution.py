@@ -1,43 +1,236 @@
+import warnings
+from itertools import product
 
+import numpy as np
+from flwr_datasets.visualization.constants import PLOT_TYPES
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
+
 from typing import Any, Optional, Union, Literal
 
-import matplotlib.colors as mcolors
-import pandas as pd
-from flwr_datasets.common import EventType, event
-from flwr_datasets.metrics.utils import compute_counts, compute_frequencies
-from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.visualization.bar_plot import _plot_bar
-from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
-from flwr_datasets.visualization.utils import _validate_parameters
 
 """Label distribution plotting."""
 
-
+from sklearn.linear_model import LogisticRegression
 from typing import Any, Optional, Union
 
 import matplotlib.colors as mcolors
-import pandas as pd
+
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from flwr_datasets.common import EventType, event
-from flwr_datasets.metrics.utils import compute_counts, compute_frequencies
 from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.visualization.bar_plot import _plot_bar
+
 from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
-from flwr_datasets.visualization.utils import _validate_parameters
+
+import pandas as pd
+
+pd.set_option('display.max_columns', 20)
+
+pd.set_option('display.width', 80)
+
+from fairlearn.metrics import MetricFrame, selection_rate, true_positive_rate, false_positive_rate
+
 
 # pylint: disable=too-many-arguments,too-many-locals
 
-#todo: add all fairness metrics plus model/natural, if model add accuracy if absolut
+
+def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, unique_labels, size_unit):
+    if fairness_metric == "DP":
+
+        sel_rate = MetricFrame(
+            metrics={"sel":selection_rate},
+            y_true=y_true,
+            y_pred=y_pred,
+            sensitive_features=sf_data,
+            )
+        df = sel_rate.by_group
+        diff_matrix = df['sel'].values[:, None] - df['sel'].values[None, :]
+        index = df.index.values
+        column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(df)), repeat=2)]
+
+
+    elif fairness_metric == "EO":
+        print("EO")
+        tpr = MetricFrame(
+            metrics={"tpr": true_positive_rate, "fpr": false_positive_rate},
+            y_true=y_true,
+            y_pred=y_pred,
+            sensitive_features=sf_data,
+        )
+        # Compute the difference matrices
+        df = tpr.by_group
+        diff_matrix_col2 = df['tpr'].values[:, None] - df['tpr'].values[None, :]
+        diff_matrix_col3 = df['fpr'].values[:, None] - df['fpr'].values[None, :]
+
+        # Compute the absolute differences
+        abs_diff_col2 = np.abs(diff_matrix_col2)
+        abs_diff_col3 = np.abs(diff_matrix_col3)
+
+        # Find the mask where Column2's absolute difference is larger
+        mask = abs_diff_col2 >= abs_diff_col3
+        index = df.index.values
+        column_names = [f"{index[i]}_{index[j]}" for i, j in
+                        product(range(len(df)), repeat=2)]
+
+        # Create the final matrix using the original differences
+        diff_matrix = np.where(mask, diff_matrix_col2, diff_matrix_col3)
+
+    else:
+        raise ValueError(f"Unknown fairness metric {fairness_metric}")
+
+
+    diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
+
+    if size_unit =="value":
+        diff_df = pd.Series([diff_df.max(),diff_df.idxmax()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
+    if size_unit =="absolute":
+        diff_df = pd.Series([diff_df.max(),diff_df.max()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
+
+
+    return diff_df
+
+
+def compute_fairness(
+    partitioner: Partitioner,
+    partitioner_test: Partitioner,
+    model: None,
+    column_name: str,
+    verbose_names: bool = False,
+    max_num_partitions: Optional[int] = None,
+    fairness_metric="DP",
+    label: str = "label",
+    sensitive_attributes:list[str]=[],
+    size_unit: Literal["value", "absolute", "attribute-value"] = "absolut",
+) -> pd.DataFrame:
+    """Compute the counts of unique values in a given column in the partitions.
+
+    Take into account all possible labels in dataset when computing count for each
+    partition (assign 0 as the size when there are no values for a label in the
+    partition).
+
+    Parameters
+    ----------
+    partitioner : Partitioner
+        Partitioner with an assigned dataset.
+    column_name : str
+        Column name identifying label based on which the count will be calculated.
+    verbose_names : bool
+        Whether to use verbose versions of the values in the column specified by
+        `column_name`. The verbose values are possible to extract if the column is a
+        feature of type `ClassLabel`.
+    max_num_partitions : Optional[int]
+        The maximum number of partitions that will be used. If greater than the
+        total number of partitions in a partitioner, it won't have an effect. If left
+        as None, then all partitions will be used.
+
+    Returns
+    -------
+    dataframe: pd.DataFrame
+        DataFrame where the row index represent the partition id and the column index
+        represent the unique values found in column specified by `column_name`
+        (e.g. represeting the labels). The value of the dataframe.loc[i, j] represents
+        the count of the label j, in the partition of index i.
+
+    Examples
+    --------
+    Generate DataFrame with label counts resulting from DirichletPartitioner on cifar10
+
+    >>> from flwr_datasets import FederatedDataset
+    >>> from flwr_datasets.partitioner import DirichletPartitioner
+    >>> from flwr_datasets.metrics import compute_counts
+    >>>
+    >>> fds = FederatedDataset(
+    >>>     dataset="cifar10",
+    >>>     partitioners={
+    >>>         "train": DirichletPartitioner(
+    >>>             num_partitions=20,
+    >>>             partition_by="label",
+    >>>             alpha=0.3,
+    >>>             min_partition_size=0,
+    >>>         ),
+    >>>     },
+    >>> )
+    >>> partitioner = fds.partitioners["train"]
+    >>> counts_dataframe = compute_counts(
+    >>>     partitioner=partitioner,
+    >>>     column_name="label"
+    >>> )
+    :param fairness_metric:
+    :param label:
+    """
+    if column_name not in partitioner.dataset.column_names:
+        raise ValueError(
+            f"The specified 'column_name': '{column_name}' is not present in the "
+            f"dataset. The dataset contains columns {partitioner.dataset.column_names}."
+        )
+    if label is None or label not in partitioner.dataset.column_names:
+        raise ValueError(f"The specified 'label' is not present in the dataset or was not set. ")
+    if max_num_partitions is None:
+        max_num_partitions = partitioner.num_partitions
+    else:
+        max_num_partitions = min(max_num_partitions, partitioner.num_partitions)
+    assert isinstance(max_num_partitions, int)
+    partition_id_to_fairness= {}
+    for partition_id in range(max_num_partitions):
+        partition = partitioner.load_partition(partition_id)
+        try:
+            # Unique labels are needed to represent the correct count of each class
+            # (some of the classes can have zero samples that's why this
+            # adjustment is needed)
+            unique_labels = partition.features[column_name].str2int(
+                partition.features[column_name].names
+            )
+        except AttributeError:  # If the column_name is not formally a Label
+            unique_labels = partitioner.dataset.unique(column_name)
+        partition_test =partitioner_test.load_partition(partition_id)
+
+        if model is not None:
+            train = partition.remove_columns(sensitive_attributes.append(label)).to_pandas()
+            train_labels = partition.select_columns(label).to_pandas()
+            model.fit(train, train_labels)
+            y_pred = model.predict(partition_test.remove_columns(sensitive_attributes.append(label)).to_pandas())
+            y_true = partition_test.select_columns(label).to_pandas()
+            sf_data = partition_test.select_columns(column_name).to_pandas()
+
+        else:
+            y_true = partition.select_columns(label).to_pandas()
+            y_pred = partition.select_columns(label).to_pandas()
+            sf_data = partition.select_columns(column_name).to_pandas()
+        partition_id_to_fairness[partition_id] = _compute_fairness(
+        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, column_name=column_name, unique_labels=unique_labels, size_unit = size_unit)
+
+    dataframe = pd.DataFrame.from_dict(
+        partition_id_to_fairness, orient="index"
+    )
+    dataframe.index.name = "Partition ID"
+
+    if verbose_names:
+        # Adjust the column name values of the dataframe
+        current_labels = dataframe.columns
+        try:
+            legend_names = partitioner.dataset.features[column_name].int2str(
+                [int(v) for v in current_labels]
+            )
+            dataframe.columns = legend_names
+        except AttributeError:
+            warnings.warn(
+                "The verbose names can not be established. "
+                "The column specified by 'column_name' needs to be of type "
+                "'ClassLabel' to create a verbose names. "
+                "The available names will used.",
+                stacklevel=1,
+            )
+    return dataframe
+
+
+#todo: add intersectional fairness, and if model then also plots for accuracy
 def plot_fairness_distributions(
     partitioner: Partitioner,
+    partitioner_test: Partitioner,
+    class_label: str,
     label_name: str,
     plot_type: str = "heatmap",
-    size_unit: Literal["value", "absolute", "attribute-value"] = "absolut",
+    size_unit: Literal["value", "absolute", "attribute-value"] = "absolute",
     max_num_partitions: Optional[int] = None,
     partition_id_axis: str = "x",
     axis: Optional[Axes] = None,
@@ -50,9 +243,8 @@ def plot_fairness_distributions(
     plot_kwargs: Optional[dict[str, Any]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
     fairness_metric: Literal["DP", "EO"] = "DP",
-    model: Optional[Model] = None,
-
-) -> tuple[Figure, Axes, pd.DataFrame]:
+    model: Optional = None,
+    sensitive_attributes: list[str]=None) -> tuple[Figure, Axes, pd.DataFrame]:
     """Plot the label distribution of the partitions.
 
     Parameters
@@ -196,33 +388,33 @@ def plot_fairness_distributions(
     You can also visualize the returned DataFrame in Jupyter Notebook
     >>> dataframe.style.background_gradient(axis=None)
     """
-    _validate_parameters(plot_type, size_unit, partition_id_axis)
+
 
     #TODO add the fairness metrics here
-    if Model not None:
-        ...
-    if size_unit == "absolute":
-        dataframe = compute_counts(
-            partitioner=partitioner,
-            column_name=label_name,
-            verbose_names=verbose_labels,
-            max_num_partitions=max_num_partitions,
-        )
-    elif size_unit == "value":
-        dataframe = compute_frequencies(
-            partitioner=partitioner,
-            column_name=label_name,
-            verbose_names=verbose_labels,
-            max_num_partitions=max_num_partitions,
-        )
-    elif size_unit == "attribute-value":
-        dataframe = compute_frequencies(
-            partitioner=partitioner,
-            column_name=label_name,
-            verbose_names=verbose_labels,
-            max_num_partitions=max_num_partitions,
-        )
 
+
+    dataframe = compute_fairness( partitioner= partitioner,
+                                  partitioner_test=partitioner_test,
+                                  model=model,
+                                  column_name=label_name,
+                                  fairness_metric=fairness_metric,
+                                  label=class_label,
+                                  max_num_partitions=max_num_partitions,
+                                  sensitive_attributes=sensitive_attributes,
+                                  size_unit =size_unit)
+
+
+
+
+    if size_unit in ["absolute","value"]:
+        plot_kwargs = {"annot": dataframe.drop(f"{label_name}_{fairness_metric}", axis=1)}
+        if size_unit == "absolute":
+            plot_kwargs["fmt"] = ".2f"
+        else:
+            plot_kwargs["fmt"] = "s"
+        dataframe = dataframe.drop(f"{label_name}_val", axis=1)
+    elif len(dataframe.columns)< 6:
+        plot_kwargs = {"annot": True, "fmt": ".2f"}
     axis = _plot_heatmap(
             dataframe,
             axis,
@@ -230,9 +422,9 @@ def plot_fairness_distributions(
             title,
             cmap,
             partition_id_axis,
-            size_unit,
+            "absolute",
             legend,
-            legend_title,
+            fairness_metric,
             plot_kwargs,
             legend_kwargs,
         )
@@ -243,11 +435,12 @@ def plot_fairness_distributions(
 
 
 def plot_comparison_fairness_distribution(
-    partitioner_list: list[Partitioner],
+    partitioner_dict: dict[str,Partitioner],
     max_num_partitions: Optional[int] = 30,
+    class_label: str = "ECP",
     label_name: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
     fairness_metric: Literal["DP", "EO"] = "DP",
-    size_unit: Literal["value", "absolute", "attribute-value"] = "absolut",
+    size_unit: Literal["value", "absolute", "attribute-value"] = "absolute",
     partition_id_axis: Literal["x", "y"] = "y",
     figsize: Optional[tuple[float, float]] = None,
     subtitle: str = "Fairness Distribution Per Partition",
@@ -255,9 +448,10 @@ def plot_comparison_fairness_distribution(
     cmap: Optional[Union[str, mcolors.Colormap]] = None,
     legend: bool = False,
     legend_title: Optional[str] = None,
-    verbose_labels: bool = True,
+    verbose_labels: bool = False,
     plot_kwargs_list: Optional[list[Optional[dict[str, Any]]]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
+    model: Optional = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
     """Compare the label distribution across multiple partitioners.
 
@@ -345,7 +539,14 @@ def plot_comparison_fairness_distribution(
     >>>     titles=[f"Concentration = {alpha}" for alpha in alpha_list],
     >>> )
     """
+    global partitioner_list_val
     plot_type = "heatmap"
+    if model is None:
+        partitioner_list = list(partitioner_dict.values())
+        partitioner_list_val = partitioner_list
+    else:
+        partitioner_list = [value for key, value in partitioner_dict.items() if "train" in key]
+        partitioner_list_val =  [value for key, value in partitioner_dict.items() if "val" in key]
     num_partitioners = len(partitioner_list)
     if isinstance(label_name, str):
         label_name = [label_name] * num_partitioners
@@ -373,12 +574,15 @@ def plot_comparison_fairness_distribution(
         plot_kwargs_list = [None] * num_partitioners
 
     dataframe_list = []
+
+
     for idx, (partitioner, single_label_name, plot_kwargs) in enumerate(
         zip(partitioner_list, label_name, plot_kwargs_list)
     ):
         if idx == (num_partitioners - 1):
             *_, dataframe = plot_fairness_distributions(
                 partitioner=partitioner,
+                partitioner_test = partitioner_list_val[idx],
                 label_name=single_label_name,
                 plot_type=plot_type,
                 size_unit=size_unit,
@@ -391,12 +595,16 @@ def plot_comparison_fairness_distribution(
                 verbose_labels=verbose_labels,
                 plot_kwargs=plot_kwargs,
                 legend_kwargs=legend_kwargs,
-                fairness_metric=fairness_metric
+                fairness_metric=fairness_metric,
+                model = model,
+                sensitive_attributes = label_name,
+                class_label=class_label,
             )
             dataframe_list.append(dataframe)
         else:
             *_, dataframe = plot_fairness_distributions(
                 partitioner=partitioner,
+                partitioner_test=partitioner_list_val[idx],
                 label_name=single_label_name,
                 plot_type=plot_type,
                 size_unit=size_unit,
@@ -406,7 +614,10 @@ def plot_comparison_fairness_distribution(
                 cmap=cmap,
                 legend=False,
                 plot_kwargs=plot_kwargs,
-                fairness_metric=fairness_metric
+                fairness_metric=fairness_metric,
+                model=model,
+                sensitive_attributes=label_name,
+                class_label=class_label,
             )
             dataframe_list.append(dataframe)
 
@@ -420,13 +631,12 @@ def plot_comparison_fairness_distribution(
 
     # Set up figure xlabel and ylabel
     xlabel, ylabel = _initialize_comparison_xy_labels(
-        plot_type, size_unit, partition_id_axis
+        plot_type, size_unit, partition_id_axis, label_name
     )
     fig.supxlabel(xlabel)
     fig.supylabel(ylabel)
     fig.suptitle(subtitle)
 
-    fig.tight_layout()
     return fig, axes, dataframe_list
 
 
@@ -445,13 +655,14 @@ def _initialize_comparison_xy_labels(
     plot_type: Literal["bar", "heatmap"],
     size_unit: Literal["percent", "absolute"],
     partition_id_axis: Literal["x", "y"],
+    label_name: str,
 ) -> tuple[str, str]:
     if plot_type == "bar":
         xlabel = "Partition ID"
         ylabel = "Class distribution" if size_unit == "percent" else "Class Count"
     elif plot_type == "heatmap":
         xlabel = "Partition ID"
-        ylabel = "Label"
+        ylabel = label_name[0]
     else:
         raise ValueError(
             f"Invalid plot_type: {plot_type}. Must be one of {PLOT_TYPES}."

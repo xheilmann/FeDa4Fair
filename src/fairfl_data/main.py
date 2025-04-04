@@ -1,5 +1,8 @@
 from dataimport import load_data, choose_data
 from FairFederatedDataset import FairFederatedDataset
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 for name in ["ACSIncome"]:

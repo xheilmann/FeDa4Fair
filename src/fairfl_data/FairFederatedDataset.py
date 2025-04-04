@@ -45,6 +45,7 @@
 # - sampling for the fairness?
 
 """FairFederatedDataset."""
+
 import inspect
 from os import PathLike
 from typing import Any, Optional, Union, Literal
@@ -147,20 +148,29 @@ class FairFederatedDataset(FederatedDataset):
         partitioners: dict[str, Union[Partitioner, int]],
         shuffle: bool = True,
         seed: Optional[int] = 42,
-        states: Optional[list[str]] =  None,
-        year: Optional[str] ='2018',
-        horizon: Optional[str]= '1-Year',
-        binary: Optional[bool]=False,
-        fairness_modification: Optional[bool]=False,
-        sensitive_attribute: Optional[list[str]]="sex",
-        individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
-        fairness_metric:  Literal["DP", "EO"] = "DP",
-        train_test_split: Literal["cross-silo", "cross-device", None]= None,
+        states: Optional[list[str]] = None,
+        year: Optional[str] = "2018",
+        horizon: Optional[str] = "1-Year",
+        binary: Optional[bool] = False,
+        fairness_modification: Optional[bool] = False,
+        sensitive_attribute: Optional[list[str]] = "sex",
+        individual_fairness: Literal["attribute", "value", "attribute-value"] = "attribute",
+        fairness_metric: Literal["DP", "EO"] = "DP",
+        train_test_split: Literal["cross-silo", "cross-device", None] = None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
-        wo_sens_columns: Optional[ bool] = True, **load_dataset_kwargs: Any,
+        wo_sens_columns: Optional[bool] = True,
+        **load_dataset_kwargs: Any,
     ) -> None:
-        super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
+        super().__init__(
+            dataset=dataset,
+            subset=subset,
+            preprocessor=preprocessor,
+            partitioners=partitioners,
+            shuffle=shuffle,
+            seed=seed,
+            **load_dataset_kwargs,
+        )
         self._wo_sens_columns = wo_sens_columns
         self._check_dataset()
         self._initilize_states(states)
@@ -180,30 +190,35 @@ class FairFederatedDataset(FederatedDataset):
             self._prepare_dataset()
         if self._wo_sens_columns:
             self.delete_sens_columns()
-        self._dataset.save_to_disk(dataset_dict_path = self._path)
+        self._dataset.save_to_disk(dataset_dict_path=self._path)
 
-    def evaluate(self, file ):
+    def evaluate(self, file):
         if not self._dataset_prepared:
             self._prepare_dataset()
         titles = list(self._dataset.keys())
-        fig_dis,axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(partitioner_dict=self.partitioners,
-                                                                              max_num_partitions=None,
-                                                                              fairness_metric=self._fairness_metric,
-                                                                              fairness=self._individual_fairness,
-                                                                              titles=titles,
-                                                                              legend=True,
-                                                                              class_label=self._label)
+        fig_dis, axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(
+            partitioner_dict=self.partitioners,
+            max_num_partitions=None,
+            fairness_metric=self._fairness_metric,
+            fairness=self._individual_fairness,
+            titles=titles,
+            legend=True,
+            class_label=self._label,
+        )
         if file is not None:
             for i in range(len(df_list_dis)):
-                df_list_dis[i].to_csv(path_or_buf = f"{self._path}/{titles[i]}_count.csv")
+                df_list_dis[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_count.csv")
                 df_list[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_{self._fairness_metric}.csv")
 
-
-    def _split_into_train_val_test(self ):
-        divider_dict= {}
-        partitioners_dict= {}
+    def _split_into_train_val_test(self):
+        divider_dict = {}
+        partitioners_dict = {}
         for entry in self._dataset.keys():
-            divider_dict[entry] = {f"{entry}_train": self._perc_train_test_split[0], f"{entry}_val": self._perc_train_test_split[1], f"{entry}_test": self._perc_train_test_split[2]}
+            divider_dict[entry] = {
+                f"{entry}_train": self._perc_train_test_split[0],
+                f"{entry}_val": self._perc_train_test_split[1],
+                f"{entry}_test": self._perc_train_test_split[2],
+            }
 
         divider = Divider(divide_config=divider_dict)
         if self._train_test_split == "cross-silo":
@@ -218,7 +233,7 @@ class FairFederatedDataset(FederatedDataset):
                 partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
             merger_tuple = tuple([f"{entry}_test" for entry in self._dataset.keys()])
             self._dataset = divider(self._dataset)
-            merger_dict = {f"{entry}": (f"{entry}", ) for entry in self._dataset.keys() if "test" not in entry}
+            merger_dict = {f"{entry}": (f"{entry}",) for entry in self._dataset.keys() if "test" not in entry}
 
             merger_dict["test"] = merger_tuple
             merger = Merger(merge_config=merger_dict)
@@ -244,7 +259,7 @@ class FairFederatedDataset(FederatedDataset):
         end of the function.
 
         """
-        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
+        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey="person")
         self._dataset = DatasetDict()
         for state in self._states:
             acs_data = data_source.get_data(states=[state], download=True)
@@ -254,7 +269,7 @@ class FairFederatedDataset(FederatedDataset):
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
                 self._label = "PINCP"
-            state_data=pd.concat([features, label], axis=1)
+            state_data = pd.concat([features, label], axis=1)
             if self._binary:
                 # TODO:add implementation here
                 pass
@@ -284,8 +299,6 @@ class FairFederatedDataset(FederatedDataset):
         self.evaluate(self._path)
         if self._path is not None:
             self.save_dataset(self._path)
-
-
 
     def _check_dataset(self):
         if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
@@ -351,10 +364,8 @@ class FairFederatedDataset(FederatedDataset):
             self._states = states
 
     def _modify_for_fairness(self):
-        #TODO
+        # TODO
         pass
-
-
 
     def _clone_partitioner(self, obj):
         """
@@ -374,8 +385,5 @@ class FairFederatedDataset(FederatedDataset):
         return cls(**init_args)
 
     def delete_sens_columns(self):
-        #TODO: add implementation to delete the sensitive columns
+        # TODO: add implementation to delete the sensitive columns
         pass
-
-
-

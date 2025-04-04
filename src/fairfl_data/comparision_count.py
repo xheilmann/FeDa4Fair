@@ -14,9 +14,13 @@
 # ==============================================================================
 """Comparison of label distribution plotting."""
 
-
 from typing import Any, Literal, Optional, Union
-from comparision_fairness_distribution import _initialize_axis_sharing, _initialize_comparison_figsize, _set_tick_on_value_axes, _initialize_comparison_xy_labels
+from comparision_fairness_distribution import (
+    _initialize_axis_sharing,
+    _initialize_comparison_figsize,
+    _set_tick_on_value_axes,
+    _initialize_comparison_xy_labels,
+)
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -147,10 +151,7 @@ def plot_comparison_label_distribution(
     elif isinstance(label_name, list):
         pass
     else:
-        raise TypeError(
-            f"Label name has to be of type List[str] or str but given "
-            f"{type(label_name)}"
-        )
+        raise TypeError(f"Label name has to be of type List[str] or str but given {type(label_name)}")
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
     fig, axes = plt.subplots(
@@ -212,16 +213,9 @@ def plot_comparison_label_distribution(
     _set_tick_on_value_axes(axes, partition_id_axis, size_unit)
 
     # Set up figure xlabel and ylabel
-    xlabel, ylabel = _initialize_comparison_xy_labels(
-        plot_type, size_unit, partition_id_axis, label_name
-    )
+    xlabel, ylabel = _initialize_comparison_xy_labels(plot_type, size_unit, partition_id_axis, label_name)
     fig.supxlabel(xlabel)
     fig.supylabel(ylabel)
     fig.suptitle(subtitle)
 
-
     return fig, axes, dataframe_list
-
-
-
-

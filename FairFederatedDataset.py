@@ -48,6 +48,7 @@ from evaluation import evaluate_fairness
 
 
 class FairFederatedDataset (FederatedDataset):
+    #param sensitive attributes can be specified. If yes then the fairness is only calculated on this single attribute or if the list hast 2 entries then on the intersection. Ow. fairness is evaluated for race, sex, mar always
     """Representation of a dataset for federated learning/evaluation/analytics.
 
     Download, partition data among clients (edge devices), or load full dataset.
@@ -137,7 +138,7 @@ class FairFederatedDataset (FederatedDataset):
         year: Optional[str] ='2018',
         horizon: Optional[str]= '1-Year',
         fairness_modification: Optional[bool]=False,
-        sensitive_attribute: Optional[list[str]]="sex",
+        sensitive_attributes: Optional[list[str]]=None,
         individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
         fairness_metric:  Literal["DP", "EO"] = "DP",
         train_test_split: Literal["cross-silo", "cross-device", None]= None,
@@ -145,6 +146,7 @@ class FairFederatedDataset (FederatedDataset):
         path: Optional[PathLike] = None,
         modification_dict: Optional[dict[int, dict[str, ...]]] = None,
         mapping: Optional[dict[str, dict[int, int]]] = None,
+        **load_dataset_kwargs: Any,
     ) -> None:
         super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
         self._check_dataset()
@@ -152,7 +154,7 @@ class FairFederatedDataset (FederatedDataset):
         self._year = year
         self._horizon = horizon
         self._fairness_modification = fairness_modification
-        self._sensitive_attribute = sensitive_attribute
+        self._sensitive_attributes = sensitive_attributes
         self._individual_fairness = individual_fairness
         self._fairness_metric = fairness_metric
         self._train_test_split = train_test_split
@@ -164,7 +166,7 @@ class FairFederatedDataset (FederatedDataset):
     def save_dataset(self, dataset_path: PathLike) -> None:
         if not self._dataset_prepared:
             self._prepare_dataset()
-        if self._sensitive_attribute is not None:
+        if self._sensitive_attributes is not None:
             warnings.warn(
                 "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
         self._dataset.save_to_disk(dataset_dict_path = self._path)
@@ -173,17 +175,15 @@ class FairFederatedDataset (FederatedDataset):
         if not self._dataset_prepared:
             self._prepare_dataset()
         titles = list(self._dataset.keys())
-        fig_dis,axes_dis, df_list_dis, fig, axes, df_list = evaluate_fairness(partitioner_dict=self.partitioners,
+        evaluate_fairness(partitioner_dict=self.partitioners,
                                                                               max_num_partitions=None,
                                                                               fairness_metric=self._fairness_metric,
                                                                               fairness=self._individual_fairness,
                                                                               titles=titles,
                                                                               legend=True,
-                                                                              class_label=self._label)
-        if file is not None:
-            for i in range(len(df_list_dis)):
-                df_list_dis[i].to_csv(path_or_buf = f"{self._path}/{titles[i]}_count.csv")
-                df_list[i].to_csv(path_or_buf=f"{self._path}/{titles[i]}_{self._fairness_metric}.csv")
+                                                                              class_label=self._label,
+                                                                              intersectional_fairness = self._sensitive_attributes)
+
 
 
     def _split_into_train_val_test(self ):
@@ -257,7 +257,7 @@ class FairFederatedDataset (FederatedDataset):
         print(available_splits)
         self._event["load_split"] = {split: False for split in available_splits}
         self.evaluate(self._path)
-        if self._sensitive_attribute is not None:
+        if self._sensitive_attributes is not None:
             warnings.warn("Your current data contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
         if self._path is not None:
             self.save_dataset(self._path)

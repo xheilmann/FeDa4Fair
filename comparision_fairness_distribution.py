@@ -34,7 +34,7 @@ from fairlearn.metrics import MetricFrame, selection_rate, true_positive_rate, f
 # pylint: disable=too-many-arguments,too-many-locals
 
 
-def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, unique_labels, size_unit):
+def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, size_unit):
     if fairness_metric == "DP":
 
         sel_rate = MetricFrame(
@@ -83,7 +83,7 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, uni
 
     if size_unit =="value":
         diff_df = pd.Series([diff_df.max(),diff_df.idxmax()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
-    if size_unit =="absolute":
+    if size_unit =="attribute":
         diff_df = pd.Series([diff_df.max(),diff_df.max()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
 
 
@@ -100,7 +100,7 @@ def compute_fairness(
     fairness_metric="DP",
     label: str = "label",
     sensitive_attributes:list[str]=[],
-    size_unit: Literal["value", "absolute", "attribute-value"] = "absolut",
+    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
 ) -> pd.DataFrame:
     """Compute the counts of unique values in a given column in the partitions.
 
@@ -158,11 +158,11 @@ def compute_fairness(
     :param fairness_metric:
     :param label:
     """
-    if column_name not in partitioner.dataset.column_names:
-        raise ValueError(
-            f"The specified 'column_name': '{column_name}' is not present in the "
-            f"dataset. The dataset contains columns {partitioner.dataset.column_names}."
-        )
+    #if column_name not in partitioner.dataset.column_names:
+    #    raise ValueError(
+     #       f"The specified 'column_name': '{column_name}' is not present in the "
+    #        f"dataset. The dataset contains columns {partitioner.dataset.column_names}."
+     #   )
     if label is None or label not in partitioner.dataset.column_names:
         raise ValueError(f"The specified 'label' is not present in the dataset or was not set. ")
     if max_num_partitions is None:
@@ -173,15 +173,6 @@ def compute_fairness(
     partition_id_to_fairness= {}
     for partition_id in range(max_num_partitions):
         partition = partitioner.load_partition(partition_id)
-        try:
-            # Unique labels are needed to represent the correct count of each class
-            # (some of the classes can have zero samples that's why this
-            # adjustment is needed)
-            unique_labels = partition.features[column_name].str2int(
-                partition.features[column_name].names
-            )
-        except AttributeError:  # If the column_name is not formally a Label
-            unique_labels = partitioner.dataset.unique(column_name)
         partition_test =partitioner_test.load_partition(partition_id)
 
         if model is not None:
@@ -197,40 +188,24 @@ def compute_fairness(
             y_pred = partition.select_columns(label).to_pandas()
             sf_data = partition.select_columns(column_name).to_pandas()
         partition_id_to_fairness[partition_id] = _compute_fairness(
-        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, column_name=column_name, unique_labels=unique_labels, size_unit = size_unit)
+        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, column_name=column_name, size_unit = size_unit)
 
     dataframe = pd.DataFrame.from_dict(
         partition_id_to_fairness, orient="index"
     )
     dataframe.index.name = "Partition ID"
 
-    if verbose_names:
-        # Adjust the column name values of the dataframe
-        current_labels = dataframe.columns
-        try:
-            legend_names = partitioner.dataset.features[column_name].int2str(
-                [int(v) for v in current_labels]
-            )
-            dataframe.columns = legend_names
-        except AttributeError:
-            warnings.warn(
-                "The verbose names can not be established. "
-                "The column specified by 'column_name' needs to be of type "
-                "'ClassLabel' to create a verbose names. "
-                "The available names will used.",
-                stacklevel=1,
-            )
     return dataframe
 
 
-#todo: add intersectional fairness, and if model then also plots for accuracy
+#todo: if model then also plots for accuracy?
 def plot_fairness_distributions(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
     class_label: str,
     label_name: str,
     plot_type: str = "heatmap",
-    size_unit: Literal["value", "absolute", "attribute-value"] = "absolute",
+    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     max_num_partitions: Optional[int] = None,
     partition_id_axis: str = "x",
     axis: Optional[Axes] = None,
@@ -390,9 +365,6 @@ def plot_fairness_distributions(
     """
 
 
-    #TODO add the fairness metrics here
-
-
     dataframe = compute_fairness( partitioner= partitioner,
                                   partitioner_test=partitioner_test,
                                   model=model,
@@ -406,9 +378,9 @@ def plot_fairness_distributions(
 
 
 
-    if size_unit in ["absolute","value"]:
+    if size_unit in ["attribute","value"]:
         plot_kwargs = {"annot": dataframe.drop(f"{label_name}_{fairness_metric}", axis=1)}
-        if size_unit == "absolute":
+        if size_unit == "attribute":
             plot_kwargs["fmt"] = ".2f"
         else:
             plot_kwargs["fmt"] = "s"
@@ -440,7 +412,7 @@ def plot_comparison_fairness_distribution(
     class_label: str = "ECP",
     label_name: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
     fairness_metric: Literal["DP", "EO"] = "DP",
-    size_unit: Literal["value", "absolute", "attribute-value"] = "absolute",
+    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     partition_id_axis: Literal["x", "y"] = "y",
     figsize: Optional[tuple[float, float]] = None,
     subtitle: str = "Fairness Distribution Per Partition",
@@ -452,6 +424,7 @@ def plot_comparison_fairness_distribution(
     plot_kwargs_list: Optional[list[Optional[dict[str, Any]]]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
     model: Optional = None,
+    intersectional_fairness: list[str] = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
     """Compare the label distribution across multiple partitioners.
 
@@ -574,11 +547,14 @@ def plot_comparison_fairness_distribution(
         plot_kwargs_list = [None] * num_partitioners
 
     dataframe_list = []
-
+    sens_att = label_name
 
     for idx, (partitioner, single_label_name, plot_kwargs) in enumerate(
         zip(partitioner_list, label_name, plot_kwargs_list)
     ):
+
+        if intersectional_fairness is not None:
+            single_label_name = intersectional_fairness
         if idx == (num_partitioners - 1):
             *_, dataframe = plot_fairness_distributions(
                 partitioner=partitioner,
@@ -597,8 +573,9 @@ def plot_comparison_fairness_distribution(
                 legend_kwargs=legend_kwargs,
                 fairness_metric=fairness_metric,
                 model = model,
-                sensitive_attributes = label_name,
+                sensitive_attributes = sens_att,
                 class_label=class_label,
+
             )
             dataframe_list.append(dataframe)
         else:
@@ -616,8 +593,10 @@ def plot_comparison_fairness_distribution(
                 plot_kwargs=plot_kwargs,
                 fairness_metric=fairness_metric,
                 model=model,
-                sensitive_attributes=label_name,
+                sensitive_attributes=sens_att,
                 class_label=class_label,
+
+
             )
             dataframe_list.append(dataframe)
 

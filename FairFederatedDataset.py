@@ -16,36 +16,22 @@
 # 1. overall
 # -natural output (that can be used for normal FL)
 # -modified output
-# 2. dataset
-# -dataset to be used in the generation of  client - level data, chosen among the ones provided in the ACS dataset
-# -name of the dataset(Income, Employment)
-# -data sampling strategy(range of datapoints per client(min, max))
-# -include or exclude sensitive attributes
-# 3.the number of clients that will be involved in the simulation and will need training data,
-# -cross - silo(maximum: states)
-# -cross - device(split in state, split by attributevalues(column name, percentage))
-# 5. the sensitive attributes against which we want to measure the unfairness,
-# - choosing(gender, race, mar)
-# -binary vs non - binary(merging the smallest groups)
 # - distribution of clients unfairneses
 # - the unfairness level between different clients and their sensitive attributes.
+# 2. dataset
+# -Just as a Warning: include or exclude sensitive attributes
+# 3.the number of clients that will be involved in the simulation and will need training data,
+# -cross - device(split in state, split by attributevalues(column name, percentage))
+# 5. the sensitive attributes against which we want to measure the unfairness,
+# -binary vs non - binary(merging the smallest groups)
 # 6. output
 # - dataset statistics per client(  # datapoints, fairness metrics (gender, race mar), performance metrics, modifications)
 # -overall statistics global model FedAVG((  # datapoints, fairness metrics(gender, race mar), performance metrics) before modifications and after
 # - global model on pooled dataset
-# - the datasets as csv files, local model training as numpy array
-#TODO:
-# 4. the fairness metric used to evaluate the model unfairness,
-# - measure on simple models(logistic regression), raw data
-# -unfairness on different attribute values
-# -unfairness on different attributes
-# -Demographic disparity
-# - Equalized odds
-# -demographic parity
-# - sampling for the fairness?
 
 """FairFederatedDataset."""
 import inspect
+import warnings
 from os import PathLike
 from typing import Any, Optional, Union, Literal
 
@@ -150,7 +136,6 @@ class FairFederatedDataset (FederatedDataset):
         states: Optional[list[str]] =  None,
         year: Optional[str] ='2018',
         horizon: Optional[str]= '1-Year',
-        binary: Optional[bool]=False,
         fairness_modification: Optional[bool]=False,
         sensitive_attribute: Optional[list[str]]="sex",
         individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
@@ -158,15 +143,14 @@ class FairFederatedDataset (FederatedDataset):
         train_test_split: Literal["cross-silo", "cross-device", None]= None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
-        wo_sens_columns: Optional[ bool] = True, **load_dataset_kwargs: Any,
+        modification_dict: Optional[dict[int, dict[str, ...]]] = None,
+        mapping: Optional[dict[str, dict[int, int]]] = None,
     ) -> None:
         super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
-        self._wo_sens_columns = wo_sens_columns
         self._check_dataset()
         self._initilize_states(states)
         self._year = year
         self._horizon = horizon
-        self._binary = binary
         self._fairness_modification = fairness_modification
         self._sensitive_attribute = sensitive_attribute
         self._individual_fairness = individual_fairness
@@ -174,12 +158,15 @@ class FairFederatedDataset (FederatedDataset):
         self._train_test_split = train_test_split
         self._perc_train_test_split = perc_train_val_test
         self._path = path
+        self._modification_dict = modification_dict
+        self._mapping = mapping
 
     def save_dataset(self, dataset_path: PathLike) -> None:
         if not self._dataset_prepared:
             self._prepare_dataset()
-        if self._wo_sens_columns:
-            self.delete_sens_columns()
+        if self._sensitive_attribute is not None:
+            warnings.warn(
+                "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
         self._dataset.save_to_disk(dataset_dict_path = self._path)
 
     def evaluate(self, file ):
@@ -212,22 +199,10 @@ class FairFederatedDataset (FederatedDataset):
                 partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
                 partitioners_dict[f"{entry}_test"] = self._clone_partitioner(self._partitioners[entry])
             self._dataset = divider(self._dataset)
-        elif self._train_test_split == "cross-device":
-            for entry in self._dataset.keys():
-                partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
-                partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
-            merger_tuple = tuple([f"{entry}_test" for entry in self._dataset.keys()])
-            self._dataset = divider(self._dataset)
-            merger_dict = {f"{entry}": (f"{entry}", ) for entry in self._dataset.keys() if "test" not in entry}
-
-            merger_dict["test"] = merger_tuple
-            merger = Merger(merge_config=merger_dict)
-            partitioners_dict["test"] = self._clone_partitioner(self._partitioners[entry])
-            self._dataset = merger(self._dataset)
-
-        else:
+            self._partitioners = partitioners_dict
+        elif self._train_test_split != "cross-device":
             raise ValueError("This train-val-test split strategy is not supported.")
-        self._partitioners = partitioners_dict
+
 
     def _prepare_dataset(self) -> None:
         """This is overwritten from FederatedDataset to fit to our Datasets.
@@ -248,16 +223,16 @@ class FairFederatedDataset (FederatedDataset):
         self._dataset = DatasetDict()
         for state in self._states:
             acs_data = data_source.get_data(states=[state], download=True)
-            if self._dataset_prepared == "ACSEmployment":
+            if self._dataset_name == "ACSEmployment":
                 features, label, group = ACSEmployment.df_to_pandas(acs_data)
                 self._label = "ESR"
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
                 self._label = "PINCP"
             state_data=pd.concat([features, label], axis=1)
-            if self._binary:
-                # TODO:add implementation here
-                pass
+            if self._mapping is not None:
+                for key, value in self._mapping:
+                    state_data[key] = state_data.replace(value)
             self._dataset[state] = Dataset.from_pandas(state_data)
         if not isinstance(self._dataset, DatasetDict):
             raise ValueError(
@@ -282,6 +257,8 @@ class FairFederatedDataset (FederatedDataset):
         print(available_splits)
         self._event["load_split"] = {split: False for split in available_splits}
         self.evaluate(self._path)
+        if self._sensitive_attribute is not None:
+            warnings.warn("Your current data contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
         if self._path is not None:
             self.save_dataset(self._path)
 
@@ -375,9 +352,7 @@ class FairFederatedDataset (FederatedDataset):
         # Create a new instance with the same arguments
         return cls(**init_args)
 
-    def delete_sens_columns(self):
-        #TODO: add implementation to delete the sensitive columns
-        pass
+
 
 
 

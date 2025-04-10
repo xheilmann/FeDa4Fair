@@ -1,8 +1,4 @@
-#TODO: per client plot per attribute/feature value with before and after Fl and for the before the input is a numpy array from the dataset generation (accuracy, fairness)
-# 6. output
-# - dataset statistics per client(  # datapoints, fairness metrics (gender, race mar), performance metrics, modifications)
-# -overall statistics global model FedAVG((  # datapoints, fairness metrics(gender, race mar), performance metrics) before modifications and after
-# - global model on pooled dataset
+
 
 
 from comparision_count import plot_comparison_label_distribution
@@ -91,7 +87,7 @@ def evaluate_fairness(
     return fig_dis,axes_dis, df_list_dis, fig, axes, df_list
 
 
-def individual_fairness_plot(fairness_df_before, fairness_df_after):
+def local_client_fairness_plot(fairness_df_before, fairness_df_after):
     #TODO this is for the evaluation after training the individual FL algorithms
     pass
 

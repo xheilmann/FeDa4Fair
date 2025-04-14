@@ -40,11 +40,12 @@ import pandas as pd
 from datasets import Dataset, DatasetDict
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.preprocessor import Preprocessor, Divider, Merger
+from flwr_datasets.preprocessor import Preprocessor, Divider
 
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 
 from evaluation import evaluate_fairness
+from utils import drop_data, flip_data
 
 
 class FairFederatedDataset (FederatedDataset):
@@ -91,37 +92,7 @@ class FairFederatedDataset (FederatedDataset):
         `trust_remote_code=True`. Do not pass any parameters that modify the
         return type such as another type than DatasetDict is returned.
 
-    Examples
-    --------
-    Use MNIST dataset for Federated Learning with 100 clients (edge devices):
 
-    >>> from flwr_datasets import FederatedDataset
-    >>>
-    >>> fds = FederatedDataset(dataset="mnist", partitioners={"train": 100})
-    >>> # Load partition for a client with ID 10.
-    >>> partition = fds.load_partition(10)
-    >>> # Use test split for centralized evaluation.
-    >>> centralized = fds.load_split("test")
-
-    Use CIFAR10 dataset for Federated Laerning with 100 clients:
-
-    >>> from flwr_datasets import FederatedDataset
-    >>> from flwr_datasets.partitioner import DirichletPartitioner
-    >>>
-    >>> partitioner = DirichletPartitioner(num_partitions=10, partition_by="label",
-    >>>                                    alpha=0.5, min_partition_size=10)
-    >>> fds = FederatedDataset(dataset="cifar10", partitioners={"train": partitioner})
-    >>> partition = fds.load_partition(partition_id=0)
-
-    Visualize the partitioned datasets:
-
-    >>> from flwr_datasets.visualization import plot_label_distributions
-    >>>
-    >>> _ = plot_label_distributions(
-    >>>     partitioner=fds.partitioners["train"],
-    >>>     label_name="label",
-    >>>     legend=True,
-    >>> )
     """
 
     # pylint: disable=too-many-instance-attributes, too-many-arguments
@@ -137,7 +108,6 @@ class FairFederatedDataset (FederatedDataset):
         states: Optional[list[str]] =  None,
         year: Optional[str] ='2018',
         horizon: Optional[str]= '1-Year',
-        fairness_modification: Optional[bool]=False,
         sensitive_attributes: Optional[list[str]]=None,
         individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
         fairness_metric:  Literal["DP", "EO"] = "DP",
@@ -150,10 +120,9 @@ class FairFederatedDataset (FederatedDataset):
     ) -> None:
         super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
         self._check_dataset()
-        self._initilize_states(states)
+        self._initialize_states(states)
         self._year = year
         self._horizon = horizon
-        self._fairness_modification = fairness_modification
         self._sensitive_attributes = sensitive_attributes
         self._individual_fairness = individual_fairness
         self._fairness_metric = fairness_metric
@@ -163,13 +132,20 @@ class FairFederatedDataset (FederatedDataset):
         self._modification_dict = modification_dict
         self._mapping = mapping
 
+
     def save_dataset(self, dataset_path: PathLike) -> None:
         if not self._dataset_prepared:
             self._prepare_dataset()
         if self._sensitive_attributes is not None:
             warnings.warn(
                 "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
-        self._dataset.save_to_disk(dataset_dict_path = self._path)
+        for key, value in self._partitioners.items():
+            partitioner = value
+            num_partitions = partitioner.num_partitions
+            for i in range(num_partitions):
+                partition = partitioner.load_partition(partition_id=i)
+                partition.to_csv(path_or_buf= f"{dataset_path}/{key}_{i}.csv")
+
 
     def evaluate(self, file ):
         if not self._dataset_prepared:
@@ -221,6 +197,7 @@ class FairFederatedDataset (FederatedDataset):
         """
         data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
         self._dataset = DatasetDict()
+        self._check_partitioners_correctness()
         for state in self._states:
             acs_data = data_source.get_data(states=[state], download=True)
             if self._dataset_name == "ACSEmployment":
@@ -233,6 +210,8 @@ class FairFederatedDataset (FederatedDataset):
             if self._mapping is not None:
                 for key, value in self._mapping:
                     state_data[key] = state_data.replace(value)
+            if state in self._modification_dict.keys() :
+                state_data= self._modify_data(state_data, state)
             self._dataset[state] = Dataset.from_pandas(state_data)
         if not isinstance(self._dataset, DatasetDict):
             raise ValueError(
@@ -241,18 +220,16 @@ class FairFederatedDataset (FederatedDataset):
                 "Make sure to use parameter such that the return type is DatasetDict. "
                 f"The return type is currently: {type(self._dataset)}."
             )
+        print(self._partitioners)
         if self._shuffle:
             # Note it shuffles all the splits. The self._dataset is DatasetDict
             # so e.g. {"train": train_data, "test": test_data}. All splits get shuffled.
             self._dataset = self._dataset.shuffle(seed=self._seed)
         if self._preprocessor:
             self._dataset = self._preprocessor(self._dataset)
-        if self._fairness_modification:
-            self._modify_for_fairness()
         if self._train_test_split is not None:
             self._split_into_train_val_test()
         self._dataset_prepared = True
-        self._check_partitioners_correctness()
         available_splits = list(self._dataset.keys())
         print(available_splits)
         self._event["load_split"] = {split: False for split in available_splits}
@@ -262,6 +239,8 @@ class FairFederatedDataset (FederatedDataset):
         if self._path is not None:
             self.save_dataset(self._path)
 
+        print(self._dataset)
+
 
 
     def _check_dataset(self):
@@ -270,7 +249,7 @@ class FairFederatedDataset (FederatedDataset):
                 f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
             )
 
-    def _initilize_states(self, states):
+    def _initialize_states(self, states):
         if states is None:
             self._states = [
     "AL",
@@ -329,9 +308,18 @@ class FairFederatedDataset (FederatedDataset):
         else:
             self._states = states
 
-    def _modify_for_fairness(self):
-        #TODO
-        pass
+    def _modify_data(self, data, state):
+        modifications = self._modification_dict[state]
+        for key, value in modifications.items():
+            drop_rate = value["drop_rate"]
+            flip_rate = value["flip_rate"]
+            value1 = value["value"]
+            column2=value["attribute"]
+            value2 = value["attribute_value"]
+            data = drop_data(data, drop_rate, key, value1,self._label, column2, value2)
+            data = flip_data(data, flip_rate, key, value1, self._label, column2, value2)
+        return data
+
 
 
 

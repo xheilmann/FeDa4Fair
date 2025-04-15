@@ -12,89 +12,117 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-#TODO:
-# 1. overall
-# -natural output (that can be used for normal FL)
-# -modified output
-# - distribution of clients unfairneses
-# - the unfairness level between different clients and their sensitive attributes.
-# 2. dataset
-# -Just as a Warning: include or exclude sensitive attributes
-# 3.the number of clients that will be involved in the simulation and will need training data,
-# -cross - device(split in state, split by attributevalues(column name, percentage))
-# 5. the sensitive attributes against which we want to measure the unfairness,
-# -binary vs non - binary(merging the smallest groups)
-# 6. output
-# - dataset statistics per client(  # datapoints, fairness metrics (gender, race mar), performance metrics, modifications)
-# -overall statistics global model FedAVG((  # datapoints, fairness metrics(gender, race mar), performance metrics) before modifications and after
-# - global model on pooled dataset
 
 """FairFederatedDataset."""
+
 import inspect
 import warnings
 from os import PathLike
 from typing import Any, Optional, Union, Literal
-
-
 import pandas as pd
 from datasets import Dataset, DatasetDict
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.preprocessor import Preprocessor, Divider
-
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
-
 from evaluation import evaluate_fairness
 from utils import drop_data, flip_data
 
 
 class FairFederatedDataset (FederatedDataset):
-    #param sensitive attributes can be specified. If yes then the fairness is only calculated on this single attribute or if the list hast 2 entries then on the intersection. Ow. fairness is evaluated for race, sex, mar always
-    """Representation of a dataset for federated learning/evaluation/analytics.
+    """
+    Subclass from flower FederatedDateset.
+    Representation of a dataset designed for federated learning, fairness evaluation, and analytics.
 
-    Download, partition data among clients (edge devices), or load full dataset.
+    Supports downloading, loading, preprocessing, modifying, evaluating, mapping and partitioning the dataset across multiple clients
+    (e.g., edge devices or simulated silos). Fairness can be evaluated using specified sensitive attributes
+    or default ones.
 
-    Partitions are created per-split-basis using Partitioners from
-    `flwr_datasets.partitioner` specified in `partitioners` (see `partitioners`
-    parameter for more information).
+    If `sensitive_attributes` are provided:
+        - If two attributes are provided, intersectional fairness is evaluated.
+        - If not provided, fairness is evaluated using default attributes: "SEX", "MAR", and "RAC1P".
+
+    Partitions are created on a per-split basis using `Partitioner` objects from
+    `flwr_datasets.partitioner`.
 
     Parameters
     ----------
-    dataset : str
-        The name of the dataset: ACSIncome or ACSEmployment.
-    subset : List[str]
-        List of the states to be included in the dataset. Default is all states.
-    preprocessor : Optional[Union[Preprocessor, Dict[str, Tuple[str, ...]]]]
-        `Callable` that transforms `DatasetDict` by resplitting, removing
-        features, creating new features, performing any other preprocessing operation,
-        or configuration dict for `Merger`. Applied after shuffling. If None,
-        no operation is applied.
-    partitioners : Dict[str, Union[Partitioner, int]]
-    Here we have a dictionary with the splits being the states. then one partioner per state.
-        A dictionary mapping the Dataset split (a `str`) to a `Partitioner` or an `int`
-        (representing the number of IID partitions that this split should be
-        partitioned into, i.e., using the default partitioner
-        `IidPartitioner <https://flower.ai/docs/datasets/ref-api/flwr_
-        datasets.partitioner.IidPartitioner.html>`_). One or multiple `Partitioner`
-        objects can be specified in that manner, but at most, one per split.
-    shuffle : bool
-        Whether to randomize the order of samples. Applied prior to preprocessing
-        operations, speratelly to each of the present splits in the dataset. It uses
-        the `seed` argument. Defaults to True.
-    seed : Optional[int]
-        Seed used for dataset shuffling. It has no effect if `shuffle` is False. The
-        seed cannot be set in the later stages. If `None`, then fresh, unpredictable
-        entropy will be pulled from the OS. Defaults to 42.
-    load_dataset_kwargs : Any
-        Additional keyword arguments passed to `datasets.load_dataset` function.
-        Currently used paramters used are dataset => path (in load_dataset),
-        subset => name (in load_dataset). You can pass e.g., `num_proc=4`,
-        `trust_remote_code=True`. Do not pass any parameters that modify the
-        return type such as another type than DatasetDict is returned.
+    dataset : str, default="ACSIncome"
+        The name of the dataset to load ( "ACSIncome" or "ACSEmployment"). This can be extended by the users.
 
+    subset : Optional[str], default=None
+        Optional dataset subset to load (e.g., a specific demographic or region).
 
+    preprocessor : Optional[Union[Preprocessor, dict[str, tuple[str, ...]]]], default=None
+        A callable or configuration dictionary used to apply transformations on the dataset.
+        Can be used to resplit, remove or engineer features.
+
+    partitioners : dict[str, Union[Partitioner, int]]
+        Dictionary mapping dataset splits (e.g., state names) to partitioning strategies.
+        Each split can use a custom `Partitioner` or an integer specifying the number of IID partitions.
+
+    shuffle : bool, default=True
+        Whether to shuffle the dataset before preprocessing and partitioning.
+
+    seed : Optional[int], default=42
+        Seed for reproducible shuffling. If `None`, a random seed is used.
+
+    states : Optional[list[str]], default=None
+        List of states to include in the dataset. If `None`, all available states are included.
+
+    year : Optional[str], default="2018"
+        The ACS year to load (e.g., "2018").
+
+    horizon : Optional[str], default="1-Year"
+        Horizon of the ACS sample ("1-Year" or "5-Year").
+
+    sensitive_attributes : Optional[list[str]], default=None
+        List of attributes used to evaluate intersectional fairness. If not provided, the fairness metrics are evaluated for each of ["SEX", "MAR", "RAC1P"].
+
+    individual_fairness : Literal["attribute", "value", "attribute-value"], default="attribute"
+        The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+        - "attribute-value": all possible fairness metric values are returned.
+
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        Fairness metric to evaluate:
+        - "DP": Demographic Parity
+        - "EO": Equalized Odds
+
+    train_test_split : Literal["cross-silo", None], default=None
+        Strategy used to split the dataset into train/test:
+        - "cross-silo": splits each clients dataset (each partition of the splits) into train, validation and test set
+        - None: no train-test splitting
+        - NOTE: for cross-device settings we propose to split the clients into clients for training and clients for testing after the dataset is generated.
+
+    perc_train_val_test : Optional[list[float]], default=[0.7, 0.15, 0.15]
+        Proportions for train, validation, and test sets in the cross-silo setting.
+
+    path : Optional[PathLike], default=None
+        Optional path where the dataset should be saved.
+
+    modification_dict : Optional[dict[int, dict[str, ...]]], default=None
+        Optional dictionary to apply data modifications (e.g., label flipping, dropping datapoints)
+        to specific states, (e.g. { "CT": { "MAR": { "drop_rate": 0.2, "flip_rate": 0.1, "value": 2, "attribute": "SEX", "attribute_value": 2, },
+        "SEX": { "drop_rate": 0.3, "flip_rate": 0.2, "value": 2, "attribute": None, "attribute_value": None, }, }}). These entries must always be given.
+        If attribute and attribute_value are given, the dropping and flipping will be applied on the intersecting group. Also, either dropping or
+        flipping is possible by specifying a rate of 0 if not wanted.
+
+    mapping : Optional[dict[str, dict[int, int]]], default=None
+        Optional remapping dictionary of categorical features or labels.
+
+    **load_dataset_kwargs : dict
+        Additional keyword arguments passed to `datasets.load_dataset`. Common examples:
+        - `num_proc=4` (parallel loading)
+        - `trust_remote_code=True`
+        Avoid passing parameters that change the return type (e.g., non-`DatasetDict`).
+
+    Returns
+    -------
+    None
+        Initializes and configures a federated dataset with fairness-aware capabilities.
     """
-
     # pylint: disable=too-many-instance-attributes, too-many-arguments
     def __init__(
         self,
@@ -134,6 +162,9 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def save_dataset(self, dataset_path: PathLike) -> None:
+        """
+        Save the dataset to disk as csv files with names by state and partition index.
+        """
         if not self._dataset_prepared:
             self._prepare_dataset()
         if self._sensitive_attributes is not None:
@@ -148,6 +179,9 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def evaluate(self, file ):
+        """
+        Can be called at all times and runs once during _prepare_dataset. Then all partitions will be evaluated in terms of sensitive attribute value counts and the given fairness metric.
+        """
         if not self._dataset_prepared:
             self._prepare_dataset()
         titles = list(self._dataset.keys())
@@ -163,6 +197,9 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def _split_into_train_val_test(self ):
+        """
+        If cross-silo setting is chosen, splits the dataset into train, test and validation sets.
+        """
         divider_dict= {}
         partitioners_dict= {}
         for entry in self._dataset.keys():
@@ -181,11 +218,10 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def _prepare_dataset(self) -> None:
-        """This is overwritten from FederatedDataset to fit to our Datasets.
-        Prepars the dataset (prior to partitioning) by download, shuffle,preprocessing, binary.
-
-        The binary feature is to tag if sensitive attributes should be binarized before
-        the dataset is partitioned. We binarize in the following way:
+        """
+        This is overwritten from FederatedDataset to fit to our datasets.
+        Prepars the dataset (prior to partitioning) by download, shuffle,
+        preprocessing, mapping, modification_dict and train_test_split.
 
         Run only ONCE when triggered by load_* function. (In future more control whether
         this should happen lazily or not can be added). The operations done here should
@@ -193,7 +229,6 @@ class FairFederatedDataset (FederatedDataset):
 
         It is controlled by a single flag, `_dataset_prepared` that is set True at the
         end of the function.
-
         """
         data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
         self._dataset = DatasetDict()
@@ -244,12 +279,18 @@ class FairFederatedDataset (FederatedDataset):
 
 
     def _check_dataset(self):
-       if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
+        """
+        Checks if the dataset is supported.
+        """
+        if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
             raise ValueError(
                 f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
             )
 
     def _initialize_states(self, states):
+        """
+        Initializes the US states to all states if not specified.
+        """
         if states is None:
             self._states = [
     "AL",
@@ -309,6 +350,10 @@ class FairFederatedDataset (FederatedDataset):
             self._states = states
 
     def _modify_data(self, data, state):
+        """
+        Modifies a pandas dataframe representing a state
+        according to the values given in _modification_dict by flipping labels or dropping datapoints
+        """
         modifications = self._modification_dict[state]
         for key, value in modifications.items():
             drop_rate = value["drop_rate"]

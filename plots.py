@@ -208,7 +208,6 @@ def plot_fairness_distributions(
     partitioner_test: Partitioner,
     class_label: str,
     label_name: str,
-    plot_type: str = "heatmap",
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     max_num_partitions: Optional[int] = None,
     partition_id_axis: str = "x",
@@ -217,71 +216,89 @@ def plot_fairness_distributions(
     title: str = "Per Partition Fairness Distribution",
     cmap: Optional[Union[str, mcolors.Colormap]] = None,
     legend: bool = False,
-    legend_title: Optional[str] = None,
-    verbose_labels: bool = True,
     plot_kwargs: Optional[dict[str, Any]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
     fairness_metric: Literal["DP", "EO"] = "DP",
     model: Optional = None,
     sensitive_attributes: list[str]=None) -> tuple[Figure, Axes, pd.DataFrame]:
-    """Plot the label distribution of the partitions.
+    """
+    Plot fairness metric distributions across dataset partitions in a partitioner object.
+
+    Visualizes how fairness metrics (Demographic Parity or Equalized Odds)
+    vary per partition with respect to one or more sensitive attributes. The function
+    supports different granularity levels and can be applied to both training and test
+    partitions using a given model (required for EO).
 
     Parameters
     ----------
     partitioner : Partitioner
-        Partitioner with an assigned dataset.
+        Partitioner containing training partitions used for fairness evaluation.
+
+    partitioner_test : Partitioner
+        Partitioner for the test set, needed when computing prediction-based metrics
+        such as Equalized Odds.
+
+    class_label : str
+        The column name of the label.
+
     label_name : str
-        Column name identifying label based on which the plot will be created.
-    plot_type : str
-        Type of plot, either "bar" or "heatmap".
-    size_unit : str
-        "absolute" or "percent". "absolute" - (number of samples). "percent" -
-        normalizes each value, so they sum up to 100%.
-    max_num_partitions : Optional[int]
-        The number of partitions that will be used. If left None, then all partitions
-        will be used.
-    partition_id_axis : str
-        "x" or "y". The axis on which the partition_id will be marked.
-    axis : Optional[Axes]
-        Matplotlib Axes object to plot on.
-    figsize : Optional[Tuple[float, float]]
-        Size of the figure.
-    title : str
+        Column name of the attribute for fairness evaluation.
+
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+        The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+        - "attribute-value": all possible fairness metric values are returned.
+
+    max_num_partitions : Optional[int], default=None
+        Limit on number of partitions to visualize. If `None`, all partitions are shown.
+
+    partition_id_axis : str, default="x"
+        Axis to use for partition IDs. Must be "x" or "y".
+
+    axis : Optional[Axes], default=None
+        Matplotlib `Axes` object to plot on. If `None`, a new figure and axes will be created.
+
+    figsize : Optional[Tuple[float, float]], default=None
+        Dimensions of the figure in inches.
+
+    title : str, default="Per Partition Fairness Distribution"
         Title of the plot.
-    cmap : Optional[Union[str, mcolors.Colormap]]
-        Colormap for determining the colorspace of the plot.
-    legend : bool
-        Include the legend.
-    legend_title : Optional[str]
-        Title for the legend. If None, the defaults will be takes based on the type of
-        plot.
-    verbose_labels : bool
-        Whether to use verbose versions of the labels. These values are used as columns
-        of the returned dataframe and as labels on the legend in a bar plot and columns/
-        rows ticks in a heatmap plot.
-    plot_kwargs: Optional[Dict[str, Any]]
-        Any key value pair that can be passed to a plot function that are not supported
-        directly. In case of the parameter doubling (e.g. specifying cmap here too) the
-        chosen value will be taken from the explicit arguments (e.g. cmap specified as
-        an argument to this function not the value in this dictionary).
-    legend_kwargs: Optional[Dict[str, Any]]
-        Any key value pair that can be passed to a figure.legend in case of bar plot or
-        cbar_kws in case of heatmap that are not supported directly. In case of the
-        parameter doubling (e.g. specifying legend_title here too) the
-        chosen value will be taken from the explicit arguments (e.g. legend_title
-        specified as an argument to this function not the value in this dictionary).
+
+    cmap : Optional[Union[str, mcolors.Colormap]], default=None
+        Colormap used for plotting fairness distributions.
+
+    legend : bool, default=False
+        Whether to include a legend in the plot.
+
+    plot_kwargs : Optional[Dict[str, Any]], default=None
+        Additional keyword arguments passed to the plotting function.
+
+    legend_kwargs : Optional[Dict[str, Any]], default=None
+        Additional keyword arguments for customizing the legend or colorbar.
+
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        Fairness metric to compute:
+        - "DP": Demographic Parity
+        - "EO": Equalized Odds (requires model)
+
+    model : Optional, default=None
+        Model which will be trained and then used for generating predictions, required for EO metric.
+
+    sensitive_attributes : list of str, default=None
+        List of sensitive attribute columns to take out if training on a model.
 
     Returns
     -------
     fig : Figure
-        The figure object.
+        The matplotlib figure object.
+
     axis : Axes
-        The Axes object with the plot.
+        The axes object containing the plot.
+
     dataframe : pd.DataFrame
-        The DataFrame where each row represents the partition id and each column
-        represents the class.
-
-
+        DataFrame where rows correspond to partitions and columns correspond
+        to what is specified in size_unit and their fairness scores.
     """
 
 
@@ -346,68 +363,91 @@ def plot_comparison_fairness_distribution(
     model: Optional = None,
     intersectional_fairness: list[str] = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
-    """Compare the label distribution across multiple partitioners.
-
-    Parameters
-    ----------
-    partitioner_list : List[Partitioner]
-        List of partitioners to be compared.
-    label_name : Union[str, List[str]]
-        Column name or list of column names identifying labels for each partitioner.
-    plot_type :  Literal["bar", "heatmap"]
-        Type of plot, either "bar" or "heatmap".
-    size_unit : Literal["percent", "absolute"]
-        "absolute" for raw counts, or "percent" to normalize values to 100%.
-    max_num_partitions : Optional[int]
-        Maximum number of partitions to include in the plot. If None, all partitions
-        are included.
-    partition_id_axis : Literal["x", "y"]
-        Axis on which the partition IDs will be marked, either "x" or "y".
-    figsize : Optional[Tuple[float, float]]
-        Size of the figure. If None, a default size is calculated.
-    subtitle : str
-        Subtitle for the figure. Defaults to "Comparison of Per Partition Label
-        Distribution"
-    titles : Optional[List[str]]
-        Titles for each subplot. If None, no titles are set.
-    cmap : Optional[Union[str, mcolors.Colormap]]
-        Colormap for determining the colorspace of the plot.
-    legend : bool
-        Whether to include a legend. If True, it will be included right-hand side after
-        all the plots.
-    legend_title : Optional[str]
-        Title for the legend. If None, the defaults will be takes based on the type of
-        plot.
-    verbose_labels : bool
-        Whether to use verbose versions of the labels.
-    plot_kwargs_list: Optional[List[Optional[Dict[str, Any]]]]
-        List of plot_kwargs. Any key value pair that can be passed to a plot function
-        that are not supported directly. In case of the parameter doubling
-        (e.g. specifying cmap here too) the chosen value will be taken from the
-        explicit arguments (e.g. cmap specified as an argument to this function not
-        the value in this dictionary).
-    legend_kwargs: Optional[Dict[str, Any]]
-        Any key value pair that can be passed to a figure.legend in case of bar plot or
-        cbar_kws in case of heatmap that are not supported directly. In case of
-        parameter doubling (e.g. specifying legend_title here too) the
-        chosen value will be taken from the explicit arguments (e.g. legend_title
-        specified as an argument to this function not the value in this dictionary).
-
-    Returns
-    -------
-    fig : Figure
-        The figure object containing the plots.
-    axes_list : List[Axes]
-        List of Axes objects for the plots.
-    dataframe_list : List[pd.DataFrame]
-        List of DataFrames used for each plot.
-
-    Examples
-    --------
-    Compare the difference of using different alpha (concentration) parameters in
-    DirichletPartitioner.
-
     """
+     Compare fairness metric distributions across multiple partitioners.
+
+     This function plots the fairness distribution (Demographic Parity or Equalized Odds)
+     per partition for multiple datasets or clients. Each subplot corresponds to a
+     different partitioner and visualizes fairness across partitions using heatmaps.
+
+     Parameters
+     ----------
+     partitioner_dict : dict[str, Partitioner]
+         Dictionary mapping names (e.g., states) to partitioners containing the
+         respective dataset partitions.
+
+     max_num_partitions : Optional[int], default=30
+         Maximum number of partitions to include per partitioner. If None, all partitions
+         are included.
+
+     class_label : str, default="ECP"
+         The name of the label.
+
+     label_name : Union[str, list[str]], default=["SEX", "MAR", "RAC1P"]
+         Sensitive attribute(s) to compute fairness on. If a list is provided, fairness
+         is computed on each of the labels except if intersectional fairness parameter is specified.
+         Then only intersectional fairness is computed.
+
+     fairness_metric : Literal["DP", "EO"], default="DP"
+         The fairness metric to use:
+         - "DP": Demographic Parity
+         - "EO": Equalized Odds (requires predictions from a model)
+
+     size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+         The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+        - "attribute-value": all possible fairness metric values are returned.
+
+     partition_id_axis : Literal["x", "y"], default="y"
+         The axis on which partition IDs are placed.
+
+     figsize : Optional[tuple[float, float]], default=None
+         Size of the overall figure. If None, a default size is used.
+
+     subtitle : str, default="Fairness Distribution Per Partition"
+         Subtitle displayed at the top of the entire figure.
+
+     titles : Optional[list[str]], default=None
+         List of subplot titles corresponding to each partitioner. If None, default names
+         from `partitioner_dict` keys are used.
+
+     cmap : Optional[Union[str, mcolors.Colormap]], default=None
+         Colormap used for plotting fairness values.
+
+     legend : bool, default=False
+         Whether to display a legend next to the plots.
+
+     legend_title : Optional[str], default=None
+         Title for the legend.
+
+     verbose_labels : bool, default=False
+         Whether to display full textual labels for sensitive attribute values.
+
+     plot_kwargs_list : Optional[list[Optional[dict[str, Any]]]], default=None
+         List of dictionaries with extra plotting arguments for each subplot.
+
+     legend_kwargs : Optional[dict[str, Any]], default=None
+         Additional keyword arguments for customizing the legend or colorbar.
+
+     model : Optional, default=None
+         Model to train which has an implemented .fit() used to compute predictions for fairness evaluation.
+
+     intersectional_fairness : list[str], default=None
+         If provided, fairness will be only computed on the intersection of these sensitive
+         attributes.
+
+     Returns
+     -------
+     fig : Figure
+         The matplotlib Figure object containing the full comparison plot.
+
+     axes_list : list[Axes]
+         List of Axes objects for each subplot (one per partitioner).
+
+     dataframe_list : list[pd.DataFrame]
+         List of DataFrames containing fairness metrics per partition for each partitioner.
+     """
     global partitioner_list_val
     plot_type = "heatmap"
     if model is None:
@@ -496,15 +536,12 @@ def plot_comparison_fairness_distribution(
             )
             dataframe_list.append(dataframe)
 
-    # Do not use the xlabel and ylabel on each subplot plot
-    # (instead use global = per figure xlabel and ylabel)
     for idx, axis in enumerate(axes):
         axis.set_xlabel("")
         axis.set_ylabel("")
         axis.set_title(titles[idx])
     _set_tick_on_value_axes(axes, partition_id_axis, size_unit)
 
-    # Set up figure xlabel and ylabel
     xlabel, ylabel = _initialize_comparison_xy_labels(
         plot_type, size_unit, partition_id_axis, label_name
     )
@@ -521,6 +558,9 @@ def _initialize_comparison_xy_labels(
     partition_id_axis: Literal["x", "y"],
     label_name: str,
 ) -> tuple[str, str]:
+    """
+    modified so that ylabel fits the label_names
+    """
     if plot_type == "bar":
         xlabel = "Partition ID"
         ylabel = "Class distribution" if size_unit == "percent" else "Class Count"

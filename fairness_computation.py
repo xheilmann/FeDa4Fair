@@ -12,6 +12,42 @@ from fairlearn.metrics import MetricFrame, selection_rate, true_positive_rate, f
 
 
 def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, size_unit):
+    """ Compute a fairness metric (Demographic Parity or Equalized Odds) for given sensitive/s attribute/s specified in column name.
+
+    This function supports group-based fairness metrics and allows different levels of evaluation
+    depending on the `size_unit` parameter.
+
+    Parameters
+    ----------
+    y_true : array-like
+        Ground truth labels for the predictions.
+
+    y_pred : array-like
+        Model predictions corresponding to `y_true`.
+
+    sf_data : pd.DataFrame
+        DataFrame containing the sensitive feature column specified by `column_name`.
+        Must align in length and order with `y_true` and `y_pred`.
+
+    fairness_metric : str
+        Fairness metric to compute:
+        - "DP": Demographic Parity
+        - "EO": Equalized Odds
+
+    column_name : str
+        Name of the sensitive attribute used for fairness evaluation (e.g., "SEX", "RACE").
+
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+       The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+        - "attribute-value": all possible fairness metric values are returned.
+
+    Returns
+    -------
+    dict
+        A dictionary where keys reflect the evaluated fairness depending on size_unit.
+    """
     if fairness_metric == "DP":
 
         sel_rate = MetricFrame(
@@ -77,46 +113,50 @@ def compute_fairness(
     sensitive_attributes:list[str]=[],
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
 ) -> pd.DataFrame:
-    """Compute the counts of unique values in a given column in the partitions.
-
-    Take into account all possible labels in dataset when computing count for each
-    partition (assign 0 as the size when there are no values for a label in the
-    partition).
+    """
+    Computes the specified fairness metric for a given column or an intersection of columns across dataset partitions.
 
     Parameters
     ----------
     partitioner : Partitioner
-        Partitioner with an assigned dataset.
+        A `Partitioner` object containing the training dataset.
+
+    partitioner_test : Partitioner
+        A `Partitioner` object for the test set, used in fairness analysis if a model is specified.
+
+    model : optional
+        Model used for prediction-based fairness metrics like Equalized Odds (EO).
+
     column_name : str
-        Column name identifying label based on which the count will be calculated.
-    verbose_names : bool
-        Whether to use verbose versions of the values in the column specified by
-        `column_name`. The verbose values are possible to extract if the column is a
-        feature of type `ClassLabel`.
-    max_num_partitions : Optional[int]
-        The maximum number of partitions that will be used. If greater than the
-        total number of partitions in a partitioner, it won't have an effect. If left
-        as None, then all partitions will be used.
+        Name of the column which should be evaluated for fairness. If more than one then intersectional fairness is evaluated.
+
+    max_num_partitions : Optional[int], default=None
+        Maximum number of partitions to consider. If `None`, all partitions are included.
+
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        Fairness metric to use for evaluation:
+        - "DP": Demographic Parity
+        - "EO": Equalized Odds
+
+    label : str, default="label"
+        Name of the label column, used particularly when evaluating fairness metrics.
+
+    sensitive_attributes : list of str, default=[]
+        List of sensitive attribute column names which are deleted before a model is trained on the dataset.
+
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+       The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+        - "attribute-value": all possible fairness metric values are returned.
 
     Returns
     -------
-    dataframe: pd.DataFrame
-        DataFrame where the row index represent the partition id and the column index
-        represent the unique values found in column specified by `column_name`
-        (e.g. represeting the labels). The value of the dataframe.loc[i, j] represents
-        the count of the label j, in the partition of index i.
-
-
-
-
-    :param fairness_metric:
-    :param label:
+    pd.DataFrame
+        A DataFrame where:
+        - Rows represent partition IDs
+        - Columns represent what is specified in size_unit
     """
-    #if column_name not in partitioner.dataset.column_names:
-    #    raise ValueError(
-     #       f"The specified 'column_name': '{column_name}' is not present in the "
-    #        f"dataset. The dataset contains columns {partitioner.dataset.column_names}."
-     #   )
     if label is None or label not in partitioner.dataset.column_names:
         raise ValueError(f"The specified 'label' is not present in the dataset or was not set. ")
     if max_num_partitions is None:

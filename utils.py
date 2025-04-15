@@ -1,52 +1,105 @@
 def drop_data(df, percentage, column1, value1, label_column,column2=None, value2=None):
-    # Validate percentage
+    """ Drop a percentage of rows from a DataFrame that match specific criteria.
+
+    This function removes a given percentage of rows with label=True where the value in `column1` matches `value1`
+    and optionally, where `column2` matches `value2`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame to be filtered.
+
+    percentage : float
+        A float between 0 and 1 representing the fraction of matching rows to drop.
+
+    column1 : str
+        The name of the first column to filter by.
+
+    value1 : Any
+        The value in `column1` that must match for a row to be considered for dropping.
+
+    label_column : str
+        The name of the label column. Label values are expected to be binary.
+
+    column2 : Optional[str], default=None
+        An optional second column to filter by.
+
+    value2 : Optional[Any], default=None
+        The value in `column2` that must also match (in conjunction with `column1`) for a
+        row to be considered for dropping. Only used if `column2` is provided.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new DataFrame with the specified percentage of matching rows removed.
+    """
     if not (0 <= percentage <= 1):
         raise ValueError("Fraction must be between 0 and 1")
 
-    # Filter matching rows based on one or two conditions
     condition = (df[column1] == value1)
     if column2 is not None and value2 is not None:
         condition &= (df[column2] == value2)
 
     matching_rows = df[condition & (df[label_column] == True)]
-
-
-    # Determine how many rows to drop
     num_to_drop = int(len(matching_rows) * percentage)
-
-    # Randomly sample rows to drop
     rows_to_drop = matching_rows.sample(n=num_to_drop, random_state=42).index
-
-    # Drop them from the original DataFrame
     df_dropped = df.drop(index=rows_to_drop)
 
     return df_dropped
 
 
 def flip_data(df, percentage, column1, value1, label_column, column2=None, value2=None):
+    """
+    Flip the label from True to False of a percentage of rows in a DataFrame that match specified criteria.
+
+    This function modifies the DataFrame by flipping the value in the `label_column` from True to False
+     for a specified percentage of rows where `column1 == value1`.
+    Optionally, the flip is further constrained to rows where `column2 == value2`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame whose labels will be modified.
+
+    percentage : float
+        A float between 0 and 1 representing the fraction of matching rows whose label should be flipped.
+
+    column1 : str
+        The name of the first column used to filter the rows to be considered for flipping.
+
+    value1 : Any
+        The value in `column1` that must match for a row to be eligible for label flipping.
+
+    label_column : str
+        The name of the column containing the labels to be flipped. Label values are expected to be binary.
+
+    column2 : Optional[str], default=None
+        An optional second column used to refine the filtering condition.
+
+    value2 : Optional[Any], default=None
+        The value in `column2` that must also match (in conjunction with `column1`) for a
+        row to be eligible for label flipping. Only used if `column2` is provided.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new DataFrame with the specified percentage of labels flipped in the filtered subset.
+    """
     if not (0 <= percentage <= 1):
         raise ValueError("Fraction must be between 0 and 1")
 
-        # Build filter condition
     condition = (df[column1] == value1)
     if column2 is not None and value2 is not None:
         condition &= (df[column2] == value2)
 
-    # Filter rows where label is 1
     matching_rows = df[condition & (df[label_column] == True)]
-
-    # Determine number of rows to flip
     num_to_flip = int(len(matching_rows) * percentage )
 
-    # Sanity check
     if num_to_flip == 0:
         print("No labels flipped: fraction too low or no matching rows.")
         return df
 
-    # Randomly choose rows to flip
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index
-
-    # Flip the labels
     df.loc[rows_to_flip, label_column] = False
 
     return df

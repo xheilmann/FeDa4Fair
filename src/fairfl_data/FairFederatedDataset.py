@@ -376,13 +376,10 @@ class FairFederatedDataset (FederatedDataset):
         cls = obj.__class__  # Get the class of obj
         init_signature = inspect.signature(cls.__init__)
 
-        # Get argument names from __init__ (excluding 'self')
         arg_names = [param for param in init_signature.parameters if param != "self"]
 
-        # Retrieve values from obj attributes
         init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
 
-        # Create a new instance with the same arguments
         return cls(**init_args)
 
 

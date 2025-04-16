@@ -1,4 +1,4 @@
-# Copyright 2023 Flower Labs GmbH. All Rights Reserved.
+# Copyright 2025 Xenia Heilmann. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""FairFederatedDataset."""
+"""This file implements FairFederatedDataset as subclass of FederatedDataset (https://flower.ai/docs/datasets/ref-api/flwr_datasets.FederatedDataset.html)"""
 
 import inspect
 import warnings
@@ -25,8 +25,25 @@ from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.preprocessor import Preprocessor, Divider
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from sklearn.linear_model import LogisticRegression
+
 from evaluation import evaluate_fairness
 from utils import drop_data, flip_data
+
+
+def _clone_partitioner(obj):
+    """
+    Creates a new instance of the same class as obj with the same arguments.
+    Assumes that arguments to __init__ are stored as attributes in obj.
+    """
+    cls = obj.__class__  # Get the class of obj
+    init_signature = inspect.signature(cls.__init__)
+
+    arg_names = [param for param in init_signature.parameters if param != "self"]
+
+    init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
+
+    return cls(**init_args)
 
 
 class FairFederatedDataset (FederatedDataset):
@@ -38,7 +55,7 @@ class FairFederatedDataset (FederatedDataset):
     (e.g., edge devices or simulated silos). Fairness can be evaluated using specified sensitive attributes
     or default ones.
 
-    If `sensitive_attributes` are provided:
+    If `sens_cols` are provided:
         - If two attributes are provided, intersectional fairness is evaluated.
         - If not provided, fairness is evaluated using default attributes: "SEX", "MAR", and "RAC1P".
 
@@ -79,7 +96,7 @@ class FairFederatedDataset (FederatedDataset):
     sensitive_attributes : Optional[list[str]], default=None
         List of attributes used to evaluate intersectional fairness. If not provided, the fairness metrics are evaluated for each of ["SEX", "MAR", "RAC1P"].
 
-    individual_fairness : Literal["attribute", "value", "attribute-value"], default="attribute"
+    fairness_level : Literal["attribute", "value", "attribute-value"], default="attribute"
         The level at which fairness is evaluated:
         - "attribute": only worst fairness metric is returned,
         - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
@@ -90,7 +107,7 @@ class FairFederatedDataset (FederatedDataset):
         - "DP": Demographic Parity
         - "EO": Equalized Odds
 
-    train_test_split : Literal["cross-silo", None], default=None
+    fl_setting : Literal["cross-silo", None], default=None
         Strategy used to split the dataset into train/test:
         - "cross-silo": splits each clients dataset (each partition of the splits) into train, validation and test set
         - None: no train-test splitting
@@ -103,11 +120,11 @@ class FairFederatedDataset (FederatedDataset):
         Optional path where the dataset should be saved.
 
     modification_dict : Optional[dict[int, dict[str, ...]]], default=None
-        Optional dictionary to apply data modifications (e.g., label flipping, dropping datapoints)
+        Optional dictionary to apply data modifications (e.g., label_name flipping, dropping datapoints)
         to specific states, (e.g. { "CT": { "MAR": { "drop_rate": 0.2, "flip_rate": 0.1, "value": 2, "attribute": "SEX", "attribute_value": 2, },
         "SEX": { "drop_rate": 0.3, "flip_rate": 0.2, "value": 2, "attribute": None, "attribute_value": None, }, }}). These entries must always be given.
         If attribute and attribute_value are given, the dropping and flipping will be applied on the intersecting group. Also, either dropping or
-        flipping is possible by specifying a rate of 0 if not wanted.
+        flipping is possible by specifying a rate of 0 if not wanted. This always happens after the mapping specified in the mapping parameter.
 
     mapping : Optional[dict[str, dict[int, int]]], default=None
         Optional remapping dictionary of categorical features or labels.
@@ -123,7 +140,6 @@ class FairFederatedDataset (FederatedDataset):
     None
         Initializes and configures a federated dataset with fairness-aware capabilities.
     """
-    # pylint: disable=too-many-instance-attributes, too-many-arguments
     def __init__(
         self,
         *,
@@ -137,9 +153,9 @@ class FairFederatedDataset (FederatedDataset):
         year: Optional[str] ='2018',
         horizon: Optional[str]= '1-Year',
         sensitive_attributes: Optional[list[str]]=None,
-        individual_fairness: Literal["attribute", "value","attribute-value"] = "attribute",
+        fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
         fairness_metric:  Literal["DP", "EO"] = "DP",
-        train_test_split: Literal["cross-silo", "cross-device", None]= None,
+        fl_setting: Literal["cross-silo", "cross-device", None]= None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
         modification_dict: Optional[dict[int, dict[str, ...]]] = None,
@@ -152,9 +168,9 @@ class FairFederatedDataset (FederatedDataset):
         self._year = year
         self._horizon = horizon
         self._sensitive_attributes = sensitive_attributes
-        self._individual_fairness = individual_fairness
+        self._fairness_level = fairness_level
         self._fairness_metric = fairness_metric
-        self._train_test_split = train_test_split
+        self._fl_setting = fl_setting
         self._perc_train_test_split = perc_train_val_test
         self._path = path
         self._modification_dict = modification_dict
@@ -186,13 +202,14 @@ class FairFederatedDataset (FederatedDataset):
             self._prepare_dataset()
         titles = list(self._dataset.keys())
         evaluate_fairness(partitioner_dict=self.partitioners,
-                                                                              max_num_partitions=None,
-                                                                              fairness_metric=self._fairness_metric,
-                                                                              fairness=self._individual_fairness,
-                                                                              titles=titles,
-                                                                              legend=True,
-                                                                              class_label=self._label,
-                                                                              intersectional_fairness = self._sensitive_attributes)
+                          max_num_partitions=None,
+                          fairness_metric=self._fairness_metric,
+                          fairness_level=self._fairness_level,
+                          titles=titles,
+                          legend=True,
+                          label_name=self._label,
+                          intersectional_fairness = self._sensitive_attributes,
+                        )
 
 
 
@@ -206,14 +223,14 @@ class FairFederatedDataset (FederatedDataset):
             divider_dict[entry] = {f"{entry}_train": self._perc_train_test_split[0], f"{entry}_val": self._perc_train_test_split[1], f"{entry}_test": self._perc_train_test_split[2]}
 
         divider = Divider(divide_config=divider_dict)
-        if self._train_test_split == "cross-silo":
+        if self._fl_setting == "cross-silo":
             for entry in self._dataset.keys():
                 partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
-                partitioners_dict[f"{entry}_val"] = self._clone_partitioner(self._partitioners[entry])
-                partitioners_dict[f"{entry}_test"] = self._clone_partitioner(self._partitioners[entry])
+                partitioners_dict[f"{entry}_val"] = _clone_partitioner(self._partitioners[entry])
+                partitioners_dict[f"{entry}_test"] = _clone_partitioner(self._partitioners[entry])
             self._dataset = divider(self._dataset)
             self._partitioners = partitioners_dict
-        elif self._train_test_split != "cross-device":
+        elif self._fl_setting != "cross-device":
             raise ValueError("This train-val-test split strategy is not supported.")
 
 
@@ -221,7 +238,7 @@ class FairFederatedDataset (FederatedDataset):
         """
         This is overwritten from FederatedDataset to fit to our datasets.
         Prepars the dataset (prior to partitioning) by download, shuffle,
-        preprocessing, mapping, modification_dict and train_test_split.
+        preprocessing, mapping, modification_dict and fl_setting.
 
         Run only ONCE when triggered by load_* function. (In future more control whether
         this should happen lazily or not can be added). The operations done here should
@@ -230,7 +247,7 @@ class FairFederatedDataset (FederatedDataset):
         It is controlled by a single flag, `_dataset_prepared` that is set True at the
         end of the function.
         """
-        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person')
+        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person', use_archive=True)
         self._dataset = DatasetDict()
         self._check_partitioners_correctness()
         for state in self._states:
@@ -262,7 +279,7 @@ class FairFederatedDataset (FederatedDataset):
             self._dataset = self._dataset.shuffle(seed=self._seed)
         if self._preprocessor:
             self._dataset = self._preprocessor(self._dataset)
-        if self._train_test_split is not None:
+        if self._fl_setting is not None:
             self._split_into_train_val_test()
         self._dataset_prepared = True
         available_splits = list(self._dataset.keys())
@@ -364,23 +381,6 @@ class FairFederatedDataset (FederatedDataset):
             data = drop_data(data, drop_rate, key, value1,self._label, column2, value2)
             data = flip_data(data, flip_rate, key, value1, self._label, column2, value2)
         return data
-
-
-
-
-    def _clone_partitioner(self, obj):
-        """
-        Creates a new instance of the same class as obj with the same arguments.
-        Assumes that arguments to __init__ are stored as attributes in obj.
-        """
-        cls = obj.__class__  # Get the class of obj
-        init_signature = inspect.signature(cls.__init__)
-
-        arg_names = [param for param in init_signature.parameters if param != "self"]
-
-        init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
-
-        return cls(**init_args)
 
 
 

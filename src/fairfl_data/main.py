@@ -1,7 +1,10 @@
+from statistics import LinearRegression
 
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
 
 from FairFederatedDataset import FairFederatedDataset
-from evaluation import evaluate_models_on_datasets
+from evaluation import evaluate_models_on_datasets, local_client_fairness_plot
 from sklearn.model_selection import train_test_split
 
 #example mapping parameter:
@@ -28,14 +31,17 @@ modification_dict = {
 },
 }}
 
+#df = pd.read_csv("/home/heilmann/Dokumente/fairFL-data/data_stats/RAC1P_DP_df.csv")
+#fig = local_client_fairness_plot(df.iloc[:5],df.iloc[5:])
+#fig.show()
 
 for name in ["ACSIncome"]:
-    for tt_split in [None]:
+    for tt_split in ["cross-silo"]:
         for fairness in ["DP" ]:
             for in_fairness in [ "attribute", "value"]:
-                ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK"],
-                                partitioners={"CT":5, "AK":5}, train_test_split=tt_split,
-                                        fairness_metric=fairness, individual_fairness=in_fairness, modification_dict=modification_dict)
+                ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK", "TX"],
+                                            partitioners={"CT":1, "AK":1, "TX":1}, fl_setting=tt_split,
+                                            fairness_metric=fairness, fairness_level=in_fairness, modification_dict=modification_dict, model =LogisticRegression(max_iter=1000))
 
 
                 if tt_split == None:
@@ -57,7 +63,7 @@ for name in ["ACSIncome"]:
                     )
                     print(df)
                     break
-                if train_test_split == "cross-silo" or train_test_split == "cross-device":
+                if tt_split == "cross-silo" or train_test_split == "cross-device":
                     split = ffds.load_split("CT_train")
                     print(split)
                 #partition = ffds.load_partition(0, "CT_val")

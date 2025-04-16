@@ -1,3 +1,21 @@
+# Copyright 2025 Xenia Heilmann. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+"""This file implements evaluation functions for fairness: evaluation on partitioners,
+evaluation on 5 different models, scatter plot on fairness values e.g. before and after training"""
+
 import os
 import pickle
 import pandas as pd
@@ -20,11 +38,11 @@ import seaborn as sns
 def evaluate_fairness(
     partitioner_dict: dict[str, Partitioner],
     max_num_partitions: Optional[int] = 30,
-    label_name: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
+    sens_columns: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
     intersectional_fairness: list[str] = None,
     size_unit: Literal["percent", "absolute"] = "absolute",
     fairness_metric: Literal["DP", "EO"] = "DP",
-    fairness: Literal["attribute", "value","attribute-value"] = "attribute",
+    fairness_level: Literal["attribute", "value","attribute-value"] = "attribute",
     partition_id_axis: Literal["x", "y"] = "y",
     figsize: Optional[tuple[float, float]] = None,
     subtitle: str = "Fairness Distribution Per Partition",
@@ -36,10 +54,11 @@ def evaluate_fairness(
     plot_kwargs_list: Optional[list[Optional[dict[str, Any]]]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
     model: Optional = None,
-    class_label: str="label",
+    label_name: str= "label",
     path: str = "data_stats",
 ) -> None:
     """
+
     Save, evaluate and visualize fairness metrics and data counts across partitions defined by a set of `Partitioner` objects.
 
     Parameters:
@@ -51,8 +70,9 @@ def evaluate_fairness(
     max_num_partitions : int, optional
         The maximum number of partitions to display per dataset (default is 30).
 
-    label_name : str or list of str, default=["SEX", "MAR", "RAC1P"]
-        Sensitive attribute(s) (as given as column names) used to evaluate fairness (e.g., gender, marital status, race).
+    sens_columns : str or list of str, default=["SEX", "MAR", "RAC1P"]
+        Sensitive attribute(s) as column names used to evaluate fairness (e.g., gender, marital status, race).
+        These columns are taken out during model training if a model is specified.
 
     intersectional_fairness : list[str], optional
         If provided, evaluate intersectional fairness using combinations of the listed attributes.
@@ -63,7 +83,7 @@ def evaluate_fairness(
     fairness_metric : {"DP", "EO"}, default="DP"
         Fairness metric to evaluate. "DP" = Demographic Parity, "EO" = Equalized Odds.
 
-    fairness : {"attribute", "value", "attribute-value"}, default="attribute"
+    fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
         The level at which fairness is evaluated:
         - "attribute": only worst fairness metric is returned,
         - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
@@ -104,7 +124,7 @@ def evaluate_fairness(
         Optional model object to use for fairness evaluation
         (e.g., for EO).
 
-    class_label : str, default="label"
+    label_name : str, default="label"
         The name of the label column.
 
     path : str, default="data_stats"
@@ -115,7 +135,7 @@ def evaluate_fairness(
     None
         Displays one or more fairness evaluation plots. Save outputs in path.
     """
-    for label in label_name:
+    for label in sens_columns:
         fig_dis, axes_dis, df_list_dis = plot_comparison_label_distribution(partitioner_list=list(partitioner_dict.values()),label_name=label,plot_type="heatmap", size_unit= size_unit,
                                            max_num_partitions=max_num_partitions, partition_id_axis=partition_id_axis,figsize=figsize,
                                            subtitle="Comparison of Per Partition Label Distribution", titles=titles,cmap=cmap, legend=legend, legend_title=legend_title,
@@ -129,25 +149,28 @@ def evaluate_fairness(
         with open(f"{path}/fig_ax_count.pkl", 'wb') as f:
             pickle.dump({'fig': fig_dis, 'ax': axes_dis}, f)
 
+    all_sensitive_attributes = sens_columns
+    names = partitioner_dict.keys()
+    if model is not None:
+        names = [key for key, value in partitioner_dict.items() if "train" in key]
     if intersectional_fairness is not None:
-        label_name = [f"{intersectional_fairness}"]
+        sens_columns = [f"{intersectional_fairness}"]
 
-    for label in label_name:
+    for sens_att in sens_columns:
         fig, axes, df_list = plot_comparison_fairness_distribution(partitioner_dict=partitioner_dict,
-                                                                   label_name=label, size_unit=fairness,
+                                                                   sens_att=sens_att, sens_cols=all_sensitive_attributes,size_unit=fairness_level,
                                                                    max_num_partitions=max_num_partitions,
                                                                    partition_id_axis=partition_id_axis, figsize=figsize,
                                                                    subtitle=subtitle, titles=titles, cmap=cmap,
-                                                                   legend=legend, legend_title=legend_title,
-                                                                   verbose_labels=verbose_labels,
+                                                                   legend=legend,
                                                                    plot_kwargs_list=plot_kwargs_list,
                                                                    legend_kwargs=legend_kwargs,
                                                                    fairness_metric=fairness_metric,
-                                                                   model=model, class_label=class_label, intersectional_fairness = intersectional_fairness)
+                                                                   model=model, label_name=label_name, intersectional_fairness = intersectional_fairness)
         fig.show()
-        df_fairness = merge_dataframes_with_names(df_list, list(partitioner_dict.keys()))
-        df_fairness.to_csv(os.path.join(path, f"{label}_{fairness_metric}_df.csv"))
-        fig.savefig(os.path.join(path, f"{label}_{fairness_metric}_fig.pdf"), dpi=1200)
+        df_fairness = merge_dataframes_with_names(df_list,names)
+        df_fairness.to_csv(os.path.join(path, f"{label_name}_{fairness_metric}_df.csv"))
+        fig.savefig(os.path.join(path, f"{label_name}_{fairness_metric}_fig.pdf"), dpi=1200)
 
         with open(f"{path}/fig_ax_{fairness_metric}.pkl", 'wb') as f:
             pickle.dump({'fig': fig, 'ax': axes}, f)
@@ -156,9 +179,76 @@ def evaluate_fairness(
 
 
 
-def local_client_fairness_plot(fairness_df_before, fairness_df_after):
-    #TODO this is for the evaluation after training the individual FL algorithms
-    pass
+def local_client_fairness_plot(df1: pd.DataFrame, df2: pd.DataFrame,
+                              client_column: str = "Partition ID",
+                              fairness_column: str = "RAC1P_DP",
+                              title: str = "Fairness Before/After Comparison",
+                              figsize: tuple = (6, 6),
+                               ylabel:str = "Fairness Value Before",
+                               xlabel:str = "Fairness Value After") -> plt.Figure:
+    """
+    Plot a scatter comparison of fairness values from two dataframes.
+
+    The function compares the fairness values of clients from two dataframes by plotting
+    them in a scatter plot. The x-axis represents the fairness values from `df2` and the y-axis
+    represents the fairness values from `df1`. A diagonal dotted line is added to visualize
+    equality between both sets.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        First DataFrame containing client IDs and fairness values (plotted on y-axis).
+
+    df2 : pd.DataFrame
+        Second DataFrame containing client IDs and fairness values (plotted on x-axis).
+
+    client_column : str, default="Partition ID"
+        Name of the column containing the client IDs in both dataframes.
+
+    fairness_column : str, default="RAC1P_DP"
+        Name of the column containing the fairness metric values in both dataframes.
+
+    title : str, optional
+        Title of the plot.
+
+    figsize : tuple, optional
+        Figure size in inches.
+
+    ylabel: str, optional
+        Y-axis label_name of the plot.
+
+    xlabel: str, optional
+        X-axis label_name of the plot.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The matplotlib figure object containing the plot.
+
+    """
+    assert df1[client_column].is_unique==True, "The client ID column must be unique."
+    merged = pd.merge(df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+                      df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+                      on=client_column)
+
+    fairness1 = merged["fairness1"]
+    fairness2 = merged["fairness2"]
+
+    min_val = min(fairness1.min(), fairness2.min())
+    max_val = max(fairness1.max(), fairness2.max())
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.scatter(fairness2, fairness1, alpha=0.7)
+    ax.plot([min_val-0.05, max_val+0.05], [min_val-0.05, max_val+0.05], linestyle='dotted', color='gray')
+
+    ax.set_xlim(min_val-0.05, max_val+0.05)
+    ax.set_ylim(min_val-0.05, max_val+0.05)
+    ax.set_xlabel(f"{xlabel}")
+    ax.set_ylabel(f"{ylabel}")
+    ax.set_title(title)
+    ax.grid(True)
+
+    return fig
 
 
 # Dictionary of models to evaluate

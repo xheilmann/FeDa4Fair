@@ -11,7 +11,7 @@ from fairlearn.metrics import MetricFrame, selection_rate, true_positive_rate, f
 
 
 
-def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, size_unit):
+def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_unit):
     """ Compute a fairness metric (Demographic Parity or Equalized Odds) for given sensitive/s attribute/s specified in column name.
 
     This function supports group-based fairness metrics and allows different levels of evaluation
@@ -26,7 +26,7 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, siz
         Model predictions corresponding to `y_true`.
 
     sf_data : pd.DataFrame
-        DataFrame containing the sensitive feature column specified by `column_name`.
+        DataFrame containing the sensitive feature column specified by `sens_att`.
         Must align in length and order with `y_true` and `y_pred`.
 
     fairness_metric : str
@@ -34,7 +34,7 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, siz
         - "DP": Demographic Parity
         - "EO": Equalized Odds
 
-    column_name : str
+    sens_att : str
         Name of the sensitive attribute used for fairness evaluation (e.g., "SEX", "RACE").
 
     size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
@@ -94,9 +94,9 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, column_name, siz
     diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
 
     if size_unit =="value":
-        diff_df = pd.Series([diff_df.max(),diff_df.idxmax()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
+        diff_df = pd.Series([diff_df.max(),diff_df.idxmax()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"])
     if size_unit =="attribute":
-        diff_df = pd.Series([diff_df.max(),diff_df.max()] , index=[f"{column_name}_{fairness_metric}", f"{column_name}_val"])
+        diff_df = pd.Series([diff_df.max(),diff_df.max()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"])
 
 
     return diff_df
@@ -106,11 +106,11 @@ def compute_fairness(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
     model: None,
-    column_name: str,
+    sens_att: str,
     max_num_partitions: Optional[int] = None,
     fairness_metric="DP",
-    label: str = "label",
-    sensitive_attributes:list[str]=[],
+    label_name: str = "label_name",
+    sens_cols: list[str]=[],
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
 ) -> pd.DataFrame:
     """
@@ -127,7 +127,7 @@ def compute_fairness(
     model : optional
         Model used for prediction-based fairness metrics like Equalized Odds (EO).
 
-    column_name : str
+    sens_att : str
         Name of the column which should be evaluated for fairness. If more than one then intersectional fairness is evaluated.
 
     max_num_partitions : Optional[int], default=None
@@ -138,10 +138,10 @@ def compute_fairness(
         - "DP": Demographic Parity
         - "EO": Equalized Odds
 
-    label : str, default="label"
+    label_name : str, default="label"
         Name of the label column, used particularly when evaluating fairness metrics.
 
-    sensitive_attributes : list of str, default=[]
+    sens_cols : list of str, default=[]
         List of sensitive attribute column names which are deleted before a model is trained on the dataset.
 
     size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
@@ -157,8 +157,8 @@ def compute_fairness(
         - Rows represent partition IDs
         - Columns represent what is specified in size_unit
     """
-    if label is None or label not in partitioner.dataset.column_names:
-        raise ValueError(f"The specified 'label' is not present in the dataset or was not set. ")
+    if label_name is None or label_name not in partitioner.dataset.column_names:
+        raise ValueError(f"The specified 'label_name' is not present in the dataset or was not set. ")
     if max_num_partitions is None:
         max_num_partitions = partitioner.num_partitions
     else:
@@ -170,19 +170,19 @@ def compute_fairness(
         partition_test =partitioner_test.load_partition(partition_id)
 
         if model is not None:
-            train = partition.remove_columns(sensitive_attributes.append(label)).to_pandas()
-            train_labels = partition.select_columns(label).to_pandas()
+            train = partition.to_pandas().drop(columns=sens_cols).drop(columns=label_name)
+            train_labels = partition.select_columns(label_name).to_pandas().values.flatten()
             model.fit(train, train_labels)
-            y_pred = model.predict(partition_test.remove_columns(sensitive_attributes.append(label)).to_pandas())
-            y_true = partition_test.select_columns(label).to_pandas()
-            sf_data = partition_test.select_columns(column_name).to_pandas()
+            y_pred = model.predict(partition_test.to_pandas().drop(columns=sens_cols).drop(columns=label_name))
+            y_true = partition_test.select_columns(label_name).to_pandas().values
+            sf_data = partition_test.select_columns(sens_att).to_pandas().values
 
         else:
-            y_true = partition.select_columns(label).to_pandas()
-            y_pred = partition.select_columns(label).to_pandas()
-            sf_data = partition.select_columns(column_name).to_pandas()
+            y_true = partition.select_columns(label_name).to_pandas()
+            y_pred = partition.select_columns(label_name).to_pandas()
+            sf_data = partition.select_columns(sens_att).to_pandas()
         partition_id_to_fairness[partition_id] = _compute_fairness(
-        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, column_name=column_name, size_unit = size_unit)
+        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, sens_att=sens_att, size_unit = size_unit)
 
     dataframe = pd.DataFrame.from_dict(
         partition_id_to_fairness, orient="index"

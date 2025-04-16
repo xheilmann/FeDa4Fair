@@ -1,7 +1,7 @@
 def drop_data(df, percentage, column1, value1, label_column,column2=None, value2=None):
     """ Drop a percentage of rows from a DataFrame that match specific criteria.
 
-    This function removes a given percentage of rows with label=True where the value in `column1` matches `value1`
+    This function removes a given percentage of rows with label_name=True where the value in `column1` matches `value1`
     and optionally, where `column2` matches `value2`.
 
     Parameters
@@ -19,7 +19,7 @@ def drop_data(df, percentage, column1, value1, label_column,column2=None, value2
         The value in `column1` that must match for a row to be considered for dropping.
 
     label_column : str
-        The name of the label column. Label values are expected to be binary.
+        The name of the label_name column. Label values are expected to be binary.
 
     column2 : Optional[str], default=None
         An optional second column to filter by.
@@ -50,7 +50,7 @@ def drop_data(df, percentage, column1, value1, label_column,column2=None, value2
 
 def flip_data(df, percentage, column1, value1, label_column, column2=None, value2=None):
     """
-    Flip the label from True to False of a percentage of rows in a DataFrame that match specified criteria.
+    Flip the label_name from True to False of a percentage of rows in a DataFrame that match specified criteria.
 
     This function modifies the DataFrame by flipping the value in the `label_column` from True to False
      for a specified percentage of rows where `column1 == value1`.
@@ -62,13 +62,13 @@ def flip_data(df, percentage, column1, value1, label_column, column2=None, value
         The input DataFrame whose labels will be modified.
 
     percentage : float
-        A float between 0 and 1 representing the fraction of matching rows whose label should be flipped.
+        A float between 0 and 1 representing the fraction of matching rows whose label_name should be flipped.
 
     column1 : str
         The name of the first column used to filter the rows to be considered for flipping.
 
     value1 : Any
-        The value in `column1` that must match for a row to be eligible for label flipping.
+        The value in `column1` that must match for a row to be eligible for label_name flipping.
 
     label_column : str
         The name of the column containing the labels to be flipped. Label values are expected to be binary.
@@ -78,7 +78,7 @@ def flip_data(df, percentage, column1, value1, label_column, column2=None, value
 
     value2 : Optional[Any], default=None
         The value in `column2` that must also match (in conjunction with `column1`) for a
-        row to be eligible for label flipping. Only used if `column2` is provided.
+        row to be eligible for label_name flipping. Only used if `column2` is provided.
 
     Returns
     -------

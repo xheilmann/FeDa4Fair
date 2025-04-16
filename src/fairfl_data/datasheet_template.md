@@ -24,8 +24,16 @@ _Was there a specific task in mind? Was there a specific gap that needed to be f
 Please provide a description._
 
 This dataset was created for the purpose of testing bias mitigation techniques in federated learning via the [FairFL-data](https://github.com/xheilmann/fairfl-data) library.
-FairFL-data is built on top of the [ACS PUMS](https://www.census.gov/programs-surveys/acs/microdata.html) US census data 
-via the [folktables](https://github.com/social-foundations/folktables) APIs.
+FairFL-data is built on top of the [ACS PUMS](https://www.census.gov/programs-surveys/acs/microdata.html) subset of the US census data 
+obtained via the [folktables](https://github.com/social-foundations/folktables) APIs.
+To clarify the relationship between the present dataset and the U.S. census data:
+* The American Community Survey (ACS) is a yearly initiative undertaken by the U.S. Census Bureau with the objective to represent demographics and social status in the U.S.
+* The ACS Public Use Microdata Sample (ACS PUMS) is a subset of the ACS (about 1 percent) which is released to the general public.
+* Folktables is a library that uses API endpoints offered by the Census Bureau to download PUMS data and test it in the space of algorithmic fairness.
+* FairFL-data is a library that employs Folktables to offer data, divided at the U.S. state level and further, to employ it in the space of federated learning 
+and fairness. FairFL-data offers some flexibility in the sense that researchers might employ different partitioning of the data beyond the state-level, for instance
+to test client-level federated learning techniques.
+* The present dataset was obtained with FairFL-data, commit id [tag:commit]to be filled...[/tag] and remote [tag:remote][/tag] for the purpose of further testing.
 
 ### Who created the dataset (e.g., which team, research group) and on behalf of which entity (e.g., company, institution, organization)?
 
@@ -39,7 +47,7 @@ name and number._
 For FairFL-data: XH and MC were funded by the “TOPML: Trading Off Non-Functional Properties of Machine Learning” project funded by the
 Carl-Zeiss-Stiftung in the Förderprogramm “Durchbrüche”, identifying code P2021-02-014.
 LC was funded by ....
-For the specific present dataset: [tag:funded]to be filled[/tag]
+For the specific present dataset: [tag:funding]to be filled[/tag]
 
 ### Any other comments?
 
@@ -114,7 +122,8 @@ No.
 ### Are there any errors, sources of noise, or redundancies in the dataset?
 
 _If so, please provide a description._
-Yes. 
+Yes: the ACS PUMS contains factual inaccuracies inserted for the purpose of maintaining privacy and is in general affected by systematic and non-systematic
+errors. For reference, see [here](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/accuracy/2023AccuracyPUMS.pdf) for the year 2023.
 
 ### Is the dataset self-contained, or does it link to or otherwise rely on external resources (e.g., websites, tweets, other datasets)?
 
@@ -182,11 +191,17 @@ Detailed information about every year of the ACS Survey is available [here](http
 ### What mechanisms or procedures were used to collect the data (e.g., hardware apparatus or sensor, manual human curation, software program, software API)?
 
 _How were these mechanisms or procedures validated?_
-The ACS Survey is 
+The ACS relies on three modes of data collection:
+1. Internet  
+2. Mailout/Mailback 
+3. Computer Assisted Personal Interview (CAPI)
 
 ### If the dataset is a sample from a larger set, what was the sampling strategy (e.g., deterministic, probabilistic with specific sampling probabilities)?
+We refer to the documentation of the ACS PUMS available [here](https://www.census.gov/programs-surveys/acs/microdata/documentation.html).
+As for the present dataset, [tag:subsample][/tag].
 
 ### Who was involved in the data collection process (e.g., students, crowdworkers, contractors) and how were they compensated (e.g., how much were crowdworkers paid)?
+The U.S. Census Bureau was involved in the creation of the ACS and the creation and release of the ACS PUMS.
 
 ### Over what timeframe was the data collected?
 
@@ -200,11 +215,17 @@ This dataset refers to individuals living in the U.S. in the year [tag:year][/ta
 _If so, please provide a description of these review processes, including the outcomes, as well as
 a link or other access point to any supporting documentation._
 
+Not for FairFL-data or Folktables as far as we know.
+
 ### Does the dataset relate to people?
 
 _If not, you may skip the remainder of the questions in this section._
 
+Yes.
+
 ### Did you collect the data from the individuals in question directly, or obtain it via third parties or other sources (e.g., websites)?
+
+We present data was obtained from the Folktables library and processed again with FairFL-data. Folktables sources it from the ACS PUMS.
 
 ### Were the individuals in question notified about the data collection?
 
@@ -212,21 +233,30 @@ _If so, please describe (or show with screenshots or other information) how noti
 and provide a link or other access point to, or otherwise reproduce, the exact language of the
 notification itself._
 
+Yes, via mail and phone call by the U.S. Census Bureau. The individuals are not re-identifiable and thus it is not
+possible to notify them of their inclusion in the present dataset.
+
 ### Did the individuals in question consent to the collection and use of their data?
 
 _If so, please describe (or show with screenshots or other information) how consent was
 requested and provided, and provide a link or other access point to, or otherwise reproduce, the
 exact language to which the individuals consented._
 
+Yes. We were not able to obtain the specific consent request forwarded by the U.S. Census Bureau.
+
 ### If consent was obtained, were the consenting individuals provided with a mechanism to revoke their consent in the future or for certain uses?
 
 _If so, please provide a description, as well as a link or other access point to the mechanism
 (if appropriate)._
 
+Not that we know of, at the ACS PUMS level.
+
 ### Has an analysis of the potential impact of the dataset and its use on data subjects (e.g., a data protection impact analysis) been conducted?
 
 _If so, please provide a description of this analysis, including the outcomes, as well as a link
 or other access point to any supporting documentation._
+
+Yes. We refer to the ACS PUMS documentation for an analysis of the privacy measures in place.
 
 ### Any other comments?
 
@@ -241,14 +271,17 @@ not suitable for tasks involving word order._
 
 _If so, please provide a description. If not, you may skip the remainder of the questions in
 this section._
+[tag:discretization][/tag]
 
 ### Was the “raw” data saved in addition to the preprocessed/cleaned/labeled data (e.g., to support unanticipated future uses)?
 
 _If so, please provide a link or other access point to the “raw” data._
+No.
 
 ### Is the software used to preprocess/clean/label the instances available?
 
 _If so, please provide a link or other access point._
+Yes, this is the [FairFL-data](https://github.com/xheilmann/FairFL-data) library.
 
 ### Any other comments?
 
@@ -263,11 +296,16 @@ potential risks or harms._
 
 _If so, please provide a description._
 
+This dataset is intended for the purpose of training and testing bias mitigation techniques in a federated learning scenario.
+
 ### Is there a repository that links to any or all papers or systems that use the dataset?
 
 _If so, please provide a link or other access point._
+No.
 
 ### What (other) tasks could the dataset be used for?
+
+The dataset could be reasonably employed to test out other techniques in multi-party training such as ones secure multi-party computation.
 
 ### Is there anything about the composition of the dataset or the way it was collected and preprocessed/cleaned/labeled that might impact future uses?
 
@@ -277,9 +315,13 @@ service issues) or other undesirable harms (e.g., financial harms, legal risks) 
 provide a description. Is there anything a future user could do to mitigate these undesirable
 harms?_
 
+[tag:sensitivewarning]Are there remaining sensitive attributes in the features?[/tag]
+
 ### Are there tasks for which the dataset should not be used?
 
 _If so, please provide a description._
+This dataset should not be employed to discuss U.S. demographic trends, as it relies on several manipulations and subsamplings of the ACS data.
+We discourage any other use than research and development of machine learning techniques and bias mitigation techniques.
 
 ### Any other comments?
 
@@ -288,29 +330,35 @@ _If so, please provide a description._
 ### Will the dataset be distributed to third parties outside of the entity (e.g., company, institution, organization) on behalf of which the dataset was created? 
 
 _If so, please provide a description._
+[tag:whodistribution]How will the dataset be distributed?[/tag]
 
 ### How will the dataset will be distributed (e.g., tarball on website, API, GitHub)?
 
 _Does the dataset have a digital object identifier (DOI)?_
+[tag:howdistribution]And how?[/tag]
 
 ### When will the dataset be distributed?
+[tag:whendistributed]And when?[/tag]
 
 ### Will the dataset be distributed under a copyright or other intellectual property (IP) license, and/or under applicable terms of use (ToU)?
 
 _If so, please describe this license and/or ToU, and provide a link or other access point to,
 or otherwise reproduce, any relevant licensing terms or ToU, as well as any fees associated
 with these restrictions._
+No.
 
 ### Have any third parties imposed IP-based or other restrictions on the data associated with the instances?
 
 _If so, please describe these restrictions, and provide a link or other access point to, or
 otherwise reproduce, any relevant licensing terms, as well as any fees associated with these
 restrictions._
+No.
 
 ### Do any export controls or other regulatory restrictions apply to the dataset or to individual instances?
 
 _If so, please describe these restrictions, and provide a link or other access point to, or otherwise
 reproduce, any supporting documentation._
+No.
 
 ### Any other comments?
 
@@ -320,12 +368,14 @@ _These questions are intended to encourage dataset creators to plan for dataset 
 and communicate this plan with dataset consumers._
 
 ### Who is supporting/hosting/maintaining the dataset?
+This dataset is maintained and hosted by its authors: [tag:who][/tag]
 
 ### How can the owner/curator/manager of the dataset be contacted (e.g., email address)?
 
 ### Is there an erratum?
 
 _If so, please provide a link or other access point._
+No.
 
 ### Will the dataset be updated (e.g., to correct labeling errors, add new instances, delete instances)?
 
@@ -334,6 +384,7 @@ _If so, please describe how often, by whom, and how updates will be communicated
 ### If the dataset relates to people, are there applicable limits on the retention of the data associated with the instances (e.g., were individuals in question told that their data would be retained for a fixed period of time and then deleted)?
 
 _If so, please describe these limits and explain how they will be enforced._
+No.
 
 ### Will older versions of the dataset continue to be supported/hosted/maintained?
 
@@ -344,5 +395,6 @@ _If so, please describe how. If not, please describe how its obsolescence will b
 _If so, please provide a description. Will these contributions be validated/verified? If so,
 please describe how. If not, why not? Is there a process for communicating/distributing these
 contributions to other users? If so, please provide a description._
+FairFL-data, the library employed to create this dataset, is hosted on [Github](https://github.com/xheilmann/fairFL-data).
 
 ### Any other comments?

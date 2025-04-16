@@ -16,6 +16,12 @@ uv sync
 uv venv
 ```
 
+How to run the code:
+
+```bash
+uv run python main.py
+```
+
 ## Run Formatting 
 
 ```bash

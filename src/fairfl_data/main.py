@@ -36,11 +36,11 @@ modification_dict = {
 #fig.show()
 
 for name in ["ACSIncome"]:
-    for tt_split in ["cross-silo"]:
+    for tt_split in [None]:
         for fairness in ["DP" ]:
             for in_fairness in [ "attribute", "value"]:
                 ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK", "TX"],
-                                            partitioners={"CT":1, "AK":1, "TX":1}, fl_setting=tt_split,
+                                            partitioners={"CT":1, "AK":1 }, fl_setting=tt_split,
                                             fairness_metric=fairness, fairness_level=in_fairness, modification_dict=modification_dict, model =LogisticRegression(max_iter=1000))
 
 
@@ -71,4 +71,3 @@ for name in ["ACSIncome"]:
                     test = ffds.load_split("test")
                     print(test)
 
-#todo test the evaluate function with model

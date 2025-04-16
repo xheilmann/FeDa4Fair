@@ -1,5 +1,4 @@
-# Copyright 2025 Xenia Heilmann. All Rights Reserved.
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -88,7 +87,7 @@ class FairFederatedDataset (FederatedDataset):
         List of states to include in the dataset. If `None`, all available states are included.
 
     year : Optional[str], default="2018"
-        The ACS year to load (e.g., "2018").
+        The ACS year to load ("2014" until "2018" are directly supported).
 
     horizon : Optional[str], default="1-Year"
         Horizon of the ACS sample ("1-Year" or "5-Year").
@@ -162,9 +161,9 @@ class FairFederatedDataset (FederatedDataset):
         mapping: Optional[dict[str, dict[int, int]]] = None,
         **load_dataset_kwargs: Any,
     ) -> None:
+        partitioners= self._initialize_states(states, partitioners)
         super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
         self._check_dataset()
-        self._initialize_states(states)
         self._year = year
         self._horizon = horizon
         self._sensitive_attributes = sensitive_attributes
@@ -262,8 +261,9 @@ class FairFederatedDataset (FederatedDataset):
             if self._mapping is not None:
                 for key, value in self._mapping:
                     state_data[key] = state_data.replace(value)
-            if state in self._modification_dict.keys() :
-                state_data= self._modify_data(state_data, state)
+            if self._modification_dict  is not None:
+                if state in self._modification_dict.keys():
+                    state_data= self._modify_data(state_data, state)
             self._dataset[state] = Dataset.from_pandas(state_data)
         if not isinstance(self._dataset, DatasetDict):
             raise ValueError(
@@ -272,7 +272,7 @@ class FairFederatedDataset (FederatedDataset):
                 "Make sure to use parameter such that the return type is DatasetDict. "
                 f"The return type is currently: {type(self._dataset)}."
             )
-        print(self._partitioners)
+
         if self._shuffle:
             # Note it shuffles all the splits. The self._dataset is DatasetDict
             # so e.g. {"train": train_data, "test": test_data}. All splits get shuffled.
@@ -283,7 +283,7 @@ class FairFederatedDataset (FederatedDataset):
             self._split_into_train_val_test()
         self._dataset_prepared = True
         available_splits = list(self._dataset.keys())
-        print(available_splits)
+
         self._event["load_split"] = {split: False for split in available_splits}
         self.evaluate(self._path)
         if self._sensitive_attributes is not None:
@@ -291,7 +291,7 @@ class FairFederatedDataset (FederatedDataset):
         if self._path is not None:
             self.save_dataset(self._path)
 
-        print(self._dataset)
+
 
 
 
@@ -304,9 +304,9 @@ class FairFederatedDataset (FederatedDataset):
                 f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
             )
 
-    def _initialize_states(self, states):
+    def _initialize_states(self, states, partitioners):
         """
-        Initializes the US states to all states if not specified.
+        Initializes the US states to all states if not specified and adds the partitioners for this.
         """
         if states is None:
             self._states = [
@@ -365,6 +365,12 @@ class FairFederatedDataset (FederatedDataset):
 
         else:
             self._states = states
+
+        if partitioners is None:
+            partitioners = {key:1 for key in self._states}
+
+        return partitioners
+
 
     def _modify_data(self, data, state):
         """

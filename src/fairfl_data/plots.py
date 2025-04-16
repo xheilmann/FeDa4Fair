@@ -1,5 +1,4 @@
-# Copyright 2024 Flower Labs GmbH. All Rights Reserved.
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,7 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Comparison of label_name distribution plotting."""
+
+"""This file implements functions for plotting fairness metrics and label distribution.
+The functions are build in a similar way as https://flower.ai/docs/datasets/ref-api/flwr_datasets.visualization.plot_comparison_label_distribution.html"""
+
+
 
 
 from typing import Any, Literal, Optional, Union
@@ -33,8 +36,7 @@ from flwr_datasets.visualization.constants import PLOT_TYPES
 from flwr_datasets.visualization.label_distribution import plot_label_distributions
 
 
-# pylint: disable=too-many-arguments,too-many-locals
-# mypy: disable-error-code="call-overload"
+
 def plot_comparison_label_distribution(
     partitioner_list: list[Partitioner],
     label_name: Union[str, list[str]],

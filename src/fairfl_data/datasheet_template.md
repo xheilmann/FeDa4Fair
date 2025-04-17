@@ -169,7 +169,7 @@ of individuals and/or households. As of April 2025, we do not know of publicly r
 ### Does the dataset contain data that might be considered sensitive in any way (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions or union memberships, or locations; financial or health data; biometric or genetic data; forms of government identification, such as social security numbers; criminal history)?
 
 _If so, please provide a description._
-[tag:sensitivedescriptions][/tag]
+The data contains the following sensitive attributes: "[tag:sensitivedescriptions][/tag]" as encoded in the ACS PUMS, year [tag:year][/tag].
 
 ### Any other comments?
 

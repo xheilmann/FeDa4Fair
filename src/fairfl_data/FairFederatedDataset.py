@@ -53,7 +53,11 @@ from typing import Any, Optional, Union, Literal
 
 
 import pandas as pd
+import json
 from datasets import Dataset, DatasetDict
+import dataclasses
+import datetime
+from pathlib import Path
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.preprocessor import Preprocessor, Divider, Merger
@@ -392,3 +396,30 @@ class FairFederatedDataset(FederatedDataset):
     def delete_sens_columns(self):
         # TODO: add implementation to delete the sensitive columns
         pass
+    
+    def to_json(self, **json_kw) -> str:
+        """
+        Return self as a JSON string.
+
+        * Dataclasses → `asdict`
+        * pathlib.Path → str(path)
+        * datetime/date/time → ISO‑8601
+        * Everything with a `__dict__` → that dict
+        * Fallback → `str(obj)`
+
+        Extra **json_kw are forwarded to `json.dumps`
+        (e.g. `indent=2`, `sort_keys=True`, …).
+        """
+        def _default(o: Any) -> Any:
+            if dataclasses.is_dataclass(o):
+                return dataclasses.asdict(o)
+            if isinstance(o, (datetime.datetime,
+                              datetime.date,
+                              datetime.time)):
+                return o.isoformat()
+            if isinstance(o, Path):
+                return str(o)
+            if hasattr(o, "__dict__"):
+                return o.__dict__
+            return str(o)          # last‑ditch fallback
+        return json.dumps(self, default=_default, **json_kw)

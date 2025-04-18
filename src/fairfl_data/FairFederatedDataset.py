@@ -14,6 +14,10 @@
 
 """This file implements FairFederatedDataset as subclass of FederatedDataset (https://flower.ai/docs/datasets/ref-api/flwr_datasets.FederatedDataset.html)"""
 
+import dataclasses
+import datetime
+import json
+from pathlib import Path
 import inspect
 import warnings
 from os import PathLike
@@ -28,6 +32,7 @@ from sklearn.linear_model import LogisticRegression
 
 from evaluation import evaluate_fairness
 from utils import drop_data, flip_data
+
 
 
 def _clone_partitioner(obj):
@@ -387,7 +392,35 @@ class FairFederatedDataset (FederatedDataset):
             data = drop_data(data, drop_rate, key, value1,self._label, column2, value2)
             data = flip_data(data, flip_rate, key, value1, self._label, column2, value2)
         return data
+    
+    def to_json(self, **json_kw) -> str:
+        """
+        Returns the dataset as a JSON string.
 
+        * Dataclasses → `asdict`
+        * pathlib.Path → str(path)
+        * datetime/date/time → ISO‑8601
+        * Everything with a `__dict__` → that dict
+        * Fallback → `str(obj)`
+
+        Extra **json_kw are forwarded to `json.dumps`
+        (e.g. `indent=2`, `sort_keys=True`, …).
+        """
+
+        def _default(o: Any) -> Any:
+            if dataclasses.is_dataclass(o):
+                return dataclasses.asdict(o)
+            if isinstance(o, (datetime.datetime,
+                              datetime.date,
+                              datetime.time)):
+                return o.isoformat()
+            if isinstance(o, Path):
+                return str(o)
+            if hasattr(o, "__dict__"):
+                return o.__dict__
+            return str(o)
+
+        return json.dumps(self, default=_default, **json_kw)
 
 
 

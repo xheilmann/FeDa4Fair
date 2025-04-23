@@ -37,7 +37,7 @@ to test client-level federated learning techniques.
 
 ### Who created the dataset (e.g., which team, research group) and on behalf of which entity (e.g., company, institution, organization)?
 
-FairFL-data is created and maintained by Xenia Heilmann (JGU Mainz), Luca Corbucci (University of Pisa) and Mattia Cerrato (JGU Mainz).
+FairFL-data is created and maintained by Xenia Heilmann (JGU Mainz), Luca Corbucci (University of Pisa), Anna Monreale (University of Pisa) and Mattia Cerrato (JGU Mainz).
 [tag:who]to be filled[/tag].
 
 ### Who funded the creation of the dataset? 
@@ -46,7 +46,7 @@ _If there is an associated grant, please provide the name of the grantor and the
 name and number._
 For FairFL-data: XH and MC were funded by the “TOPML: Trading Off Non-Functional Properties of Machine Learning” project funded by the
 Carl-Zeiss-Stiftung in the Förderprogramm “Durchbrüche”, identifying code P2021-02-014.
-LC was funded by ....
+LC was funded by The European Union Horizon 2020 program under grant agreement No. 101120763 (TANGO).
 For the specific present dataset: [tag:funding]to be filled[/tag]
 
 ### Any other comments?

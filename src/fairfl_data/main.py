@@ -36,10 +36,10 @@ modification_dict = {
 #fig.show()
 
 for name in ["ACSIncome"]:
-    for tt_split in [None]:
+    for tt_split in ["cross-silo"]:
         for fairness in ["DP" ]:
             for in_fairness in [ "attribute", "value"]:
-                ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK", "TX"],
+                ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK"],
                                             partitioners={"CT":1, "AK":1 }, fl_setting=tt_split,
                                             fairness_metric=fairness, fairness_level=in_fairness, modification_dict=modification_dict, model =LogisticRegression(max_iter=1000))
 
@@ -64,7 +64,7 @@ for name in ["ACSIncome"]:
                     print(df)
                     break
                 if tt_split == "cross-silo" or train_test_split == "cross-device":
-                    split = ffds.load_split("CT_train")
+                    split = ffds.load_partition(split="CT_train", partition_id=0)
                     print(split)
                 #partition = ffds.load_partition(0, "CT_val")
                 if train_test_split == "cross-device":

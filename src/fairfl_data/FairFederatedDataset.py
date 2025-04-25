@@ -231,6 +231,9 @@ class FairFederatedDataset (FederatedDataset):
             self._partitioners = partitioners_dict
         elif self._fl_setting != "cross-device":
             raise ValueError("This train-val-test split strategy is not supported.")
+        self._event = {
+            "load_partition": {split: False for split in self._partitioners},
+        }
 
 
     def _prepare_dataset(self) -> None:

@@ -267,8 +267,8 @@ class FairFederatedDataset (FederatedDataset):
                 self._label = "PINCP"
             state_data=pd.concat([features, label], axis=1)
             if self._mapping is not None:
-                for key, value in self._mapping:
-                    state_data[key] = state_data.replace(value)
+                for key, value in self._mapping.items():
+                    state_data[key] = state_data[key].replace(value)
             if self._modification_dict  is not None:
                 if state in self._modification_dict.keys():
                     state_data= self._modify_data(state_data, state)

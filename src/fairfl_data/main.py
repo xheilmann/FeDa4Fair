@@ -8,7 +8,7 @@ from evaluation import evaluate_models_on_datasets, local_client_fairness_plot
 from sklearn.model_selection import train_test_split
 
 #example mapping parameter:
-#mapping: {"MAR": {2:1, 3:1, 4:1, 5:1}, "RAC1P": {8:6, 7:6, 9:6}}
+mapping= {"MAR": {1:0, 2:1, 3:1, 4:1, 5:1}, "RAC1P": {8:2, 7:2, 9:2, 6:2, 5:2, 4:2, 3:2}}
 
 #example for modification dict (this is always after the mapping!
 modification_dict = {
@@ -40,7 +40,7 @@ for name in ["ACSIncome"]:
         for fairness in ["DP" ]:
             for in_fairness in [ "attribute", "value"]:
                 ffds = FairFederatedDataset(dataset="ACSIncome", states=["CT", "AK"],
-                                            partitioners={"CT":1, "AK":1 }, fl_setting=tt_split,
+                                            partitioners={"CT":1, "AK":1 }, fl_setting=tt_split, mapping = mapping,
                                             fairness_metric=fairness, fairness_level=in_fairness, modification_dict=modification_dict, model =LogisticRegression(max_iter=1000))
 
 

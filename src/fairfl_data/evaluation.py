@@ -36,7 +36,7 @@ import seaborn as sns
 
 def evaluate_fairness(
     partitioner_dict: dict[str, Partitioner],
-    max_num_partitions: Optional[int] = 30,
+    max_num_partitions: Optional[int] = 10,
     sens_columns: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
     intersectional_fairness: list[str] = None,
     size_unit: Literal["percent", "absolute"] = "absolute",
@@ -49,7 +49,7 @@ def evaluate_fairness(
     cmap: Optional[Union[str, mcolors.Colormap]] = None,
     legend: bool = False,
     legend_title: Optional[str] = None,
-    verbose_labels: bool = True,
+    verbose_labels: bool = False,
     plot_kwargs_list: Optional[list[Optional[dict[str, Any]]]] = None,
     legend_kwargs: Optional[dict[str, Any]] = None,
     model: Optional = None,
@@ -168,8 +168,8 @@ def evaluate_fairness(
                                                                    model=model, label_name=label_name, intersectional_fairness = intersectional_fairness)
         fig.show()
         df_fairness = merge_dataframes_with_names(df_list,names)
-        df_fairness.to_csv(os.path.join(path, f"{label_name}_{fairness_metric}_df.csv"))
-        fig.savefig(os.path.join(path, f"{label_name}_{fairness_metric}_fig.pdf"), dpi=1200)
+        df_fairness.to_csv(os.path.join(path, f"{sens_att}_{fairness_metric}_df.csv"))
+        fig.savefig(os.path.join(path, f"{sens_att}_{fairness_metric}_fig.pdf"), dpi=1200)
 
         with open(f"{path}/fig_ax_{fairness_metric}.pkl", 'wb') as f:
             pickle.dump({'fig': fig, 'ax': axes}, f)
@@ -252,9 +252,9 @@ def local_client_fairness_plot(df1: pd.DataFrame, df2: pd.DataFrame,
 
 # Dictionary of models to evaluate
 MODELS = {
-    'LogisticRegression': LogisticRegression(max_iter=1000),
-    'SVM': SVC(),
-    'MLP': MLPClassifier(max_iter=1000),
+    'LogisticRegression': LogisticRegression(max_iter=5000),
+    #'SVM': SVC(),
+    #'MLP': MLPClassifier(max_iter=1000),
     'XGBoost': XGBClassifier( eval_metric='logloss')
 }
 

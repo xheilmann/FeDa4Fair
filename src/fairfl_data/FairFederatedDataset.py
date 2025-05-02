@@ -1,4 +1,3 @@
-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -16,23 +15,23 @@
 
 import dataclasses
 import datetime
-import json
-from pathlib import Path
 import inspect
+import json
 import warnings
 from os import PathLike
-from typing import Any, Optional, Union, Literal
+from pathlib import Path
+from typing import Any, Literal, Optional, Union
+
 import pandas as pd
 from datasets import Dataset, DatasetDict
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.preprocessor import Preprocessor, Divider
+from flwr_datasets.preprocessor import Divider, Preprocessor
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 from sklearn.linear_model import LogisticRegression
 
-from evaluation import evaluate_fairness
-from utils import drop_data, flip_data
-
+from fairfl_data.evaluation import evaluate_fairness
+from fairfl_data.utils import drop_data, flip_data
 
 
 def _clone_partitioner(obj):
@@ -50,7 +49,7 @@ def _clone_partitioner(obj):
     return cls(**init_args)
 
 
-class FairFederatedDataset (FederatedDataset):
+class FairFederatedDataset(FederatedDataset):
     """
     Subclass from flower FederatedDateset.
     Representation of a dataset designed for federated learning, fairness evaluation, and analytics.
@@ -144,6 +143,7 @@ class FairFederatedDataset (FederatedDataset):
     None
         Initializes and configures a federated dataset with fairness-aware capabilities.
     """
+
     def __init__(
         self,
         *,
@@ -153,21 +153,29 @@ class FairFederatedDataset (FederatedDataset):
         partitioners: dict[str, Union[Partitioner, int]],
         shuffle: bool = True,
         seed: Optional[int] = 42,
-        states: Optional[list[str]] =  None,
-        year: Optional[str] ='2018',
-        horizon: Optional[str]= '1-Year',
-        sensitive_attributes: Optional[list[str]]=None,
+        states: Optional[list[str]] = None,
+        year: Optional[str] = "2018",
+        horizon: Optional[str] = "1-Year",
+        sensitive_attributes: Optional[list[str]] = None,
         fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
-        fairness_metric:  Literal["DP", "EO"] = "DP",
-        fl_setting: Literal["cross-silo", "cross-device", None]= None,
+        fairness_metric: Literal["DP", "EO"] = "DP",
+        fl_setting: Literal["cross-silo", "cross-device", None] = None,
         perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
         path: Optional[PathLike] = None,
         modification_dict: Optional[dict[int, dict[str, ...]]] = None,
         mapping: Optional[dict[str, dict[int, int]]] = None,
         **load_dataset_kwargs: Any,
     ) -> None:
-        partitioners= self._initialize_states(states, partitioners)
-        super().__init__(dataset=dataset, subset=subset, preprocessor=preprocessor, partitioners=partitioners, shuffle=shuffle, seed=seed, **load_dataset_kwargs)
+        partitioners = self._initialize_states(states, partitioners)
+        super().__init__(
+            dataset=dataset,
+            subset=subset,
+            preprocessor=preprocessor,
+            partitioners=partitioners,
+            shuffle=shuffle,
+            seed=seed,
+            **load_dataset_kwargs,
+        )
         self._check_dataset()
         self._year = year
         self._horizon = horizon
@@ -180,7 +188,6 @@ class FairFederatedDataset (FederatedDataset):
         self._modification_dict = modification_dict
         self._mapping = mapping
 
-
     def save_dataset(self, dataset_path: PathLike) -> None:
         """
         Save the dataset to disk as csv files with names by state and partition index.
@@ -189,54 +196,59 @@ class FairFederatedDataset (FederatedDataset):
             self._prepare_dataset()
         if self._sensitive_attributes is not None:
             warnings.warn(
-                "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
+                "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training."
+            )
         for key, value in self._partitioners.items():
             partitioner = value
             num_partitions = partitioner.num_partitions
             for i in range(num_partitions):
                 partition = partitioner.load_partition(partition_id=i)
-                partition.to_csv(path_or_buf= f"{dataset_path}/{key}_{i}.csv")
+                partition.to_csv(path_or_buf=f"{dataset_path}/{key}_{i}.csv")
 
-
-    def evaluate(self, file ):
+    def evaluate(self, file):
         """
         Can be called at all times and runs once during _prepare_dataset. Then all partitions will be evaluated in terms of sensitive attribute value counts and the given fairness metric.
         """
         if not self._dataset_prepared:
             self._prepare_dataset()
         titles = list(self._dataset.keys())
-        evaluate_fairness(partitioner_dict=self.partitioners,
-                          max_num_partitions=None,
-                          fairness_metric=self._fairness_metric,
-                          fairness_level=self._fairness_level,
-                          titles=titles,
-                          legend=True,
-                          label_name=self._label,
-                          intersectional_fairness = self._sensitive_attributes,
-                        )
+        evaluate_fairness(
+            partitioner_dict=self.partitioners,
+            max_num_partitions=None,
+            fairness_metric=self._fairness_metric,
+            fairness_level=self._fairness_level,
+            titles=titles,
+            legend=True,
+            label_name=self._label,
+            intersectional_fairness=self._sensitive_attributes,
+        )
 
-
-
-    def _split_into_train_val_test(self ):
+    def _split_into_train_val_test(self):
         """
         If cross-silo setting is chosen, splits the dataset into train, test and validation sets.
         """
-        divider_dict= {}
-        partitioners_dict= {}
+        divider_dict = {}
+        partitioners_dict = {}
         for entry in self._dataset.keys():
-            divider_dict[entry] = {f"{entry}_train": self._perc_train_test_split[0], f"{entry}_val": self._perc_train_test_split[1], f"{entry}_test": self._perc_train_test_split[2]}
+            divider_dict[entry] = {
+                f"{entry}_train": self._perc_train_test_split[0],
+                f"{entry}_val": self._perc_train_test_split[1],
+                f"{entry}_test": self._perc_train_test_split[2],
+            }
 
         divider = Divider(divide_config=divider_dict)
         if self._fl_setting == "cross-silo":
+            print("Splitting into train, val and test sets.")
             for entry in self._dataset.keys():
+                print(f"Splitting {entry} into train, val and test sets.")
                 partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
                 partitioners_dict[f"{entry}_val"] = _clone_partitioner(self._partitioners[entry])
                 partitioners_dict[f"{entry}_test"] = _clone_partitioner(self._partitioners[entry])
             self._dataset = divider(self._dataset)
             self._partitioners = partitioners_dict
+            print("Splitting done: ", partitioners_dict)
         elif self._fl_setting != "cross-device":
             raise ValueError("This train-val-test split strategy is not supported.")
-
 
     def _prepare_dataset(self) -> None:
         """
@@ -251,7 +263,7 @@ class FairFederatedDataset (FederatedDataset):
         It is controlled by a single flag, `_dataset_prepared` that is set True at the
         end of the function.
         """
-        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey='person', use_archive=True)
+        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey="person", use_archive=True)
         self._dataset = DatasetDict()
         self._check_partitioners_correctness()
         for state in self._states:
@@ -262,13 +274,13 @@ class FairFederatedDataset (FederatedDataset):
             else:
                 features, label, group = ACSIncome.df_to_pandas(acs_data)
                 self._label = "PINCP"
-            state_data=pd.concat([features, label], axis=1)
+            state_data = pd.concat([features, label], axis=1)
             if self._mapping is not None:
                 for key, value in self._mapping:
                     state_data[key] = state_data.replace(value)
-            if self._modification_dict  is not None:
+            if self._modification_dict is not None:
                 if state in self._modification_dict.keys():
-                    state_data= self._modify_data(state_data, state)
+                    state_data = self._modify_data(state_data, state)
             self._dataset[state] = Dataset.from_pandas(state_data)
         if not isinstance(self._dataset, DatasetDict):
             raise ValueError(
@@ -292,22 +304,18 @@ class FairFederatedDataset (FederatedDataset):
         self._event["load_split"] = {split: False for split in available_splits}
         self.evaluate(self._path)
         if self._sensitive_attributes is not None:
-            warnings.warn("Your current data contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training.")
+            warnings.warn(
+                "Your current data contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training."
+            )
         if self._path is not None:
             self.save_dataset(self._path)
-
-
-
-
 
     def _check_dataset(self):
         """
         Checks if the dataset is supported.
         """
         if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
-            raise ValueError(
-                f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment."
-            )
+            raise ValueError(f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment.")
 
     def _initialize_states(self, states, partitioners):
         """
@@ -315,67 +323,66 @@ class FairFederatedDataset (FederatedDataset):
         """
         if states is None:
             self._states = [
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "PR",
-]
+                "AL",
+                "AK",
+                "AZ",
+                "AR",
+                "CA",
+                "CO",
+                "CT",
+                "DE",
+                "FL",
+                "GA",
+                "HI",
+                "ID",
+                "IL",
+                "IN",
+                "IA",
+                "KS",
+                "KY",
+                "LA",
+                "ME",
+                "MD",
+                "MA",
+                "MI",
+                "MN",
+                "MS",
+                "MO",
+                "MT",
+                "NE",
+                "NV",
+                "NH",
+                "NJ",
+                "NM",
+                "NY",
+                "NC",
+                "ND",
+                "OH",
+                "OK",
+                "OR",
+                "PA",
+                "RI",
+                "SC",
+                "SD",
+                "TN",
+                "TX",
+                "UT",
+                "VT",
+                "VA",
+                "WA",
+                "WV",
+                "WI",
+                "WY",
+                "PR",
+            ]
 
         else:
             self._states = states
 
         if partitioners is None:
-            partitioners = {key:1 for key in self._states}
+            partitioners = {key: 1 for key in self._states}
 
         return partitioners
-
 
     def _modify_data(self, data, state):
         """
@@ -387,12 +394,12 @@ class FairFederatedDataset (FederatedDataset):
             drop_rate = value["drop_rate"]
             flip_rate = value["flip_rate"]
             value1 = value["value"]
-            column2=value["attribute"]
+            column2 = value["attribute"]
             value2 = value["attribute_value"]
-            data = drop_data(data, drop_rate, key, value1,self._label, column2, value2)
+            data = drop_data(data, drop_rate, key, value1, self._label, column2, value2)
             data = flip_data(data, flip_rate, key, value1, self._label, column2, value2)
         return data
-    
+
     def to_json(self, **json_kw) -> str:
         """
         Returns the dataset as a JSON string.
@@ -410,9 +417,7 @@ class FairFederatedDataset (FederatedDataset):
         def _default(o: Any) -> Any:
             if dataclasses.is_dataclass(o):
                 return dataclasses.asdict(o)
-            if isinstance(o, (datetime.datetime,
-                              datetime.date,
-                              datetime.time)):
+            if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
                 return o.isoformat()
             if isinstance(o, Path):
                 return str(o)
@@ -421,7 +426,3 @@ class FairFederatedDataset (FederatedDataset):
             return str(o)
 
         return json.dumps(self, default=_default, **json_kw)
-
-
-
-

@@ -8,6 +8,9 @@ __pycache__/
 *.pkl
 # C extensions
 *.so
+*.npy
+*.pt
+*.json
 
 # Distribution / packaging
 .Python

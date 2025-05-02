@@ -259,7 +259,7 @@ MODELS = {
 }
 
 
-def evaluate_model(model_name, model, X_train, y_train, X_test, y_test, fairness_metric, sf_data):
+def evaluate_model(model_name, model, X_train, y_train, X_test, y_test, fairness_metric, sf_data, fairness_level):
     """
     Trains and evaluates a classification model on accuracy and fairness metrics.
 
@@ -292,6 +292,12 @@ def evaluate_model(model_name, model, X_train, y_train, X_test, y_test, fairness
         Dictionary that includes sensitive feature columns (e.g., "SEX", "RACE") as key and attribute values corresponding to the entries in X_test as numpy array as values.
         This is used to compute the fairness metrics.
 
+    fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
+        The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+
+
     Returns:
     -------
     dict
@@ -306,11 +312,17 @@ def evaluate_model(model_name, model, X_train, y_train, X_test, y_test, fairness
     dict = {'model': model_name,
         'accuracy': acc }
     for key, value in sf_data.items():
-        dict[f"{fairness_metric}_{key}"] = _compute_fairness(y_test, preds, value, fairness_metric,key, "attribute").values[0]
+        if fairness_level == "value":
+            dict[f"value_{fairness_metric}_{key}"] = _compute_fairness(y_test, preds, value, fairness_metric, key,
+                                                                 fairness_level).values[1]
+
+        dict[f"{fairness_metric}_{key}"] = _compute_fairness(y_test, preds, value, fairness_metric,key, fairness_level).values[0]
+
+
     return dict
 
 
-def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP"):
+def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP", fairness_level = "attribute"):
     """
     Evaluates multiple models on multiple datasets in parallel in terms of accuracy and fairness metrics.
 
@@ -325,6 +337,12 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP"):
     fairness_metric: str, default "DP"
         string of metric to use for fairness, possible to choose from Demographic Parity ("DP") and Equalized Odds ("EO")
 
+    fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
+        The level at which fairness is evaluated:
+        - "attribute": only worst fairness metric is returned,
+        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+
+
     Returns:
     - Pandas DataFrame of results, figure for each dataset in parallel.
     """
@@ -335,7 +353,7 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP"):
     for dataset_name, X_train, y_train, X_test, y_test, sf_data in datasets:
         for model_name, model in MODELS.items():
             tasks.append(delayed(evaluate_model)(
-                model_name, model, X_train, y_train, X_test, y_test, fairness_metric=fairness_metric,sf_data=sf_data,
+                model_name, model, X_train, y_train, X_test, y_test, fairness_metric=fairness_metric,sf_data=sf_data, fairness_level = fairness_level,
             ))
 
     results = Parallel(n_jobs=n_jobs)(tasks)

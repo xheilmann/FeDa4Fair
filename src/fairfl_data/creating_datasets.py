@@ -23,7 +23,7 @@ def split_df(df, split_number):
     return a
 
 def create_cross_silo_data( fairness_level, path):
-
+    '''
     ffds = FairFederatedDataset(dataset="ACSIncome",  fl_setting=None, partitioners=None,
                                 fairness_metric="DP", fairness_level=fairness_level,
                                 mapping=mapping, path=f"{path}data/cross_silo_{fairness_level}_final")
@@ -34,7 +34,7 @@ def create_cross_silo_data( fairness_level, path):
     df, fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
     df.to_csv( f"{path}data_stats/crosssilo_{fairness_level}_0.0.csv", index=False)
     print(df)
-
+    '''
     all_modifications = []
     for dr in [ 0.1, 0.2, 0.3, 0.4,0.5, 0.6, 0.7, 0.8, 0.9]:
         partitioners = {}
@@ -102,6 +102,7 @@ def create_cross_silo_data( fairness_level, path):
                     all_modifications.append([entry, dr, "SEX", 2])
         else:
             count = [0,0,0,0,0]
+            states_unfairness_distribution = {1:[], 2:[], 3:[], 4:[], 5:[]}
             for entry in df["dataset"].unique():
                 df_entry = df[df["dataset"] == entry]
                 df_entry = df_entry[df_entry["model"].isin(["XGBoost", "LogisticRegression"])]
@@ -111,6 +112,7 @@ def create_cross_silo_data( fairness_level, path):
                     min = np.min(df_entry["DP_RACE"].values)
                     print(entry,value1, min)
                     count[int(value1)-1] += 1
+                    states_unfairness_distribution[int(value1)]= states_unfairness_distribution[int(value1)]+ [entry]
                     if min < 0.09 :
                         modification_dict[entry] = {
                             "RAC1P":
@@ -142,6 +144,7 @@ def create_cross_silo_data( fairness_level, path):
                     all_modifications.append([entry, dr, "RAC1P", int(df_entry["value_DP_RACE"].values[0][-3:-2])])
 
         print(count)
+        print(states_unfairness_distribution)
 
         if len(states) <= 1:
             break
@@ -269,7 +272,7 @@ def preprocess_datasets(file, data1, path, split_number = 6,  fairness_level = "
     return datasets
 
 
-create_cross_silo_data("attribute", path = "/home/heilmann/Dokumente/fairFL-data/src/fairfl_data/")
+create_cross_silo_data("value", path = "/home/heilmann/Dokumente/fairFL-data/src/fairfl_data/")
 
 
 

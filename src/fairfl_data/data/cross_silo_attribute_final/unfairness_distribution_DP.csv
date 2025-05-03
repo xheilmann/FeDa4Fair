@@ -1,0 +1,4 @@
+number,attribute,states
+21,SEX,['SD', 'IN', 'WV', 'PA', 'IL', 'MI', 'WA', 'TX', 'MO', 'WY', 'TN', 'OK', 'UT', 'ID', 'ND', 'VA', 'AR', 'KS', 'NH', 'OH', 'LA']
+29,RAC1P,['AL', 'NM', 'IA', 'MA', 'FL', 'AZ', 'NY', 'AK', 'MS', 'NC', 'GA', 'VT', 'SC', 'NJ', 'CT', 'DE', 'RI', 'WI', 'OR', 'NV', 'NE', 'MN', 'CA', 'MT', 'MD', 'CO', 'HI', 'KY', 'ME']
+

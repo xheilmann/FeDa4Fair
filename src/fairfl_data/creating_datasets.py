@@ -11,8 +11,9 @@ from FairFederatedDataset import FairFederatedDataset
 from evaluation import evaluate_models_on_datasets, local_client_fairness_plot
 from sklearn.model_selection import train_test_split
 
-#example mapping parameter:
+#mapping parameter for attribute unfairness
 #mapping =  {"MAR": { 3:2, 4:2, 5:2}, "RAC1P": {8:2, 7:2, 9:2, 6:2, 5:2, 4:2, 3:2}}
+#mapping parameter for value unfairness
 mapping =  {"MAR": { 3:2, 4:2, 5:2}, "RAC1P": {8:5, 7:5, 9:5, 6:3, 5:4, 3:4}}
 
 
@@ -23,7 +24,7 @@ def split_df(df, split_number):
     return a
 
 def create_cross_silo_data( fairness_level, path):
-    '''
+
     ffds = FairFederatedDataset(dataset="ACSIncome",  fl_setting=None, partitioners=None,
                                 fairness_metric="DP", fairness_level=fairness_level,
                                 mapping=mapping, path=f"{path}data/cross_silo_{fairness_level}_final")
@@ -31,10 +32,11 @@ def create_cross_silo_data( fairness_level, path):
     for state in ffds._states:
         data1 = ffds.load_partition(0, state).to_pandas()
         datasets = preprocess_data_cross_silo(data1, datasets, fairness_level, state)
+
     df, fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
     df.to_csv( f"{path}data_stats/crosssilo_{fairness_level}_0.0.csv", index=False)
     print(df)
-    '''
+
     all_modifications = []
     for dr in [ 0.1, 0.2, 0.3, 0.4,0.5, 0.6, 0.7, 0.8, 0.9]:
         partitioners = {}
@@ -166,6 +168,7 @@ def create_cross_silo_data( fairness_level, path):
     all_modifications_df.to_csv(f"{path}data_stats/crosssilo_{fairness_level}_modifications.csv", index=False)
 
 
+
 def preprocess_data_cross_silo(data1, datasets, fairness_level, state):
     target1 = data1["PINCP"]
     data1.drop(inplace=True, columns=["PINCP"])
@@ -271,8 +274,6 @@ def preprocess_datasets(file, data1, path, split_number = 6,  fairness_level = "
         datasets.append((f"{file[:2]}_{i}", X_train1.values, y_train1.values, X_test1.values, y_test1.values, sf_data1))
     return datasets
 
-
-create_cross_silo_data("value", path = "/home/heilmann/Dokumente/fairFL-data/src/fairfl_data/")
 
 
 

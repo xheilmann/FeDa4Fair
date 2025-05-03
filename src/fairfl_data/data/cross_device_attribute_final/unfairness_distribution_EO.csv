@@ -1,0 +1,5 @@
+number,attribute,states
+3,SEX,['NH_4', 'KS_2', 'ND_4']
+39,RAC1P,['NM_1', 'NY_5', 'IA_0', 'AZ_0', 'NM_5', 'WV_5', 'MN_4', 'NH_5', 'MN_3', 'WI_3', 'ID_2', 'AL_2', 'SC_0', 'OR_4', 'ME_1', 'MI_2', 'SD_3', 'MS_5', 'MN_0', 'IA_1', 'OR_3', 'PA_3', 'NV_1', 'RI_2', 'MS_4', 'NY_1', 'CO_3', 'NY_3', 'AZ_5', 'NE_4', 'NH_0', 'OK_3', 'TN_2', 'CO_0', 'HI_0', 'MA_4', 'CT_2', 'NE_3', 'UT_5']
+
+

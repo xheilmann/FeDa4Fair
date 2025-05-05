@@ -36,9 +36,9 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 20
+  - 51
   - --sampled_clients 
-  - 1.0
+  - 0.3
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
@@ -46,9 +46,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../data/FL_data/
+  - ../../../data/cross_silo_attribute_final/FL_data/
   - --dataset_path 
-  - ../../../data/FL_data/
+  - ../../../data/cross_silo_attribute_final/FL_data/
   - --seed 
   - 41 
   - --wandb 

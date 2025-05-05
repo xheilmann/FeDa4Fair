@@ -1,4 +1,4 @@
-PROJECT_NAME="Multi_fairness" # swap out globally
+PROJECT_NAME="Fair_Fed_Dataset" # swap out globally
 
 run_sweep_and_agent () {
   # Set the SWEEP_NAME variable
@@ -18,4 +18,5 @@ run_sweep_and_agent () {
   uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 20
 }
 
-run_sweep_and_agent "baseline"
+# run_sweep_and_agent "baseline_attribute"
+run_sweep_and_agent "baseline_value"

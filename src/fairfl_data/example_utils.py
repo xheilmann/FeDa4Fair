@@ -1,11 +1,18 @@
+import json
+import os
+from collections import OrderedDict
+from typing import List
+
+import numpy as np
+import pandas as pd
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from fairness_computation import _compute_fairness
+from flwr.common import Metrics
 from sklearn.model_selection import train_test_split
-import pandas as pd
-import json
-import os 
-import numpy as np
+from torch.utils.data import Dataset
+
 
 def pre_process_income(df):
     """
@@ -27,7 +34,7 @@ def pre_process_income(df):
         The values in the list are numpy array of the dataframes
     """
 
-    categorical_columns = ["COW", "SCHL"] #, "RAC1P"]
+    categorical_columns = ["COW", "SCHL"]  # , "RAC1P"]
     continuous_columns = ["AGEP", "WKHP", "OCCP", "POBP", "RELP"]
 
     # get the target and sensitive attributes
@@ -58,20 +65,15 @@ def pre_process_single_datasets(df):
     target_attributes = df[">50K"]
     sensitive_attributes = df["SEX"]
     second_sensitive_attributes = df["MAR"]
-    
     third_sensitive_attributes = df["RAC1P"]
     third_sensitive_attributes = third_sensitive_attributes.astype(int)
     target_attributes = target_attributes.astype(int)
 
     sensitive_attributes = [1 if item == 1 else 0 for item in sensitive_attributes]
 
-    second_sensitive_attributes = [
-        1 if item == 1 else 0 for item in second_sensitive_attributes
-    ]
+    second_sensitive_attributes = [1 if item == 1 else 0 for item in second_sensitive_attributes]
 
-    third_sensitive_attributes = [
-        1 if item == 1 else 0 for item in third_sensitive_attributes
-    ]
+    third_sensitive_attributes = [1 if item == 1 else 0 for item in third_sensitive_attributes]
 
     df = df.drop([">50K"], axis=1)
     # df.drop(['RAC1P_1.0', 'RAC1P_2.0'], axis=1, inplace=True)
@@ -94,6 +96,56 @@ def pre_process_single_datasets(df):
     third_groups.append(third_group.to_numpy())
     return dataframes, labels, groups, second_groups, third_groups
 
+
+class TabularDataset(Dataset):
+    def __init__(self, x, z, w, y):
+        """
+        Initialize the custom dataset with x (features), z (sensitive values), and y (targets).
+
+        Args:
+        x (list of tensors): List of input feature tensors.
+        z (list): List of sensitive values.
+        y (list): List of target values.
+        """
+        self.samples = x
+        self.sensitive_features = z
+        self.sensitive_features_2 = w
+        self.targets = y
+        self.indexes = range(len(self.samples))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        """
+        Get a single data point from the dataset.
+
+        Args:
+        idx (int): Index to retrieve the data point.
+
+        Returns:
+        sample (dict): A dictionary containing 'x', 'z', and 'y'.
+        """
+        x_sample = self.samples[idx]
+        z_sample = self.sensitive_features[idx]
+        w_sample = self.sensitive_features_2[idx]
+        y_sample = self.targets[idx]
+
+        return x_sample, z_sample, w_sample, y_sample
+
+    def shuffle(self):
+        """
+        Shuffle the dataset.
+        """
+        self.indexes = list(self.indexes)
+        np.random.shuffle(self.indexes)
+        self.samples = [self.samples[i] for i in self.indexes]
+        self.sensitive_features = [self.sensitive_features[i] for i in self.indexes]
+        self.sensitive_features_2 = [self.sensitive_features_2[i] for i in self.indexes]
+        self.targets = [self.targets[i] for i in self.indexes]
+        self.indexes = range(len(self.samples))
+
+
 def pre_process_dataset_for_FL(states, ids, ffds):
     partitions = []
     partitions_names = []
@@ -107,7 +159,6 @@ def pre_process_dataset_for_FL(states, ids, ffds):
             partitions.append(pd.DataFrame(train))
             partitions.append(pd.DataFrame(test))
 
-
     concatenated_df = pd.concat(partitions, ignore_index=True)
     concatenated_df["PINCP"] = [1 if item == True else 0 for item in concatenated_df["PINCP"]]
 
@@ -116,7 +167,6 @@ def pre_process_dataset_for_FL(states, ids, ffds):
 
     # Apply one-hot encoding
     pre_processed_df = pre_process_income(concatenated_df)
-
 
     split_dfs = []
     start_idx = 0
@@ -145,31 +195,37 @@ def pre_process_dataset_for_FL(states, ids, ffds):
             test_third_groups,
         ) = pre_process_single_datasets(test_state)
 
-        if not os.path.exists(
-            f"{folder}/federated/{index // 2}"
-        ):
+        if not os.path.exists(f"{folder}/federated/{index // 2}"):
             os.makedirs(f"{folder}/federated/{index // 2}")
-            # save partitions_names 
-        json_file = {index:data for index, data in enumerate(partitions_names)}
+            # save partitions_names
+        json_file = {index: data for index, data in enumerate(partitions_names)}
         with open(f"{folder}/federated/partitions_names.json", "w") as f:
             json.dump(json_file, f)
-        np.save(
-            f"{folder}/federated/{index // 2}/income_dataframes_{index // 2}_train.npy",
-            train_data[0],
+
+        # save train
+        custom_dataset = TabularDataset(
+            x=np.hstack((train_data[0], np.ones((train_data[0].shape[0], 1)))).astype(np.float32),
+            z=[item.item() for item in train_groups[0]],  # .astype(np.float32),
+            w=[item.item() for item in train_second_groups[0]],  # .astype(np.float32),
+            y=[item.item() for item in train_labels[0]],  # .astype(np.float32),
         )
-        np.save(
-            f"{folder}/federated/{index // 2}/income_labels_{index // 2}_train.npy",
-            train_labels[0],
+
+        torch.save(
+            custom_dataset,
+            f"{folder}/federated/{index // 2}/train.pt",
         )
-        
-        np.save(
-            f"{folder}/federated/{index // 2}/income_dataframes_{index // 2}_test.npy",
-            test_data[0],
+        # save test
+        custom_dataset = TabularDataset(
+            x=np.hstack((test_data[0], np.ones((test_data[0].shape[0], 1)))).astype(np.float32),
+            z=[item.item() for item in test_groups[0]],  # .astype(np.float32),
+            w=[item.item() for item in test_second_groups[0]],  # .astype(np.float32),
+            y=[item.item() for item in test_labels[0]],  # .astype(np.float32),
         )
-        np.save(
-            f"{folder}/federated/{index // 2}/income_labels_{index // 2}_test.npy",
-            test_labels[0],
+        torch.save(
+            custom_dataset,
+            f"{folder}/federated/{index // 2}/test.pt",
         )
+
 
 class LinearClassificationNet(nn.Module):
     """
@@ -191,7 +247,7 @@ def train(net, trainloader, optimizer, device="cpu"):
     net.to(device)
     net.train()
     for batch in trainloader:
-        images, labels = batch["image"].to(device), batch["label"].to(device)
+        images, _, _, labels = batch
         optimizer.zero_grad()
         loss = criterion(net(images), labels)
         loss.backward()
@@ -204,15 +260,30 @@ def test(net, testloader, device):
     correct, loss = 0, 0.0
     net.to(device)
     net.eval()
+    sex_list = []
+    mar_list = []
     with torch.no_grad():
         for batch in testloader:
-            images, labels = batch["image"].to(device), batch["label"].to(device)
+            images, sex, mar, labels = batch
             outputs = net(images)
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, 1)
             correct += (predicted == labels).sum().item()
+            sex_list.extend(sex)
+            mar_list.extend(mar)
+    # _compute_fairness()
     accuracy = correct / len(testloader.dataset)
     return loss, accuracy
+
+
+# Define metric aggregation function
+def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
+    # Multiply accuracy of each client by number of examples used
+    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    examples = [num_examples for num_examples, _ in metrics]
+
+    # Aggregate and return custom metric (weighted average)
+    return {"accuracy": sum(accuracies) / sum(examples)}
 
 
 # Two auxhiliary functions to set and extract parameters of a model

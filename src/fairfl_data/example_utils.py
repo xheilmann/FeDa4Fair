@@ -1,7 +1,7 @@
 import json
 import os
 from collections import OrderedDict
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -262,6 +262,8 @@ def test(net, testloader, device):
     net.eval()
     sex_list = []
     mar_list = []
+    true_y = []
+    predictions = []
     with torch.no_grad():
         for batch in testloader:
             images, sex, mar, labels = batch
@@ -271,9 +273,54 @@ def test(net, testloader, device):
             correct += (predicted == labels).sum().item()
             sex_list.extend(sex)
             mar_list.extend(mar)
-    # _compute_fairness()
+            true_y.extend(labels)
+            predictions.extend(predicted)
+
+    sf_data = pd.DataFrame(
+        {
+            "SEX": [int(item) for item in sex_list],
+            "MAR": [int(item) for item in mar_list],
+        }
+    )
+
+    unfairness_dict = {}
+
+    unfairness_dict["MAR_DP"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="DP",
+        sens_att=["MAR"],
+        size_unit="value",
+    )
+    unfairness_dict["SEX_DP"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="DP",
+        sens_att=["SEX"],
+        size_unit="value",
+    )
+    unfairness_dict["MAR_EO"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="EO",
+        sens_att=["MAR"],
+        size_unit="value",
+    )
+    unfairness_dict["SEX_EO"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="EO",
+        sens_att=["SEX"],
+        size_unit="value",
+    )
+
     accuracy = correct / len(testloader.dataset)
-    return loss, accuracy
+
+    return loss, accuracy, unfairness_dict
 
 
 # Define metric aggregation function

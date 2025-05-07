@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 
 
 class TabularDataset(Dataset):
-    def __init__(self, x, z, w, y):
+    def __init__(self, x, z, w, t, y):
         """
         Initialize the custom dataset with x (features), z (sensitive values), and y (targets).
 
@@ -15,6 +15,7 @@ class TabularDataset(Dataset):
         self.samples = x
         self.sensitive_features = z
         self.sensitive_features_2 = w
+        self.sensitive_features_3 = t
         self.targets = y
         self.indexes = range(len(self.samples))
 
@@ -34,9 +35,10 @@ class TabularDataset(Dataset):
         x_sample = self.samples[idx]
         z_sample = self.sensitive_features[idx]
         w_sample = self.sensitive_features_2[idx]
+        t_sample = self.sensitive_features_3[idx]
         y_sample = self.targets[idx]
 
-        return x_sample, z_sample, w_sample, y_sample
+        return x_sample, z_sample, w_sample, t_sample, y_sample
 
     def shuffle(self):
         """
@@ -47,5 +49,6 @@ class TabularDataset(Dataset):
         self.samples = [self.samples[i] for i in self.indexes]
         self.sensitive_features = [self.sensitive_features[i] for i in self.indexes]
         self.sensitive_features_2 = [self.sensitive_features_2[i] for i in self.indexes]
+        self.sensitive_features_3 = [self.sensitive_features_3[i] for i in self.indexes]
         self.targets = [self.targets[i] for i in self.indexes]
         self.indexes = range(len(self.samples))

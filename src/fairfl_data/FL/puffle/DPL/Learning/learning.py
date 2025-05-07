@@ -111,9 +111,7 @@ class Learning:
         if model_regularization:
             model_regularization.train()
 
-        is_tunable = (
-            True if train_parameters.regularization_mode == "tunable" else False
-        )
+        is_tunable = True if train_parameters.regularization_mode == "tunable" else False
 
         regularization_term = None
 
@@ -126,9 +124,7 @@ class Learning:
             max_physical_batch_size=MAX_PHYSICAL_BATCH_SIZE,
             optimizer=optimizer,
         ) as memory_safe_data_loader:
-            for batch_number, (data, sens_1, sens_2, target) in enumerate(
-                memory_safe_data_loader, 0
-            ):
+            for batch_number, (data, sens_1, sens_2, sens_3, target) in enumerate(memory_safe_data_loader, 0):
                 if train_parameters.sensitive_attribute == "SEX":
                     sensitive_feature = sens_1
                 elif train_parameters.sensitive_attribute == "MAR":
@@ -151,9 +147,7 @@ class Learning:
                 sensitive_feature = sensitive_feature.to(train_parameters.device)
 
                 if train_parameters.regularization and not model_regularization:
-                    raise ValueError(
-                        "model_regularization can't be None if DPL and private are True"
-                    )
+                    raise ValueError("model_regularization can't be None if DPL and private are True")
 
                 # If DPL is True, we need to compute the regularization term
                 # and add it to the loss. The computation of the regularization
@@ -181,9 +175,7 @@ class Learning:
                         # We do the multiplication with the lambda because we want to
                         # give a certain weight lambda to the unfairness
                         # regularization term and a weight (1 - lambda) to the classic loss
-                        regularization_term = (
-                            train_parameters.regularization_lambda * fairness_violation
-                        )
+                        regularization_term = train_parameters.regularization_lambda * fairness_violation
 
                         try:
                             regularization_term.backward()
@@ -241,9 +233,7 @@ class Learning:
                 # We store the computed losses for logging purposes
                 losses.append(loss.item())
                 if regularization_term is not None:
-                    losses_with_regularization.append(
-                        (regularization_term + loss).item()
-                    )
+                    losses_with_regularization.append((regularization_term + loss).item())
 
                 # And we do the backward pass to compute the per sample gradients
                 # (when we use DP)
@@ -252,9 +242,7 @@ class Learning:
                 # two models so that we can update the model considering both
                 # the classic loss and the regularization term
                 if regularization_term and train_parameters.regularization_lambda > 0:
-                    for p1, p2 in zip(
-                        model.parameters(), model_regularization.parameters()
-                    ):
+                    for p1, p2 in zip(model.parameters(), model_regularization.parameters()):
                         if p1.grad_sample is not None and p2.grad_sample is not None:
                             p1.grad_sample += p2.grad_sample
 
@@ -285,11 +273,7 @@ class Learning:
                 alpha = train_parameters.alpha
                 # When we have a target and we are in a tunable scenario then we have to
                 # update the lamdba.
-                if (
-                    fairness_violation is not None
-                    and train_parameters.target
-                    and is_tunable
-                ):
+                if fairness_violation is not None and train_parameters.target and is_tunable:
                     model.eval()
                     output_regularization = model(data)
                     fairness_violation = None
@@ -314,9 +298,7 @@ class Learning:
                     if sigma_update_lambda:
                         # We call our get_noise function method to get the noise
                         # that we need to add to the fairness_violation
-                        noise = Utils.get_noise(
-                            mechanism_type="gaussian", sigma=sigma_update_lambda
-                        )
+                        noise = Utils.get_noise(mechanism_type="gaussian", sigma=sigma_update_lambda)
                     else:
                         noise = 0
 
@@ -334,9 +316,7 @@ class Learning:
                     velocity = train_parameters.momentum * velocity + delta
                     # The alpha is an hyperparameter and it tells us how much we want to
                     # be fast when updating the lambda
-                    new_lambda = (
-                        train_parameters.regularization_lambda - alpha * velocity
-                    )
+                    new_lambda = train_parameters.regularization_lambda - alpha * velocity
 
                     # We need to clip the lambda so that it is in the range (0,1).
                     # This does not affect the DP because of post-processing
@@ -415,7 +395,7 @@ class Learning:
         colors = []
 
         with torch.no_grad():
-            for data, color, _, target in test_loader:
+            for data, color, _, _, target in test_loader:
                 target = target.long()
                 data, target = (
                     data.to(train_parameters.device),
@@ -508,7 +488,100 @@ class Learning:
         colors = []
 
         with torch.no_grad():
-            for data, _, color, target in test_loader:
+            for data, _, color, _, target in test_loader:
+                target = target.long()
+                data, target = (
+                    data.to(train_parameters.device),
+                    target.to(train_parameters.device),
+                )
+                output = model(data)
+                total += target.size(0)
+                test_loss = criterion(output, target)
+                losses.append(test_loss)
+                pred = output.argmax(dim=1, keepdim=True)
+                correct += pred.eq(target.view_as(pred)).sum().item()
+                y_pred.extend(pred)
+                y_true.extend(target)
+                predictions.extend(pred)
+                colors += [item.item() for item in color]
+
+        predictions = [value.item() for item in predictions for value in item]
+
+        counter_predictions = defaultdict(list)
+        counter_true_predictions = defaultdict(list)
+
+        for prediction, color, true_value in zip(predictions, colors, y_true):
+            counter_predictions[color].append(prediction)
+            counter_true_predictions[color].append(true_value.item())
+
+        if train_parameters.metric == "disparity":
+            criterion_regularization = RegularizationLoss()
+            # We compute the violation on the entire test set with the current model
+            unfairness_test = criterion_regularization.violation_with_dataset_2(
+                model=model,
+                dataset=test_loader,
+                device=train_parameters.device,
+                average_probabilities=average_probabilities,
+            )
+
+        # if losses is on gpu we need to move it back to cpu
+        losses = [item.item() for item in losses]
+        test_loss = np.mean(losses)
+        accuracy = correct / total
+
+        y_true = [item.item() for item in y_true]
+        y_pred = [item.item() for item in y_pred]
+
+        f1score = f1_score(y_true, y_pred, average="macro")
+        precision = precision_score(y_true, y_pred, average="macro")
+        recall = recall_score(y_true, y_pred, average="macro")
+
+        return (
+            test_loss,
+            accuracy,
+            f1score,
+            precision,
+            recall,
+            unfairness_test,
+            y_true,
+            y_pred,
+            colors,
+        )
+
+    @staticmethod
+    def test_3(
+        model: torch.nn.Module,
+        test_loader: torch.utils.data.DataLoader,
+        train_parameters: RegularizationConfig,
+        current_epoch: int,
+        set_name: str = "Test set",
+        average_probabilities=None,
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Test the model on the test set computing the
+        accuracy and also the maximum disparity of the model.
+
+        Args:
+        Args:
+            model (torch.nn.Module): The model we want to test
+            test_loader (torch.utils.data.DataLoader): the test dataset
+            train_parameters (RegularizationConfig): the parameters used for the training
+            current_epoch (int): the current epoch
+            set_name (str, optional): name of the dataset used for the test.
+                Defaults to "test set".
+        """
+        model.eval()
+        criterion = nn.CrossEntropyLoss()
+        test_loss = 0
+        correct = 0
+        total = 0
+        y_pred = []
+        y_true = []
+        losses = []
+        predictions = []
+        colors = []
+
+        with torch.no_grad():
+            for data, _, _, color, target in test_loader:
                 target = target.long()
                 data, target = (
                     data.to(train_parameters.device),
@@ -648,9 +721,10 @@ class Learning:
         predictions = []
         sensitive_attributes = []
         second_sensitive_attributes = []
+        third_sensitive_attributes = []
 
         with torch.no_grad():
-            for data, sensitive_attribute, second_sensitive, target in test_loader:
+            for data, sensitive_attribute, second_sensitive, third_sensitive, target in test_loader:
                 target = target.long()
                 data, target = (
                     data.to(train_parameters.device),
@@ -669,9 +743,8 @@ class Learning:
                 y_true.extend(target)
                 predictions.append(output)
                 sensitive_attributes += [item.item() for item in sensitive_attribute]
-                second_sensitive_attributes += [
-                    item.item() for item in second_sensitive
-                ]
+                second_sensitive_attributes += [item.item() for item in second_sensitive]
+                third_sensitive_attributes += [item.item() for item in third_sensitive]
 
         concatenated_predictions = torch.cat(predictions, dim=0)
 
@@ -679,8 +752,10 @@ class Learning:
             concatenated_predictions,
             torch.tensor(sensitive_attributes),
             torch.tensor(second_sensitive_attributes),
+            torch.tensor(third_sensitive_attributes),
             set([item.item() for item in y_true]),
             set(sensitive_attributes),
             set(second_sensitive_attributes),
+            set(third_sensitive_attributes),
             y_true,
         )

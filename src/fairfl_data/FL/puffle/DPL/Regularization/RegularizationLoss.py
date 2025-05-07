@@ -80,9 +80,7 @@ class RegularizationLoss(nn.Module):
         softmax_ = F.softmax(predictions, dim=1)
 
         # convert the list of sensitive attributes to a tensor and move it to the device
-        sensitive_attribute_list = torch.tensor(
-            [int(item) for item in sensitive_attribute_list]
-        )
+        sensitive_attribute_list = torch.tensor([int(item) for item in sensitive_attribute_list])
         sensitive_attribute_list = sensitive_attribute_list.to(device)
 
         # We compute the argmax of the predictions, this is used to count
@@ -92,18 +90,14 @@ class RegularizationLoss(nn.Module):
         # we convert the possible targets and the possible sensitive attributes to a list
         # just to be sure that the values are integers
         possible_targets = [int(item) for item in possible_targets]
-        possible_sensitive_attributes = [
-            int(item) for item in possible_sensitive_attributes
-        ]
+        possible_sensitive_attributes = [int(item) for item in possible_sensitive_attributes]
 
         for target in possible_targets:
             for z in possible_sensitive_attributes:
                 # Z_eq_z and Z_not_eq_z are the denominators that we will use
                 # in the DPL formula. |Z=z| and |Z!=z|
                 Z_eq_z = len(sensitive_attribute_list[sensitive_attribute_list == z])
-                Z_not_eq_z = len(
-                    sensitive_attribute_list[sensitive_attribute_list != z]
-                )
+                Z_not_eq_z = len(sensitive_attribute_list[sensitive_attribute_list != z])
 
                 # We get the number of samples that are predicted with the target class
                 # target and that have the sensitive attribute equal to z:  |Y = k, Z = z|.
@@ -114,17 +108,13 @@ class RegularizationLoss(nn.Module):
                 # the first and the third row and that we are considering the class 1.
                 # In this case we will sum 0.8 and 0.7.
                 Y_eq_k_and_Z_eq_z = torch.sum(
-                    softmax_[
-                        (predictions_argmax == target) & (sensitive_attribute_list == z)
-                    ][:, target]
+                    softmax_[(predictions_argmax == target) & (sensitive_attribute_list == z)][:, target]
                 )
 
                 # Here we compute |Y = k, Z != z| with the same strategy we used to
                 # compute |Y = k, Z = z|.
                 Y_eq_k_and_Z_not_eq_z = torch.sum(
-                    softmax_[
-                        (predictions_argmax == target) & (sensitive_attribute_list != z)
-                    ][:, target]
+                    softmax_[(predictions_argmax == target) & (sensitive_attribute_list != z)][:, target]
                 )
 
                 # Now we can compute the violation term that we will
@@ -135,56 +125,38 @@ class RegularizationLoss(nn.Module):
                 # using the classic formula |P(Y=y|Z=z) - P(Y=y|Z!=z)|
                 # If this happens, instead, we have to use the estimation
 
-                if (Y_eq_k_and_Z_eq_z == 0 and Y_eq_k_and_Z_not_eq_z != 0) or (
-                    Z_eq_z == 0 and Z_not_eq_z != 0
-                ):
+                if (Y_eq_k_and_Z_eq_z == 0 and Y_eq_k_and_Z_not_eq_z != 0) or (Z_eq_z == 0 and Z_not_eq_z != 0):
                     denominator = 1 if z == 1 else 0
-                    if average_probabilities and average_probabilities.get(
-                        f"{target}|{denominator}", None
-                    ):
+                    if average_probabilities and average_probabilities.get(f"{target}|{denominator}", None):
                         # In this case I use the estimation
                         violation_term = torch.abs(
-                            average_probabilities[f"{target}|{denominator}"]
-                            - Y_eq_k_and_Z_not_eq_z / Z_not_eq_z
+                            average_probabilities[f"{target}|{denominator}"] - Y_eq_k_and_Z_not_eq_z / Z_not_eq_z
                         )
                     else:
                         # In this case instead I return 0, this only happens when
                         # we do not have the estimation (for instance in the first
                         # FL Round)
-                        violation_term = torch.abs(
+                        violation_term = torch.abs(Y_eq_k_and_Z_not_eq_z / Z_not_eq_z) - torch.abs(
                             Y_eq_k_and_Z_not_eq_z / Z_not_eq_z
-                        ) - torch.abs(Y_eq_k_and_Z_not_eq_z / Z_not_eq_z)
-                elif (Y_eq_k_and_Z_eq_z != 0 and Y_eq_k_and_Z_not_eq_z == 0) or (
-                    Z_not_eq_z == 0 and Z_eq_z != 0
-                ):
+                        )
+                elif (Y_eq_k_and_Z_eq_z != 0 and Y_eq_k_and_Z_not_eq_z == 0) or (Z_not_eq_z == 0 and Z_eq_z != 0):
                     # This is just the other case
                     denominator = 1 if z == 0 else 0
-                    if average_probabilities and average_probabilities.get(
-                        f"{target}|{denominator}", None
-                    ):
+                    if average_probabilities and average_probabilities.get(f"{target}|{denominator}", None):
                         violation_term = torch.abs(
-                            (Y_eq_k_and_Z_eq_z / Z_eq_z)
-                            - average_probabilities[f"{target}|{denominator}"]
+                            (Y_eq_k_and_Z_eq_z / Z_eq_z) - average_probabilities[f"{target}|{denominator}"]
                         )
                     else:
-                        violation_term = torch.abs(
-                            Y_eq_k_and_Z_eq_z / Z_eq_z
-                        ) - torch.abs(Y_eq_k_and_Z_eq_z / Z_eq_z)
+                        violation_term = torch.abs(Y_eq_k_and_Z_eq_z / Z_eq_z) - torch.abs(Y_eq_k_and_Z_eq_z / Z_eq_z)
 
                 else:
                     # In this case we have all the combinations,
                     # so we can compute the violation term using the classic formula
-                    violation_term = torch.abs(
-                        (Y_eq_k_and_Z_eq_z / Z_eq_z)
-                        - (Y_eq_k_and_Z_not_eq_z / Z_not_eq_z)
-                    )
+                    violation_term = torch.abs((Y_eq_k_and_Z_eq_z / Z_eq_z) - (Y_eq_k_and_Z_not_eq_z / Z_not_eq_z))
 
                 fairness_violations.append(violation_term)
 
-        fairness_violations_ = [
-            item.item() if isinstance(item, torch.Tensor) else item
-            for item in fairness_violations
-        ]
+        fairness_violations_ = [item.item() if isinstance(item, torch.Tensor) else item for item in fairness_violations]
 
         # We get the index of the maximum violation term. Then we create a mask with
         # all zeros and we set to 1 the element at the index we found. We use this mask
@@ -194,9 +166,7 @@ class RegularizationLoss(nn.Module):
         # even if I'm not sure that it is needed anymore.
         index = fairness_violations_.index(max(fairness_violations_))
         fairness_violations = torch.stack(fairness_violations)
-        mask = torch.full((fairness_violations.shape[0],), 0, dtype=torch.float32).to(
-            device
-        )
+        mask = torch.full((fairness_violations.shape[0],), 0, dtype=torch.float32).to(device)
         mask[index] = 1
         res = torch.sum(mask * fairness_violations)
 
@@ -238,16 +208,14 @@ class RegularizationLoss(nn.Module):
         targets = []
         model.eval()
         with torch.no_grad():
-            for images, sensitive_attributes, _, target in dataset:
+            for images, sensitive_attributes, _, _, target in dataset:
                 images = images.to(device)
                 target = target.to(device)
 
                 output = model(images)
 
                 predictions = torch.cat((predictions, output), 0)
-                sensitive_attribute_list = torch.cat(
-                    (sensitive_attribute_list, sensitive_attributes.to(device)), 0
-                )
+                sensitive_attribute_list = torch.cat((sensitive_attribute_list, sensitive_attributes.to(device)), 0)
                 targets += target.tolist()
 
         sensitive_attributes = list({item.item() for item in sensitive_attribute_list})
@@ -300,16 +268,14 @@ class RegularizationLoss(nn.Module):
         targets = []
         model.eval()
         with torch.no_grad():
-            for images, _, sensitive_attributes, target in dataset:
+            for images, _, sensitive_attributes, _, target in dataset:
                 images = images.to(device)
                 target = target.to(device)
 
                 output = model(images)
 
                 predictions = torch.cat((predictions, output), 0)
-                sensitive_attribute_list = torch.cat(
-                    (sensitive_attribute_list, sensitive_attributes.to(device)), 0
-                )
+                sensitive_attribute_list = torch.cat((sensitive_attribute_list, sensitive_attributes.to(device)), 0)
                 targets += target.tolist()
 
         sensitive_attributes = list({item.item() for item in sensitive_attribute_list})
@@ -367,29 +333,17 @@ class RegularizationLoss(nn.Module):
         Y_eq_k_and_Z_eq_z_argmax = 0
         Y_eq_k_and_Z_not_eq_z_argmax = 0
 
-        for prediction, sensitive_feature in zip(
-            predictions_argmax, sensitive_attribute_list
-        ):
-            current_weight = (
-                weights.get(f"(Y={int(prediction)}, Z={int(sensitive_feature)})", 1)
-                if weights
-                else 1
-            )
+        for prediction, sensitive_feature in zip(predictions_argmax, sensitive_attribute_list):
+            current_weight = weights.get(f"(Y={int(prediction)}, Z={int(sensitive_feature)})", 1) if weights else 1
 
             if sensitive_feature == current_sensitive_feature:
                 Z_eq_z_argmax += 1 * current_weight
             else:
                 Z_not_eq_z_argmax += 1 * current_weight
 
-            if (
-                prediction == current_target
-                and sensitive_feature == current_sensitive_feature
-            ):
+            if prediction == current_target and sensitive_feature == current_sensitive_feature:
                 Y_eq_k_and_Z_eq_z_argmax += 1 * current_weight
-            elif (
-                prediction == current_target
-                and sensitive_feature == opposite_sensitive_feature
-            ):
+            elif prediction == current_target and sensitive_feature == opposite_sensitive_feature:
                 Y_eq_k_and_Z_not_eq_z_argmax += 1 * current_weight
 
         if Z_eq_z_argmax == 0 and Z_not_eq_z_argmax != 0:
@@ -400,8 +354,7 @@ class RegularizationLoss(nn.Module):
             return 0
         else:
             return np.abs(
-                Y_eq_k_and_Z_eq_z_argmax / Z_eq_z_argmax
-                - Y_eq_k_and_Z_not_eq_z_argmax / Z_not_eq_z_argmax
+                Y_eq_k_and_Z_eq_z_argmax / Z_eq_z_argmax - Y_eq_k_and_Z_not_eq_z_argmax / Z_not_eq_z_argmax
             ).item()
 
     @staticmethod
@@ -438,17 +391,13 @@ class RegularizationLoss(nn.Module):
         # or with the other.
         predictions_argmax = torch.argmax(torch.tensor(predictions), dim=1).to(device)
 
-        sensitive_attribute_list = torch.tensor(
-            [int(item) for item in sensitive_attribute_list]
-        )
+        sensitive_attribute_list = torch.tensor([int(item) for item in sensitive_attribute_list])
         sensitive_attribute_list = sensitive_attribute_list.to(device)
 
         probabilities = {}
         counters = {}
         possible_targets = [int(item) for item in possible_targets]
-        possible_sensitive_attributes = [
-            int(item) for item in possible_sensitive_attributes
-        ]
+        possible_sensitive_attributes = [int(item) for item in possible_sensitive_attributes]
 
         for z in list(possible_sensitive_attributes):
             # if we are in a binary scenario we can just consider
@@ -461,15 +410,11 @@ class RegularizationLoss(nn.Module):
             Z_eq_z = len(sensitive_attribute_list[sensitive_attribute_list == z])
 
             Y_eq_k_and_Z_eq_z = torch.sum(
-                softmax_[
-                    (predictions_argmax == target) & (sensitive_attribute_list == z)
-                ][:, target]
+                softmax_[(predictions_argmax == target) & (sensitive_attribute_list == z)][:, target]
             )
 
             Y_eq_k_and_Z_eq_z_argmax = len(
-                predictions_argmax[
-                    (predictions_argmax == target) & (sensitive_attribute_list == z)
-                ]
+                predictions_argmax[(predictions_argmax == target) & (sensitive_attribute_list == z)]
             )
 
             probabilities[f"{target}|{z}"] = Y_eq_k_and_Z_eq_z

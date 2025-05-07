@@ -19,10 +19,7 @@ class AggregationFunctions:
         loss_test = (
             sum(
                 [
-                    n_examples
-                    * metric[
-                        "test_loss" if not train_parameters.sweep else "validation_loss"
-                    ]
+                    n_examples * metric["test_loss" if not train_parameters.sweep else "validation_loss"]
                     for n_examples, metric in metrics
                 ]
             )
@@ -31,54 +28,32 @@ class AggregationFunctions:
         accuracy_test = (
             sum(
                 [
-                    n_examples
-                    * metric[
-                        (
-                            "test_accuracy"
-                            if not train_parameters.sweep
-                            else "validation_accuracy"
-                        )
-                    ]
+                    n_examples * metric[("test_accuracy" if not train_parameters.sweep else "validation_accuracy")]
                     for n_examples, metric in metrics
                 ]
             )
             / total_examples
         )
-        f1_test = (
-            sum([n_examples * metric["f1_score"] for n_examples, metric in metrics])
-            / total_examples
-        )
+        f1_test = sum([n_examples * metric["f1_score"] for n_examples, metric in metrics]) / total_examples
 
         if args.metric == "disparity":
             # Log data from the different test clients:
             for _, metric in metrics:
                 node_name = metric["cid"]
-                disparity = metric[
-                    (
-                        "max_disparity_test"
-                        if not train_parameters.sweep
-                        else "max_disparity_validation"
-                    )
-                ]
+                disparity = metric[("max_disparity_test" if not train_parameters.sweep else "max_disparity_validation")]
                 disparity_second = metric[
-                    (
-                        "max_disparity_test_second"
-                        if not train_parameters.sweep
-                        else "max_disparity_validation_second"
-                    )
+                    ("max_disparity_test_second" if not train_parameters.sweep else "max_disparity_validation_second")
                 ]
-                accuracy = metric[
-                    (
-                        "test_accuracy"
-                        if not train_parameters.sweep
-                        else "validation_accuracy"
-                    )
+                disparity_third = metric[
+                    ("max_disparity_test_third" if not train_parameters.sweep else "max_disparity_validation_third")
                 ]
+                accuracy = metric[("test_accuracy" if not train_parameters.sweep else "validation_accuracy")]
                 disparity_dataset = metric.get("max_disparity_dataset", 0)
                 agg_metrics = {
                     f"Test Node {node_name} - Acc.": accuracy,
                     f"Test Node {node_name} - Disp.": disparity,
                     f"Test Node {node_name} - Second Disp.": disparity_second,
+                    f"Test Node {node_name} - Third Disp.": disparity_third,
                     f"Test Node {node_name} - Disp. Dataset": disparity_dataset,
                     "FL Round": server_round,
                 }
@@ -98,9 +73,15 @@ class AggregationFunctions:
                 _,
                 max_disparity_statistics_second_value,
                 _,
-            ) = AggregationFunctions.handle_counters(
-                metrics, "second_counters", fed_dir
-            )
+            ) = AggregationFunctions.handle_counters(metrics, "second_counters", fed_dir)
+
+            (
+                _,
+                _,
+                _,
+                max_disparity_statistics_third_value,
+                _,
+            ) = AggregationFunctions.handle_counters(metrics, "third_counters", fed_dir)
 
             sex_unfair_income = [15, 17, 9, 5, 13, 7, 18, 8, 19, 6]
             mar_unfair_income = [14, 3, 0, 4, 11, 16, 12, 2, 10, 1]
@@ -118,9 +99,7 @@ class AggregationFunctions:
                 metrics,
                 "counters",
                 fed_dir,
-                unfair_list=sex_unfair_income
-                if train_parameters.dataset_name == "income"
-                else sex_unfair_employment,
+                unfair_list=sex_unfair_income if train_parameters.dataset_name == "income" else sex_unfair_employment,
             )
 
             (
@@ -133,9 +112,7 @@ class AggregationFunctions:
                 metrics,
                 "second_counters",
                 fed_dir,
-                unfair_list=mar_unfair_income
-                if train_parameters.dataset_name == "income"
-                else mar_unfair_employment,
+                unfair_list=mar_unfair_income if train_parameters.dataset_name == "income" else mar_unfair_employment,
             )
 
             if wandb_run:
@@ -156,6 +133,7 @@ class AggregationFunctions:
                 "Test Accuracy": accuracy_test,
                 "Test Disparity with statistics": max_disparity_statistics,
                 "Test Disparity with statistics Second value": max_disparity_statistics_second_value,
+                "Test Disparity with statistics Third value": max_disparity_statistics_third_value,
                 "Test Disparity with statistics SEX": max_disparity_statistics_SEX_unfair,
                 "Test Disparity with statistics MAR": max_disparity_statistics_MAR_unfair,
                 "FL Round": server_round,
@@ -178,10 +156,7 @@ class AggregationFunctions:
         loss_evaluation = (
             sum(
                 [
-                    n_examples
-                    * metric[
-                        "test_loss" if not train_parameters.sweep else "validation_loss"
-                    ]
+                    n_examples * metric["test_loss" if not train_parameters.sweep else "validation_loss"]
                     for n_examples, metric in metrics
                 ]
             )
@@ -190,23 +165,13 @@ class AggregationFunctions:
         accuracy_evaluation = (
             sum(
                 [
-                    n_examples
-                    * metric[
-                        (
-                            "test_accuracy"
-                            if not train_parameters.sweep
-                            else "validation_accuracy"
-                        )
-                    ]
+                    n_examples * metric[("test_accuracy" if not train_parameters.sweep else "validation_accuracy")]
                     for n_examples, metric in metrics
                 ]
             )
             / total_examples
         )
-        f1_validation = (
-            sum([n_examples * metric["f1_score"] for n_examples, metric in metrics])
-            / total_examples
-        )
+        f1_validation = sum([n_examples * metric["f1_score"] for n_examples, metric in metrics]) / total_examples
 
         if args.metric == "disparity":
             (
@@ -279,9 +244,7 @@ class AggregationFunctions:
         for n_examples, node_metrics in metrics:
             losses.append(n_examples * node_metrics["train_loss"])
 
-            losses_with_regularization.append(
-                n_examples * node_metrics["train_loss_with_regularization"]
-            )
+            losses_with_regularization.append(n_examples * node_metrics["train_loss_with_regularization"])
             epsilon_list.append(node_metrics["epsilon"])
             accuracies.append(n_examples * node_metrics["train_accuracy"])
             lambda_list.append(node_metrics["Lambda"])
@@ -300,13 +263,9 @@ class AggregationFunctions:
         current_max_epsilon = max(current_max_epsilon, *epsilon_list)
         agg_metrics["Train Loss"] = sum(losses) / total_examples
         agg_metrics["Train Accuracy"] = sum(accuracies) / total_examples
-        agg_metrics["Train Loss with Regularization"] = (
-            sum(losses_with_regularization) / total_examples
-        )
+        agg_metrics["Train Loss with Regularization"] = sum(losses_with_regularization) / total_examples
         agg_metrics["Aggregated Lambda"] = (
-            sum(lambda_list) / len(lambda_list)
-            if args.regularization_mode == "tunable"
-            else args.regularization_lambda
+            sum(lambda_list) / len(lambda_list) if args.regularization_mode == "tunable" else args.regularization_lambda
         )
         agg_metrics["Train Epsilon"] = current_max_epsilon
 
@@ -333,9 +292,7 @@ class AggregationFunctions:
                 _,
                 max_disparity_statistics_no_noise,
                 disparity_combinations_no_noise,
-            ) = AggregationFunctions.handle_counters(
-                metrics, "counters_no_noise", fed_dir
-            )
+            ) = AggregationFunctions.handle_counters(metrics, "counters_no_noise", fed_dir)
             if wandb_run:
                 for combination in disparity_combinations_no_noise:
                     target, sensitive_value, disparity = combination
@@ -366,17 +323,13 @@ class AggregationFunctions:
 
         combinations = json_file["combinations"]  # ["1|0", "1|1"]
         all_combinations = json_file["all_combinations"]  # ["0|0", "0|1", "1|0", "1|1"]
-        missing_combinations = json_file[
-            "missing_combinations"
-        ]  # [("0|0", "1|0"), ("0|1", "1|1")]
+        missing_combinations = json_file["missing_combinations"]  # [("0|0", "1|0"), ("0|1", "1|1")]
         # sum_counters = {"0|0": 0, "0|1": 0, "1|0": 0, "1|1": 0}
         sum_counters = {key: 0 for key in all_combinations}
         possible_sensitive_attributes = json_file["possible_z"]
         possible_targets = json_file["possible_y"]
 
-        sum_possible_sensitive_attributes = {
-            key: 0 for key in possible_sensitive_attributes
-        }  # {"0": 0, "1": 0}
+        sum_possible_sensitive_attributes = {key: 0 for key in possible_sensitive_attributes}  # {"0": 0, "1": 0}
 
         for _, metric in metrics:
             metric_copy = copy.deepcopy(metric)
@@ -394,27 +347,20 @@ class AggregationFunctions:
 
             for sensitive_attribute in possible_sensitive_attributes:
                 try:
-                    sum_possible_sensitive_attributes[sensitive_attribute] += metric[
-                        sensitive_attribute
-                    ]
+                    sum_possible_sensitive_attributes[sensitive_attribute] += metric[sensitive_attribute]
                 except:
                     continue
 
         for non_existing, existing in missing_combinations:
             sum_counters[non_existing] = (
                 sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing]
-                if sum_possible_sensitive_attributes[existing[-1]]
-                - sum_counters[existing]
-                > 0
+                if sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing] > 0
                 else 0
             )
         average_probabilities = {}
         for combination in all_combinations:
             try:
-                proba = (
-                    sum_counters[combination]
-                    / sum_possible_sensitive_attributes[combination[2]]
-                )
+                proba = sum_counters[combination] / sum_possible_sensitive_attributes[combination[2]]
                 if proba > 1:
                     proba = 1
                 if proba < 0:
@@ -433,17 +379,21 @@ class AggregationFunctions:
                 Y_target_Z_not_sensitive_value = 0
                 for not_sensitive_value in possible_sensitive_attributes:
                     if not_sensitive_value != sensitive_value:
-                        Y_target_Z_not_sensitive_value += sum_counters[
-                            f"{target}|{not_sensitive_value}"
-                        ]
-                        Z_not_sensitive_value += sum_possible_sensitive_attributes[
-                            not_sensitive_value
-                        ]
+                        Y_target_Z_not_sensitive_value += sum_counters[f"{target}|{not_sensitive_value}"]
+                        Z_not_sensitive_value += sum_possible_sensitive_attributes[not_sensitive_value]
 
-                disparity = abs(
-                    Y_target_Z_sensitive_value / Z_sensitive_value
-                    - Y_target_Z_not_sensitive_value / Z_not_sensitive_value
+                print(
+                    f" ------> {key} - Y_target_Z_sensitive_value: {Y_target_Z_sensitive_value}, Z_sensitive_value: {Z_sensitive_value}, Z_not_sensitive_value: {Z_not_sensitive_value}, Y_target_Z_not_sensitive_value: {Y_target_Z_not_sensitive_value}"
                 )
+                if Z_sensitive_value == 0:
+                    disparity = abs(Y_target_Z_not_sensitive_value / Z_not_sensitive_value)
+                elif Z_not_sensitive_value == 0:
+                    disparity = abs(Y_target_Z_sensitive_value / Z_sensitive_value)
+                else:
+                    disparity = abs(
+                        Y_target_Z_sensitive_value / Z_sensitive_value
+                        - Y_target_Z_not_sensitive_value / Z_not_sensitive_value
+                    )
 
                 max_disparity_statistics.append(disparity)
                 combinations_disparity.append((target, sensitive_value))
@@ -455,10 +405,7 @@ class AggregationFunctions:
             max_disparity_with_statistics = 1
 
         combinations = [
-            (target, sv, disparity)
-            for (target, sv), disparity in zip(
-                combinations_disparity, max_disparity_statistics
-            )
+            (target, sv, disparity) for (target, sv), disparity in zip(combinations_disparity, max_disparity_statistics)
         ]
 
         return (

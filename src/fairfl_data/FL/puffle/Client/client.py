@@ -271,8 +271,10 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             predictions,
             sensitive_attributes,
             _,
+            _,
             possible_targets,
             possible_sensitive_attributes,
+            _,
             _,
             y_true,
         ) = Learning.test_prediction(
@@ -431,12 +433,32 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         )
 
         (
+            _,
+            _,
+            _,
+            _,
+            _,
+            max_disparity_third,
+            _,
+            _,
+            _,
+        ) = Learning.test_3(
+            model=self.net,
+            test_loader=dataset,
+            train_parameters=self.train_parameters,
+            current_epoch=None,
+            average_probabilities=average_probabilities,
+        )
+
+        (
             predictions,
             sensitive_attributes,
             second_sensitive_attributes,
+            third_sensitive_attributes,
             possible_targets,
             possible_sensitive_attributes,
             possible_second_sensitive_attributes,
+            possible_third_sensitive_attributes,
             y_true,
         ) = Learning.test_prediction(
             model=self.net,
@@ -468,6 +490,20 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             # train_parameters=self.train_parameters,
         )
 
+        (
+            third_probabilities,
+            third_counters,
+        ) = RegularizationLoss.compute_probabilities(
+            predictions=predictions,
+            sensitive_attribute_list=third_sensitive_attributes,
+            device=self.train_parameters.device,
+            possible_sensitive_attributes=possible_third_sensitive_attributes,
+            possible_targets=possible_targets,
+            # train_parameters=self.train_parameters,
+        )
+        print("third sensitive attributes: ", third_sensitive_attributes)
+        print("Third counters: ", third_counters)
+
         self.net.to("cpu")
         gc.collect()
 
@@ -486,6 +522,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "cid": self.cid,
                 "counters": counters if self.train_parameters.sensitive_attribute == "SEX" else second_counters,
                 "second_counters": second_counters if self.train_parameters.sensitive_attribute == "SEX" else counters,
+                "third_counters": third_counters,
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
             }
@@ -494,12 +531,15 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "test_accuracy": float(accuracy),
                 "max_disparity_test": float(max_disparity),
                 "max_disparity_test_second": float(max_disparity_second),
+                "max_disparity_test_third": float(max_disparity_third),
                 "test_loss": test_loss,
                 "probabilities": probabilities,
                 "second_probabilities": second_probabilities,
+                "third_probabilities": third_probabilities,
                 "cid": self.cid,
                 "counters": counters,
                 "second_counters": second_counters,
+                "third_counters": third_counters,
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
             }

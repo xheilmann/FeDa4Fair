@@ -1,4 +1,3 @@
-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,21 +13,20 @@
 
 """This file implements functions to compute fairness metrics, the functions are build in a similar way as https://flower.ai/docs/datasets/ref-api/flwr_datasets.metrics.compute_counts.html#flwr_datasets.metrics.compute_counts"""
 
-
 from itertools import product
 import numpy as np
 from typing import Literal
-from typing import  Optional
+from typing import Optional
 from flwr_datasets.partitioner import Partitioner
 import pandas as pd
-pd.set_option('display.max_columns', 20)
-pd.set_option('display.width', 80)
+
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.width", 80)
 from fairlearn.metrics import MetricFrame, selection_rate, true_positive_rate, false_positive_rate
 
 
-
 def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_unit):
-    """ Compute a fairness metric (Demographic Parity or Equalized Odds) for given sensitive/s attribute/s specified in column name.
+    """Compute a fairness metric (Demographic Parity or Equalized Odds) for given sensitive/s attribute/s specified in column name.
 
     This function supports group-based fairness metrics and allows different levels of evaluation
     depending on the `size_unit` parameter.
@@ -65,18 +63,16 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_u
         A dictionary where keys reflect the evaluated fairness depending on size_unit.
     """
     if fairness_metric == "DP":
-
         sel_rate = MetricFrame(
-            metrics={"sel":selection_rate},
+            metrics={"sel": selection_rate},
             y_true=y_true,
             y_pred=y_pred,
             sensitive_features=sf_data,
-            )
+        )
         df = sel_rate.by_group
-        diff_matrix = df['sel'].values[:, None] - df['sel'].values[None, :]
+        diff_matrix = df["sel"].values[:, None] - df["sel"].values[None, :]
         index = df.index.values
         column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(df)), repeat=2)]
-
 
     elif fairness_metric == "EO":
         tpr = MetricFrame(
@@ -87,8 +83,8 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_u
         )
         # Compute the difference matrices
         df = tpr.by_group
-        diff_matrix_col2 = df['tpr'].values[:, None] - df['tpr'].values[None, :]
-        diff_matrix_col3 = df['fpr'].values[:, None] - df['fpr'].values[None, :]
+        diff_matrix_col2 = df["tpr"].values[:, None] - df["tpr"].values[None, :]
+        diff_matrix_col3 = df["fpr"].values[:, None] - df["fpr"].values[None, :]
 
         # Compute the absolute differences
         abs_diff_col2 = np.abs(diff_matrix_col2)
@@ -97,8 +93,7 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_u
         # Find the mask where Column2's absolute difference is larger
         mask = abs_diff_col2 >= abs_diff_col3
         index = df.index.values
-        column_names = [f"{index[i]}_{index[j]}" for i, j in
-                        product(range(len(df)), repeat=2)]
+        column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(df)), repeat=2)]
 
         # Create the final matrix using the original differences
         diff_matrix = np.where(mask, diff_matrix_col2, diff_matrix_col3)
@@ -106,14 +101,14 @@ def _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_u
     else:
         raise ValueError(f"Unknown fairness metric {fairness_metric}")
 
-
     diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
 
-    if size_unit =="value":
-        diff_df = pd.Series([diff_df.max(),diff_df.idxmax()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"])
-    if size_unit =="attribute":
-        diff_df = pd.Series([diff_df.max(),diff_df.max()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"])
-
+    if size_unit == "value":
+        diff_df = pd.Series(
+            [diff_df.max(), diff_df.idxmax()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"]
+        )
+    if size_unit == "attribute":
+        diff_df = pd.Series([diff_df.max(), diff_df.max()], index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"])
 
     return diff_df
 
@@ -126,7 +121,7 @@ def compute_fairness(
     max_num_partitions: Optional[int] = None,
     fairness_metric="DP",
     label_name: str = "label_name",
-    sens_cols: list[str]=[],
+    sens_cols: list[str] = [],
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
 ) -> pd.DataFrame:
     """
@@ -180,10 +175,10 @@ def compute_fairness(
     else:
         max_num_partitions = min(max_num_partitions, partitioner.num_partitions)
     assert isinstance(max_num_partitions, int)
-    partition_id_to_fairness= {}
+    partition_id_to_fairness = {}
     for partition_id in range(max_num_partitions):
         partition = partitioner.load_partition(partition_id)
-        partition_test =partitioner_test.load_partition(partition_id)
+        partition_test = partitioner_test.load_partition(partition_id)
 
         if model is not None:
             train = partition.to_pandas().drop(columns=sens_cols).drop(columns=label_name)
@@ -198,13 +193,15 @@ def compute_fairness(
             y_pred = partition.select_columns(label_name).to_pandas()
             sf_data = partition.select_columns(sens_att).to_pandas()
         partition_id_to_fairness[partition_id] = _compute_fairness(
-        y_true=y_true,y_pred=y_pred,sf_data=sf_data, fairness_metric=fairness_metric, sens_att=sens_att, size_unit = size_unit)
+            y_true=y_true,
+            y_pred=y_pred,
+            sf_data=sf_data,
+            fairness_metric=fairness_metric,
+            sens_att=sens_att,
+            size_unit=size_unit,
+        )
 
-    dataframe = pd.DataFrame.from_dict(
-        partition_id_to_fairness, orient="index"
-    )
+    dataframe = pd.DataFrame.from_dict(partition_id_to_fairness, orient="index")
     dataframe.index.name = "Partition ID"
 
     return dataframe
-
-

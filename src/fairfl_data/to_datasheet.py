@@ -11,8 +11,8 @@ from FairFederatedDataset import FairFederatedDataset
 Replacement = Union[str, Sequence[str]]
 SOURCE_FILE = Path("datasheet_template.md")
 
-def get_git_info(repo: Path | str = ".",
-                 remote_name: str = "origin"):
+
+def get_git_info(repo: Path | str = ".", remote_name: str = "origin"):
     """
     Return the current commit SHA and the fetch URL of *remote_name*
     for the repository rooted at *repo* (default: current directory).
@@ -23,15 +23,12 @@ def get_git_info(repo: Path | str = ".",
 
     def run(*args: str) -> str:
         try:
-            return subprocess.check_output(
-                ["git", *args],
-                cwd=repo,
-                stderr=subprocess.STDOUT,
-                text=True
-            ).strip()
+            return subprocess.check_output(["git", *args], cwd=repo, stderr=subprocess.STDOUT, text=True).strip()
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"git {' '.join(args)} failed: {e.output.strip()}.\n\
-                                 Perhaps your remote is not called 'origin'?") from e
+            raise RuntimeError(
+                f"git {' '.join(args)} failed: {e.output.strip()}.\n\
+                                 Perhaps your remote is not called 'origin'?"
+            ) from e
 
     commit_sha = run("rev-parse", "HEAD")
 
@@ -46,10 +43,10 @@ def get_git_info(repo: Path | str = ".",
 
 def prep_info_dict(debug=False):
     tag_block = re.compile(
-        r'\[tag:([^\]]+)\]'      
-        r'(.*?)'                 
-        r'\[/tag\]',             
-        flags=re.DOTALL       
+        r"\[tag:([^\]]+)\]"
+        r"(.*?)"
+        r"\[/tag\]",
+        flags=re.DOTALL,
     )
 
     tags: dict[str, list[str]] = defaultdict(list)
@@ -58,7 +55,7 @@ def prep_info_dict(debug=False):
     for m in tag_block.finditer(text):
         name, body = m.group(1), m.group(2).strip()
         tags[name].append(body)
-    
+
     if debug:
         for name, bodies in tags.items():
             print(f"[{name}] → {len(bodies)} occurrence(s):")
@@ -66,21 +63,20 @@ def prep_info_dict(debug=False):
                 # `payload` might be '', empty
                 if payload:
                     preview = payload.splitlines()[0][:60]
-                    ellipsis = '…' if len(payload) > len(preview) else ''
+                    ellipsis = "…" if len(payload) > len(preview) else ""
                 else:
-                    preview, ellipsis = '(empty)', ''
+                    preview, ellipsis = "(empty)", ""
                 print(f"  {i:>2}. {preview}{ellipsis}")
-    
+
     commit, remote = get_git_info()
-    tags['commit'] = commit
-    tags['remote'] = remote
+    tags["commit"] = commit
+    tags["remote"] = remote
     return tags
 
 
-def create_new_datasheet(source: Path | str,
-                         destination: Path | str,
-                         dataset: FairFederatedDataset,
-                         keep_missing: bool = True) -> None:
+def create_new_datasheet(
+    source: Path | str, destination: Path | str, dataset: FairFederatedDataset, keep_missing: bool = True
+) -> None:
     """
     Copies source to destination, replacing every [tag:name]...[/tag] block
     with data about the input *dataset*.
@@ -92,20 +88,17 @@ def create_new_datasheet(source: Path | str,
     """
     # prepare replacement dictionary and template regex
     replacements = prep_info_dict()
-    TAG_BLOCK = re.compile(
-      r'\[tag:([^\]]+)\].*?\[/tag\]',     
-      flags=re.DOTALL
-    )
+    TAG_BLOCK = re.compile(r"\[tag:([^\]]+)\].*?\[/tag\]", flags=re.DOTALL)
     # create datasheet from template
     source = Path(source).expanduser().resolve()
     dest = Path(destination).expanduser().resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # parse dataset object representation
     data_json = json.loads(dataset.to_json())
-    replacements['name'] = data_json['_dataset_name']
-    replacements['year'] = data_json['_year'] + ' with horizon ' + data_json['_horizon']
-    replacements['sensitivedescriptions'] = data_json['_sensitive_attributes']
+    replacements["name"] = data_json["_dataset_name"]
+    replacements["year"] = data_json["_year"] + " with horizon " + data_json["_horizon"]
+    replacements["sensitivedescriptions"] = data_json["_sensitive_attributes"]
 
     # track how many times we've used each tag in the template
     seen: dict[str, int] = defaultdict(int)
@@ -126,22 +119,21 @@ def create_new_datasheet(source: Path | str,
             if idx >= len(value):
                 if keep_missing:
                     return match.group(0)
-                raise IndexError(f"tag '{tag}' seen {idx+1} times "
-                                 f"but only {len(value)} replacement(s) given")
+                raise IndexError(f"tag '{tag}' seen {idx + 1} times but only {len(value)} replacement(s) given")
             return str(value[idx])
         else:
             return str(value)
 
-    dest.write_text(TAG_BLOCK.sub(_replace, source.read_text(encoding="utf‑8")),
-                    encoding="utf‑8")
+    dest.write_text(TAG_BLOCK.sub(_replace, source.read_text(encoding="utf‑8")), encoding="utf‑8")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     dataset = FairFederatedDataset(
-                    dataset="ACSIncome",
-                    states=["CT", "DE"],
-                    partitioners={"CT": 2, "DE": 1},
-                    train_test_split=None,
-                    fairness_metric='EO',
-                    individual_fairness='attribute',
+        dataset="ACSIncome",
+        states=["CT", "DE"],
+        partitioners={"CT": 2, "DE": 1},
+        train_test_split=None,
+        fairness_metric="EO",
+        individual_fairness="attribute",
     )
-    create_new_datasheet(SOURCE_FILE, 'sheet_test.md', dataset)
+    create_new_datasheet(SOURCE_FILE, "sheet_test.md", dataset)

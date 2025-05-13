@@ -1,4 +1,3 @@
-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,8 +13,9 @@
 
 """This file implements helper functions."""
 
-def drop_data(df, percentage, column1, value1, label_column,column2=None, value2=None):
-    """ Drop a percentage of rows from a DataFrame that match specific criteria.
+
+def drop_data(df, percentage, column1, value1, label_column, column2=None, value2=None):
+    """Drop a percentage of rows from a DataFrame that match specific criteria.
 
     This function removes a given percentage of rows with label_name=True where the value in `column1` matches `value1`
     and optionally, where `column2` matches `value2`.
@@ -52,9 +52,9 @@ def drop_data(df, percentage, column1, value1, label_column,column2=None, value2
     if not (0 <= percentage <= 1):
         raise ValueError("Fraction must be between 0 and 1")
 
-    condition = (df[column1] == value1)
+    condition = df[column1] == value1
     if column2 is not None and value2 is not None:
-        condition &= (df[column2] == value2)
+        condition &= df[column2] == value2
 
     matching_rows = df[condition & (df[label_column] == True)]
     num_to_drop = int(len(matching_rows) * percentage)
@@ -104,12 +104,12 @@ def flip_data(df, percentage, column1, value1, label_column, column2=None, value
     if not (0 <= percentage <= 1):
         raise ValueError("Fraction must be between 0 and 1")
 
-    condition = (df[column1] == value1)
+    condition = df[column1] == value1
     if column2 is not None and value2 is not None:
-        condition &= (df[column2] == value2)
+        condition &= df[column2] == value2
 
     matching_rows = df[condition & (df[label_column] == True)]
-    num_to_flip = int(len(matching_rows) * percentage )
+    num_to_flip = int(len(matching_rows) * percentage)
 
     if num_to_flip == 0:
         print("No labels flipped: fraction too low or no matching rows.")

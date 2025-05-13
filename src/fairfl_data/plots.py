@@ -1,4 +1,3 @@
-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,11 +14,13 @@
 """This file implements functions for plotting fairness metrics and label distribution.
 The functions are build in a similar way as https://flower.ai/docs/datasets/ref-api/flwr_datasets.visualization.plot_comparison_label_distribution.html"""
 
-
-
-
 from typing import Any, Literal, Optional, Union
 
+from flwr_datasets.visualization.comparison_label_distribution import (
+    _set_tick_on_value_axes,
+    _initialize_comparison_figsize,
+    _initialize_axis_sharing,
+)
 import matplotlib
 from flwr_datasets.visualization.comparison_label_distribution import _set_tick_on_value_axes, _initialize_comparison_figsize, _initialize_axis_sharing
 from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
@@ -130,10 +131,7 @@ def plot_comparison_label_distribution(
     elif isinstance(label_name, list):
         pass
     else:
-        raise TypeError(
-            f"Label name has to be of type List[str] or str but given "
-            f"{type(label_name)}"
-        )
+        raise TypeError(f"Label name has to be of type List[str] or str but given {type(label_name)}")
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
     fig, axes = plt.subplots(
@@ -195,13 +193,10 @@ def plot_comparison_label_distribution(
     _set_tick_on_value_axes(axes, partition_id_axis, size_unit)
 
     # Set up figure xlabel and ylabel
-    xlabel, ylabel = _initialize_comparison_xy_labels(
-        plot_type, size_unit, partition_id_axis, label_name
-    )
+    xlabel, ylabel = _initialize_comparison_xy_labels(plot_type, size_unit, partition_id_axis, label_name)
     fig.supxlabel(xlabel)
     fig.supylabel(ylabel)
     fig.suptitle(subtitle)
-
 
     return fig, axes, dataframe_list
 
@@ -222,7 +217,8 @@ def plot_fairness_distributions(
     legend_kwargs: Optional[dict[str, Any]] = None,
     fairness_metric: Literal["DP", "EO"] = "DP",
     model: Optional = None,
-    sens_cols: list[str]=None) -> tuple[Figure, Axes, pd.DataFrame]:
+    sens_cols: list[str] = None,
+) -> tuple[Figure, Axes, pd.DataFrame]:
     """
     Plot fairness metric distributions across dataset partitions in a partitioner object.
 
@@ -303,31 +299,30 @@ def plot_fairness_distributions(
         to what is specified in size_unit and their fairness scores.
     """
 
-
-    dataframe = compute_fairness(partitioner= partitioner,
-                                 partitioner_test=partitioner_test,
-                                 model=model,
-                                 sens_att=sens_att,
-                                 fairness_metric=fairness_metric,
-                                 label_name=label_name,
-                                 max_num_partitions=max_num_partitions,
-                                 sens_cols=sens_cols,
-                                 size_unit =size_unit)
-
-
+    dataframe = compute_fairness(
+        partitioner=partitioner,
+        partitioner_test=partitioner_test,
+        model=model,
+        sens_att=sens_att,
+        fairness_metric=fairness_metric,
+        label_name=label_name,
+        max_num_partitions=max_num_partitions,
+        sens_cols=sens_cols,
+        size_unit=size_unit,
+    )
 
     if plot_kwargs is None:
         plot_kwargs = {}
-    if size_unit in ["attribute","value"]:
-        plot_kwargs ["annot"] = dataframe.drop(f"{sens_att}_{fairness_metric}", axis=1)
+    if size_unit in ["attribute", "value"]:
+        plot_kwargs["annot"] = dataframe.drop(f"{sens_att}_{fairness_metric}", axis=1)
         if size_unit == "attribute":
             plot_kwargs["fmt"] = ".2f"
         else:
             plot_kwargs["fmt"] = "s"
         dataframe = dataframe.drop(f"{sens_att}_val", axis=1)
-    elif len(dataframe.columns)< 6:
-        plot_kwargs ["annot"] =  True
-        plot_kwargs["fmt"] =  ".2f"
+    elif len(dataframe.columns) < 6:
+        plot_kwargs["annot"] = True
+        plot_kwargs["fmt"] = ".2f"
 
     plot_kwargs["vmin"] = 0
     plot_kwargs["vmax"] = 1
@@ -335,18 +330,18 @@ def plot_fairness_distributions(
     plot_kwargs["annot_kws"] = {"fontsize":14}
 
     axis = _plot_heatmap(
-            dataframe,
-            axis,
-            figsize,
-            title,
-            cmap,
-            partition_id_axis,
-            "absolute",
-            legend,
-            fairness_metric,
-            plot_kwargs,
-            legend_kwargs,
-        )
+        dataframe,
+        axis,
+        figsize,
+        title,
+        cmap,
+        partition_id_axis,
+        "absolute",
+        legend,
+        fairness_metric,
+        plot_kwargs,
+        legend_kwargs,
+    )
     assert axis is not None, "axis is None after plotting"
     figure = axis.figure
     assert isinstance(figure, Figure), "figure extraction from axes is not a Figure"
@@ -354,11 +349,11 @@ def plot_fairness_distributions(
 
 
 def plot_comparison_fairness_distribution(
-    partitioner_dict: dict[str,Partitioner],
+    partitioner_dict: dict[str, Partitioner],
     max_num_partitions: Optional[int] = 30,
     label_name: str = "ECP",
-    sens_att: str= "SEX",
-    sens_cols: Union[str, list[str]]= ["SEX", "MAR", "RAC1P"],
+    sens_att: str = "SEX",
+    sens_cols: Union[str, list[str]] = ["SEX", "MAR", "RAC1P"],
     fairness_metric: Literal["DP", "EO"] = "DP",
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     partition_id_axis: Literal["x", "y"] = "y",
@@ -373,85 +368,85 @@ def plot_comparison_fairness_distribution(
     intersectional_fairness: list[str] = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
     """
-     Compare fairness metric distributions across multiple partitioners.
+    Compare fairness metric distributions across multiple partitioners.
 
-     This function plots the fairness distribution (Demographic Parity or Equalized Odds)
-     per partition for multiple datasets or clients. Each subplot corresponds to a
-     different partitioner and visualizes fairness across partitions using heatmaps.
+    This function plots the fairness distribution (Demographic Parity or Equalized Odds)
+    per partition for multiple datasets or clients. Each subplot corresponds to a
+    different partitioner and visualizes fairness across partitions using heatmaps.
 
-     Parameters
-     ----------
-     partitioner_dict : dict[str, Partitioner]
-         Dictionary mapping names (e.g., states) to partitioners containing the
-         respective dataset partitions.
+    Parameters
+    ----------
+    partitioner_dict : dict[str, Partitioner]
+        Dictionary mapping names (e.g., states) to partitioners containing the
+        respective dataset partitions.
 
-     max_num_partitions : Optional[int], default=30
-         Maximum number of partitions to include per partitioner. If None, all partitions
-         are included.
+    max_num_partitions : Optional[int], default=30
+        Maximum number of partitions to include per partitioner. If None, all partitions
+        are included.
 
-     label_name : str, default="ECP"
-         The name of the label column.
+    label_name : str, default="ECP"
+        The name of the label column.
 
-     sens_att : str, default="SEX"
-        The name of the sensitive attribute on which fairness scores are computed.
+    sens_att : str, default="SEX"
+       The name of the sensitive attribute on which fairness scores are computed.
 
-     sens_cols : Union[str, list[str]], default=["SEX", "MAR", "RAC1P"]
-         Sensitive columns to take out if model training is specified.
+    sens_cols : Union[str, list[str]], default=["SEX", "MAR", "RAC1P"]
+        Sensitive columns to take out if model training is specified.
 
-     fairness_metric : Literal["DP", "EO"], default="DP"
-         The fairness metric to use:
-         - "DP": Demographic Parity
-         - "EO": Equalized Odds (requires predictions from a model)
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        The fairness metric to use:
+        - "DP": Demographic Parity
+        - "EO": Equalized Odds (requires predictions from a model)
 
-     size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
-         The level at which fairness is evaluated:
-        - "attribute": only worst fairness metric is returned,
-        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
-        - "attribute-value": all possible fairness metric values are returned.
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+        The level at which fairness is evaluated:
+       - "attribute": only worst fairness metric is returned,
+       - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+       - "attribute-value": all possible fairness metric values are returned.
 
-     partition_id_axis : Literal["x", "y"], default="y"
-         The axis on which partition IDs are placed.
+    partition_id_axis : Literal["x", "y"], default="y"
+        The axis on which partition IDs are placed.
 
-     figsize : Optional[tuple[float, float]], default=None
-         Size of the overall figure. If None, a default size is used.
+    figsize : Optional[tuple[float, float]], default=None
+        Size of the overall figure. If None, a default size is used.
 
-     subtitle : str, default="Fairness Distribution Per Partition"
-         Subtitle displayed at the top of the entire figure.
+    subtitle : str, default="Fairness Distribution Per Partition"
+        Subtitle displayed at the top of the entire figure.
 
-     titles : Optional[list[str]], default=None
-         List of subplot titles corresponding to each partitioner. If None, default names
-         from `partitioner_dict` keys are used.
+    titles : Optional[list[str]], default=None
+        List of subplot titles corresponding to each partitioner. If None, default names
+        from `partitioner_dict` keys are used.
 
-     cmap : Optional[Union[str, mcolors.Colormap]], default=None
-         Colormap used for plotting fairness values.
+    cmap : Optional[Union[str, mcolors.Colormap]], default=None
+        Colormap used for plotting fairness values.
 
-     legend : bool, default=False
-         Whether to display a legend next to the plots.
+    legend : bool, default=False
+        Whether to display a legend next to the plots.
 
-     plot_kwargs_list : Optional[list[Optional[dict[str, Any]]]], default=None
-         List of dictionaries with extra plotting arguments for each subplot.
+    plot_kwargs_list : Optional[list[Optional[dict[str, Any]]]], default=None
+        List of dictionaries with extra plotting arguments for each subplot.
 
-     legend_kwargs : Optional[dict[str, Any]], default=None
-         Additional keyword arguments for customizing the legend or colorbar.
+    legend_kwargs : Optional[dict[str, Any]], default=None
+        Additional keyword arguments for customizing the legend or colorbar.
 
-     model : Optional, default=None
-         Model to train which has an implemented .fit() used to compute predictions for fairness evaluation.
+    model : Optional, default=None
+        Model to train which has an implemented .fit() used to compute predictions for fairness evaluation.
 
-     intersectional_fairness : list[str], default=None
-         If provided, fairness will be only computed on the intersection of these sensitive
-         attributes.
+    intersectional_fairness : list[str], default=None
+        If provided, fairness will be only computed on the intersection of these sensitive
+        attributes.
 
-     Returns
-     -------
-     fig : Figure
-         The matplotlib Figure object containing the full comparison plot.
+    Returns
+    -------
+    fig : Figure
+        The matplotlib Figure object containing the full comparison plot.
 
-     axes_list : list[Axes]
-         List of Axes objects for each subplot (one per partitioner).
+    axes_list : list[Axes]
+        List of Axes objects for each subplot (one per partitioner).
 
-     dataframe_list : list[pd.DataFrame]
-         List of DataFrames containing fairness metrics per partition for each partitioner.
-     """
+    dataframe_list : list[pd.DataFrame]
+        List of DataFrames containing fairness metrics per partition for each partitioner.
+    """
     global partitioner_list_val
     plot_type = "heatmap"
     if model is None:
@@ -459,17 +454,14 @@ def plot_comparison_fairness_distribution(
         partitioner_list_val = partitioner_list
     else:
         partitioner_list = [value for key, value in partitioner_dict.items() if "train" in key]
-        partitioner_list_val =  [value for key, value in partitioner_dict.items() if "val" in key]
+        partitioner_list_val = [value for key, value in partitioner_dict.items() if "val" in key]
     num_partitioners = len(partitioner_list)
     if isinstance(sens_att, str):
         sens_att = [sens_att] * num_partitioners
     elif isinstance(sens_att, list):
         pass
     else:
-        raise TypeError(
-            f"Label name has to be of type List[str] or str but given "
-            f"{type(sens_att)}"
-        )
+        raise TypeError(f"Label name has to be of type List[str] or str but given {type(sens_att)}")
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
     matplotlib.rcParams.update({'font.size': 16})
@@ -493,13 +485,12 @@ def plot_comparison_fairness_distribution(
     for idx, (partitioner, single_label_name, plot_kwargs) in enumerate(
         zip(partitioner_list, sens_att, plot_kwargs_list)
     ):
-
         if intersectional_fairness is not None:
             single_label_name = intersectional_fairness
         if idx == (num_partitioners - 1):
             *_, dataframe = plot_fairness_distributions(
                 partitioner=partitioner,
-                partitioner_test = partitioner_list_val[idx],
+                partitioner_test=partitioner_list_val[idx],
                 sens_att=single_label_name,
                 size_unit=size_unit,
                 partition_id_axis=partition_id_axis,
@@ -510,10 +501,9 @@ def plot_comparison_fairness_distribution(
                 plot_kwargs=plot_kwargs,
                 legend_kwargs=legend_kwargs,
                 fairness_metric=fairness_metric,
-                model = model,
-                sens_cols= sens_cols,
+                model=model,
+                sens_cols=sens_cols,
                 label_name=label_name,
-
             )
             dataframe_list.append(dataframe)
         else:
@@ -532,8 +522,6 @@ def plot_comparison_fairness_distribution(
                 model=model,
                 sens_cols=sens_cols,
                 label_name=label_name,
-
-
             )
             dataframe_list.append(dataframe)
 
@@ -543,9 +531,7 @@ def plot_comparison_fairness_distribution(
         axis.set_title(titles[idx])
     _set_tick_on_value_axes(axes, partition_id_axis, size_unit)
 
-    xlabel, ylabel = _initialize_comparison_xy_labels(
-        plot_type, size_unit, partition_id_axis, sens_att
-    )
+    xlabel, ylabel = _initialize_comparison_xy_labels(plot_type, size_unit, partition_id_axis, sens_att)
     fig.supxlabel(xlabel)
     fig.supylabel(ylabel)
     fig.suptitle(subtitle)
@@ -569,19 +555,9 @@ def _initialize_comparison_xy_labels(
         xlabel = "Partition ID"
         ylabel = label_name[0]
     else:
-        raise ValueError(
-            f"Invalid plot_type: {plot_type}. Must be one of {PLOT_TYPES}."
-        )
+        raise ValueError(f"Invalid plot_type: {plot_type}. Must be one of {PLOT_TYPES}.")
 
     if partition_id_axis == "y":
         xlabel, ylabel = ylabel, xlabel
 
     return xlabel, ylabel
-
-
-
-
-
-
-
-

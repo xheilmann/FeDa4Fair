@@ -1,4 +1,4 @@
-# fairFL-data
+# FeDa4Fair
 
 
 ## Create the environment

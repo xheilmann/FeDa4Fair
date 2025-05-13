@@ -418,7 +418,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fairfl-data"
+name = "FeDa4Fair"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

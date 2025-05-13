@@ -16,11 +16,6 @@ The functions are build in a similar way as https://flower.ai/docs/datasets/ref-
 
 from typing import Any, Literal, Optional, Union
 
-from flwr_datasets.visualization.comparison_label_distribution import (
-    _set_tick_on_value_axes,
-    _initialize_comparison_figsize,
-    _initialize_axis_sharing,
-)
 import matplotlib
 from flwr_datasets.visualization.comparison_label_distribution import _set_tick_on_value_axes, _initialize_comparison_figsize, _initialize_axis_sharing
 from flwr_datasets.visualization.heatmap_plot import _plot_heatmap

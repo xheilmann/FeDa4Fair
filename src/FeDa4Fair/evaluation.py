@@ -19,7 +19,6 @@ import pickle
 
 import matplotlib
 import pandas as pd
-from IPython.core.completerlib import module_list
 from matplotlib import pyplot as plt
 from fairness_computation import _compute_fairness
 from plots import plot_comparison_label_distribution, plot_comparison_fairness_distribution

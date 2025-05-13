@@ -23,28 +23,28 @@ about funding interests._
 _Was there a specific task in mind? Was there a specific gap that needed to be filled?
 Please provide a description._
 
-This dataset was created for the purpose of testing bias mitigation techniques in federated learning via the [FairFL-data](https://github.com/xheilmann/fairfl-data) library.
-FairFL-data is built on top of the [ACS PUMS](https://www.census.gov/programs-surveys/acs/microdata.html) subset of the US census data 
+This dataset was created for the purpose of testing bias mitigation techniques in federated learning via the [FeDa4Fair](https://github.com/xheilmann/FeDa4Fair) library.
+FeDa4Fair is built on top of the [ACS PUMS](https://www.census.gov/programs-surveys/acs/microdata.html) subset of the US census data 
 obtained via the [folktables](https://github.com/social-foundations/folktables) APIs.
 To clarify the relationship between the present dataset and the U.S. census data:
 * The American Community Survey (ACS) is a yearly initiative undertaken by the U.S. Census Bureau with the objective to represent demographics and social status in the U.S.
 * The ACS Public Use Microdata Sample (ACS PUMS) is a subset of the ACS (about 1 percent) which is released to the general public.
 * Folktables is a library that uses API endpoints offered by the Census Bureau to download PUMS data and test it in the space of algorithmic fairness.
-* FairFL-data is a library that employs Folktables to offer data, divided at the U.S. state level and further, to employ it in the space of federated learning 
-and fairness. FairFL-data offers some flexibility in the sense that researchers might employ different partitioning of the data beyond the state-level, for instance
+* FeDa4Fair is a library that employs Folktables to offer data, divided at the U.S. state level and further, to employ it in the space of federated learning 
+and fairness. FeDa4Fair offers some flexibility in the sense that researchers might employ different partitioning of the data beyond the state-level, for instance
 to test client-level federated learning techniques.
-* The present dataset was obtained with FairFL-data, commit id [tag:commit]to be filled...[/tag] and remote [tag:remote][/tag] for the purpose of further testing.
+* The present dataset was obtained with FeDa4Fair, commit id [tag:commit]to be filled...[/tag] and remote [tag:remote][/tag] for the purpose of further testing.
 
 ### Who created the dataset (e.g., which team, research group) and on behalf of which entity (e.g., company, institution, organization)?
 
-FairFL-data is created and maintained by Xenia Heilmann (JGU Mainz), Luca Corbucci (University of Pisa), Anna Monreale (University of Pisa) and Mattia Cerrato (JGU Mainz).
+FeDa4Fair is created and maintained by Xenia Heilmann (JGU Mainz), Luca Corbucci (University of Pisa), Anna Monreale (University of Pisa) and Mattia Cerrato (JGU Mainz).
 [tag:who]to be filled[/tag].
 
 ### Who funded the creation of the dataset? 
 
 _If there is an associated grant, please provide the name of the grantor and the grant
 name and number._
-For FairFL-data: XH and MC were funded by the “TOPML: Trading Off Non-Functional Properties of Machine Learning” project funded by the
+For FeDa4Fair: XH and MC were funded by the “TOPML: Trading Off Non-Functional Properties of Machine Learning” project funded by the
 Carl-Zeiss-Stiftung in the Förderprogramm “Durchbrüche”, identifying code P2021-02-014.
 LC was funded by The European Union Horizon 2020 program under grant agreement No. 101120763 (TANGO).
 AM ....
@@ -83,7 +83,7 @@ The ACS PUMS is a partially anonymized sample and is currently designed to inclu
 and Puerto Rico. A full documentation of the 2023 ACS PUMS is available [here](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/accuracy/2023AccuracyPUMS.pdf)
 as of 16/04/2025. To avoid re-identification of individuals or households, various techniques have been employed on the data by the U.S. Census Bureau.
 Among these, certain feature values might be swapped across rows or synthetic data might have been employed in place of the actual ones measured.
-These treatments are done at the level of the "first release" of the ACS PUMS and are not part of the treatment of FairFL-data or of the creators of this
+These treatments are done at the level of the "first release" of the ACS PUMS and are not part of the treatment of FeDa4Fair or of the creators of this
 present dataset.
 
 ### What data does each instance consist of? 
@@ -107,7 +107,7 @@ _If so, please provide a description, explaining why this information is missing
 because it was unavailable). This does not include intentionally removed information,
 but might include, e.g., redacted text._
 The ACS PUMS contains many demographic and socioeconomic features which have not been included in this dataset.
-FairFL-data follows the design choices made by the authors of the folktables library which have established patterns of "unfairness" in 
+FeDa4Fair follows the design choices made by the authors of the folktables library which have established patterns of "unfairness" in 
 machine learning and statistical models trained on the present variables.
 
 ### Are relationships between individual instances made explicit (e.g., users’ movie ratings, social network links)?
@@ -216,7 +216,7 @@ This dataset refers to individuals living in the U.S. in the year [tag:year][/ta
 _If so, please provide a description of these review processes, including the outcomes, as well as
 a link or other access point to any supporting documentation._
 
-Not for FairFL-data or Folktables as far as we know.
+Not for FeDa4Fair or Folktables as far as we know.
 
 ### Does the dataset relate to people?
 
@@ -226,7 +226,7 @@ Yes.
 
 ### Did you collect the data from the individuals in question directly, or obtain it via third parties or other sources (e.g., websites)?
 
-We present data was obtained from the Folktables library and processed again with FairFL-data. Folktables sources it from the ACS PUMS.
+We present data was obtained from the Folktables library and processed again with FeDa4Fair. Folktables sources it from the ACS PUMS.
 
 ### Were the individuals in question notified about the data collection?
 
@@ -282,7 +282,7 @@ No.
 ### Is the software used to preprocess/clean/label the instances available?
 
 _If so, please provide a link or other access point._
-Yes, this is the [FairFL-data](https://github.com/xheilmann/FairFL-data) library.
+Yes, this is the [FeDa4Fair](https://github.com/xheilmann/FeDa4Fair) library.
 
 ### Any other comments?
 
@@ -396,6 +396,6 @@ _If so, please describe how. If not, please describe how its obsolescence will b
 _If so, please provide a description. Will these contributions be validated/verified? If so,
 please describe how. If not, why not? Is there a process for communicating/distributing these
 contributions to other users? If so, please provide a description._
-FairFL-data, the library employed to create this dataset, is hosted on [Github](https://github.com/xheilmann/fairFL-data).
+FeDa4Fair, the library employed to create this dataset, is hosted on [Github](https://github.com/xheilmann/FeDa4Fair).
 
 ### Any other comments?

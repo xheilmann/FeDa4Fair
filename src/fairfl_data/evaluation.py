@@ -17,7 +17,10 @@ evaluation on 5 different models, scatter plot on fairness values e.g. before an
 
 import os
 import pickle
+
+import matplotlib
 import pandas as pd
+from IPython.core.completerlib import module_list
 from matplotlib import pyplot as plt
 from fairness_computation import _compute_fairness
 from plots import plot_comparison_label_distribution, plot_comparison_fairness_distribution
@@ -235,6 +238,7 @@ def local_client_fairness_plot(df1: pd.DataFrame, df2: pd.DataFrame,
 
     min_val = min(fairness1.min(), fairness2.min())
     max_val = max(fairness1.max(), fairness2.max())
+    matplotlib.rcParams.update({'font.size': 16})
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(fairness2, fairness1, alpha=0.7)
@@ -369,6 +373,9 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP", fair
 
     fairness_columns = [col for col in df.columns if col.startswith(f'{fairness_metric}_')]
     models = df['model'].unique()
+    datasets = list(df['dataset'].unique())
+    total_hues = len(models)
+    bar_width = 0.8 / total_hues
 
     for col in fairness_columns:
         plt.figure(figsize=(12, 6))
@@ -378,37 +385,48 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric= "DP", fair
             data=df,
             x='dataset',
             y=col,
-            hue=df['model'],
-            dodge=True
+            hue='model',
+            dodge=True,
         )
 
+        # Extract bar colors from the plot
+        bar_containers = ax.containers
+        bar_colors = []
+        for container in bar_containers:
+            for patch in container:
+                bar_colors.append(patch.get_facecolor())
+                break
+
+        color_index = 0  # To track color per bar in the same order
+
         for i, row in df.iterrows():
-            group_val = row['dataset']
+            dataset = row['dataset']
             model = row['model']
             acc = row['accuracy']
 
-            # Get the position of the corresponding bar
-            bar_index = list(df['dataset'].unique()).index(group_val)
+            bar_index = datasets.index(dataset)
             hue_index = list(models).index(model)
-            total_hues = len(models)
-            bar_width = 0.8 / total_hues
             offset = (hue_index - (total_hues - 1) / 2) * bar_width
-
             x_pos = bar_index + offset
-            ax.plot(x_pos, acc, marker='x', color='red', markersize=10, label='Accuracy' if i == 0 else "")
+
+            color = bar_colors[hue_index]
+            color_index += 1
+
+            ax.plot(x_pos, acc, marker='o', color=color, markersize=10, label='Accuracy' if i == 0 else "")
 
         # Add labels and legend
         ax.set_title(f"{col} / accuracy")
         ax.set_ylabel(f"{fairness_metric} / Accuracy")
         ax.set_xlabel("Client")
+
         handles, labels = ax.get_legend_handles_labels()
-        if 'Accuracy' not in labels:
-            handles.append(plt.Line2D([0], [0], marker='x', color='red', linestyle='', label='Accuracy'))
-            labels.append('Accuracy')
-        ax.legend(handles, labels)
+        # Remove duplicates
+        seen = set()
+        unique_handles_labels = [(h, l) for h, l in zip(handles, labels) if not (l in seen or seen.add(l))]
+        ax.legend(*zip(*unique_handles_labels))
+
         plt.tight_layout()
         plt.show()
-
     return df, plt
 
 

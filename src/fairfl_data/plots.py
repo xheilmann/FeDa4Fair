@@ -20,6 +20,7 @@ The functions are build in a similar way as https://flower.ai/docs/datasets/ref-
 
 from typing import Any, Literal, Optional, Union
 
+import matplotlib
 from flwr_datasets.visualization.comparison_label_distribution import _set_tick_on_value_axes, _initialize_comparison_figsize, _initialize_axis_sharing
 from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
 
@@ -204,7 +205,6 @@ def plot_comparison_label_distribution(
 
     return fig, axes, dataframe_list
 
-#todo: if model then also plots for accuracy?
 def plot_fairness_distributions(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
@@ -332,6 +332,7 @@ def plot_fairness_distributions(
     plot_kwargs["vmin"] = 0
     plot_kwargs["vmax"] = 1
     plot_kwargs["cmap"] = "Spectral_r"
+    plot_kwargs["annot_kws"] = {"fontsize":14}
 
     axis = _plot_heatmap(
             dataframe,
@@ -471,6 +472,8 @@ def plot_comparison_fairness_distribution(
         )
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
+    matplotlib.rcParams.update({'font.size': 16})
+
     fig, axes = plt.subplots(
         nrows=1,
         ncols=num_partitioners,

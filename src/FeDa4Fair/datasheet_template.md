@@ -90,7 +90,10 @@ present dataset.
 
 _“Raw” data (e.g., unprocessed text or images) or features? In either case, please
 provide a description._
-[tag:rawdata]to be filled[/tag]
+
+The data column names are as follows: [tag:columns]to be filled[/tag]. 
+
+We refer to the ACS PUMS documentation for a human-readable description.
 
 
 ### Is there a label or target associated with each instance?
@@ -135,6 +138,7 @@ dataset was created); c) are there any restrictions (e.g., licenses, fees) assoc
 any of the external resources that might apply to a future user? Please provide descriptions
 of all external resources and any restrictions associated with them, as well as links or other
 access points, as appropriate._
+
 It relies on the ACS PUMS and is a subset of that.
 
 ### Does the dataset contain data that might be considered confidential (e.g., data that is protected by legal privilege or by doctor-patient confidentiality, data that includes the content of individuals’ non-public communications)?
@@ -158,8 +162,16 @@ Yes.
 _If so, please describe how these subpopulations are identified and provide a description of
 their respective distributions within the dataset._
 Yes. 
-[tag:sensitiveproportions][/tag]
+At the global federated level (that is, with all the data pooled together), the relevant subpopulations are as follows:
+[tag:sens_overall][/tag]
 
+Before further data splits, the state-level groups are as follows:
+[tag:sens_by_split][/tag]
+
+For each client, the subpopulations are as follows:
+[tag:sens_by_partition][/tag]
+
+We refer the reader to the ACS PUMS documentation for the year [tag:year][/tag] for a human-readable meaning of these numerical encodings.
 
 ### Is it possible to identify individuals (i.e., one or more natural persons), either directly or indirectly (i.e., in combination with other data) from the dataset?
 
@@ -170,7 +182,8 @@ of individuals and/or households. As of April 2025, we do not know of publicly r
 ### Does the dataset contain data that might be considered sensitive in any way (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions or union memberships, or locations; financial or health data; biometric or genetic data; forms of government identification, such as social security numbers; criminal history)?
 
 _If so, please provide a description._
-The data contains the following sensitive attributes: "[tag:sensitivedescriptions][/tag]" as encoded in the ACS PUMS, year [tag:year][/tag].
+
+Yes. Please refer to the question about sub-populations.
 
 ### Any other comments?
 
@@ -185,6 +198,7 @@ _Was the data directly observable (e.g., raw text, movie ratings), reported by s
 survey responses), or indirectly inferred/derived from other data (e.g., part-of-speech tags,
 model-based guesses for age or language)? If data was reported by subjects or indirectly
 inferred/derived from other data, was the data validated/verified? If so, please describe how._
+
 Detailed information about the 2023 ACS Survey techniques is available, as of April 2025, at [this link](https://www2.census.gov/programs-surveys/acs/tech_docs/accuracy/ACS_Accuracy_of_Data_2023.pdf).
 Please note that this information might differ to the actual microdata sample employed to obtain the present dataset, which is from [tag:year][/tag].
 Detailed information about every year of the ACS Survey is available [here](https://www.census.gov/programs-surveys/acs/technical-documentation/code-lists.html).
@@ -198,8 +212,12 @@ The ACS relies on three modes of data collection:
 3. Computer Assisted Personal Interview (CAPI)
 
 ### If the dataset is a sample from a larger set, what was the sampling strategy (e.g., deterministic, probabilistic with specific sampling probabilities)?
+
 We refer to the documentation of the ACS PUMS available [here](https://www.census.gov/programs-surveys/acs/microdata/documentation.html).
-As for the present dataset, [tag:subsample][/tag].
+
+As for the present dataset, FeDa4Fair offers researchers the opportunity to modify the data itself by dropping or removing group/label combinations. The rationale is to test bias mitigation in federated learning settings with disparate distributions of resources and biases". For the present dataset, the state-level data has been modified as follows:
+
+[tag:modification][/tag]
 
 ### Who was involved in the data collection process (e.g., students, crowdworkers, contractors) and how were they compensated (e.g., how much were crowdworkers paid)?
 The U.S. Census Bureau was involved in the creation of the ACS and the creation and release of the ACS PUMS.
@@ -272,7 +290,8 @@ not suitable for tasks involving word order._
 
 _If so, please provide a description. If not, you may skip the remainder of the questions in
 this section._
-[tag:discretization][/tag]
+
+Please refer to the question about subpopulations.
 
 ### Was the “raw” data saved in addition to the preprocessed/cleaned/labeled data (e.g., to support unanticipated future uses)?
 
@@ -302,6 +321,7 @@ This dataset is intended for the purpose of training and testing bias mitigation
 ### Is there a repository that links to any or all papers or systems that use the dataset?
 
 _If so, please provide a link or other access point._
+
 No.
 
 ### What (other) tasks could the dataset be used for?
@@ -316,7 +336,7 @@ service issues) or other undesirable harms (e.g., financial harms, legal risks) 
 provide a description. Is there anything a future user could do to mitigate these undesirable
 harms?_
 
-[tag:sensitivewarning]Are there remaining sensitive attributes in the features?[/tag]
+It has to be kept in mind that the present dataset has been developed exclusively to test out bias mitigation strategies, especially in federated learning scenarios.
 
 ### Are there tasks for which the dataset should not be used?
 

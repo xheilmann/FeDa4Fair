@@ -1,6 +1,7 @@
 # FeDa4Fair
 
 Federated Learning (FL) enables collaborative model training across multiple clients while preserving the privacy of their local data. However, fairness remains a critical concern, as inherent biases within individual clients' datasets may influence the entire federated system. In particular, the presence of various clients, each with different data distributions, brings with it the risk that the trained federated model may result fairer for some groups of clients than for others. Although several fairness-enhancing strategies have been proposed in the literature, most focus on mitigating bias for a single sensitive attribute, typically binary, without addressing the diverse and sometimes conflicting fairness needs of different clients. This limited perspective may result in fairness interventions that fail to produce meaningful improvements for all clients. We aim to improve the study of fairness mitigation and evaluation in FL by allowing reproducible and consistent benchmarking of fairness-aware FL methods, globally and at the client level. Therefore, we introduce FeDa4Fair, a library to generate tabular datasets specifically designed to evaluate fair FL methods, encompassing diverse heterogeneous client scenarios with respect to bias in sensitive attributes. Additionally, we release 4 benchmarking datasets. We also provide ready-to-use functions for evaluating fairness outcomes for these datasets.
+
 ## Create the environment
 
 First of all we need to install [uv](https://github.com/astral-sh/uv):
@@ -16,12 +17,23 @@ uv sync
 uv venv
 ```
 
-How to run the code:
+We suggest you create the helper folder `data_stats`:
 
 ```bash
-uv run python main.py
+mkdir src/FeDa4Fair/data_stats
 ```
-A detailed example on how to use the library can be found in [example.ipynb](src/FeDa4Fair/example.ipynb).
+
+How to run code that creates an example dataset:
+
+```bash
+uv run python src/FeDa4Fair/main.py
+```
+
+## Tutorial and Example 
+
+A detailed example/tutorial on how to use the library can be found in [example.ipynb](src/FeDa4Fair/example.ipynb).
+
+
 ## Run Formatting 
 
 ```bash

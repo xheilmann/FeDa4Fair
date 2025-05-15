@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from fairness_computation import _compute_fairness
 from flwr.common import Metrics
 from sklearn.model_selection import train_test_split

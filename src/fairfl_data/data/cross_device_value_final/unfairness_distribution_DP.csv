@@ -1,6 +1,0 @@
-number,attribute,value,value_int,states
-1,RAC1P,White,1,['WV_2']
-15,RAC1P,Black,2,['SD_1', 'SD_2', 'MI_1', 'VT_0', 'WY_0', 'WI_0', 'MN_0', 'MN_1', 'MN_2', 'ID_1', 'ND_0', 'ND_1', 'MT_2', 'NH_2', 'ME_2']
-6,RAC1P,Asian,3,['AK_0', 'VT_1', 'NE_1', 'MT_0', 'MT_1', 'AR_2']
-31,RAC1P,Alaska/Indian,4,['NM_0', 'MA_0', 'NY_0', 'AK_1', 'AK_2', 'MS_0', 'MS_1', 'IL_0', 'IL_1', 'MI_2', 'GA_1', 'GA_2', 'SC_2', 'NJ_2', 'CT_1', 'CT_2', 'DE_0', 'DE_1', 'MO_0', 'MO_2', 'RI_0', 'TN_2', 'NE_0', 'ID_2', 'KS_0', 'CO_1', 'LA_1', 'HI_0', 'HI_1', 'KY_2', 'ME_1']
-47,RAC1P,Others,5,['AL_0', 'AL_2', 'IN_0', 'IN_2', 'WV_0', 'FL_0', 'AZ_0', 'AZ_1', 'AZ_2', 'PA_0', 'PA_2', 'NY_1', 'NY_2', 'NC_0', 'NC_1', 'NC_2', 'GA_0', 'SC_1', 'WA_1', 'WA_2', 'NJ_1', 'TX_0', 'TX_1', 'TX_2', 'DE_2', 'MO_1', 'RI_2', 'WI_1', 'WI_2', 'TN_0', 'NV_0', 'NV_2', 'NE_2', 'ID_0', 'CA_1', 'CA_2', 'VA_2', 'AR_0', 'AR_1', 'KS_2', 'MD_0', 'MD_1', 'MD_2', 'OH_0', 'CO_2', 'HI_2', 'KY_0']

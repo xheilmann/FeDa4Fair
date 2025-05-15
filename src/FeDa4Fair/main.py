@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 # example mapping parameter:
 mapping = {"MAR": {1: 0, 2: 1, 3: 1, 4: 1, 5: 1}, "RAC1P": {8: 2, 7: 2, 9: 2, 6: 2, 5: 2, 4: 2, 3: 2}}
 
-# example for modification dict (this is always after the mapping!
+# example for modification dict (this is always after the mapping!)
 modification_dict = {
     "CT": {
         "MAR": {
@@ -30,9 +30,7 @@ modification_dict = {
     }
 }
 
-# df = pd.read_csv("/home/heilmann/Dokumente/fairFL-data/data_stats/RAC1P_DP_df.csv")
-# fig = local_client_fairness_plot(df.iloc[:5],df.iloc[5:])
-# fig.show()
+#an example, but more details can be found in example.ipynb
 
 for name in ["ACSIncome"]:
     for tt_split in ["cross-silo"]:
@@ -51,7 +49,6 @@ for name in ["ACSIncome"]:
                 )
 
                 if tt_split == None:
-                    # split = ffds.load_split("FL")
                     data1 = ffds.load_partition(0, "CT").to_pandas()
                     target1 = data1["PINCP"]
                     data1.drop(inplace=True, columns=["PINCP"])
@@ -80,11 +77,9 @@ for name in ["ACSIncome"]:
                         n_jobs=2,
                     )
                     print(df)
-                    break
                 if tt_split == "cross-silo" or train_test_split == "cross-device":
                     split = ffds.load_partition(split="CT_train", partition_id=0)
                     print(split)
-                # partition = ffds.load_partition(0, "CT_val")
                 if train_test_split == "cross-device":
                     test = ffds.load_split("test")
                     print(test)

@@ -1,14 +1,9 @@
 import os
-from statistics import LinearRegression
-
-
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from sklearn.linear_model import LogisticRegression
-
 from FairFederatedDataset import FairFederatedDataset
-from evaluation import evaluate_models_on_datasets, local_client_fairness_plot
+from evaluation import evaluate_models_on_datasets
 from sklearn.model_selection import train_test_split
 
 # mapping parameter for attribute unfairness

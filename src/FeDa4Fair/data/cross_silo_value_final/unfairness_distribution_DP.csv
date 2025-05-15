@@ -1,0 +1,7 @@
+number,attribute,value,value_int,states
+0,RAC1P,White,1,"[]"
+9,RAC1P,Black,2,"['MN', 'FL', 'ME', 'MT', 'NH', 'ND', 'OK', 'SD', 'VT']"
+2,RAC1P,Asian,3,"['PR', 'WY']"
+16,RAC1P,Alaska/Indian,4,"['AK', 'MS', 'DE', 'NE', 'OR', 'OH', 'AL', 'CO', 'CT', 'GA', 'HI', 'ID', 'KY', 'NM', 'PA', 'UT']"
+24,RAC1P,Others,5,"['LA', 'AR', 'WV', 'AZ', 'CA', 'IL', 'IN', 'IA', 'KS', 'MD', 'MA', 'MI', 'MO', 'NV', 'NJ', 'NY', 'NC', 'RI', 'SC', 'TN', 'TX', 'VA', 'WA', 'WI']"
+

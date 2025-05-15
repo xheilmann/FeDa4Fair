@@ -1,5 +1,5 @@
 [project]
-name = "fairfl-data"
+name = "FeDa4Fair"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 #[project.scripts]
-#fairfl-data = "fairfl_data:main"
+#FeDa4Fair = "FeDa4Fair:main"
 
 #[build-system]
 #requires = ["hatchling"]

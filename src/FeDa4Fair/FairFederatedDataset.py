@@ -27,8 +27,6 @@ from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.preprocessor import Preprocessor, Divider
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
-from sklearn.linear_model import LogisticRegression
-
 from evaluation import evaluate_fairness
 from utils import drop_data, flip_data
 

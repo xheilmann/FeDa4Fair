@@ -131,7 +131,6 @@ def prep_info_dict(debug: bool = False):
 # 2. Build the datasheet
 # ----------------------------------------------------------------------
 def create_new_datasheet(
-    source: Path | str,
     destination: Path | str,
     dataset: FairFederatedDataset,
     keep_missing: bool = True,
@@ -141,7 +140,7 @@ def create_new_datasheet(
 
     replacements: dict[str, Any] = prep_info_dict()
 
-    source = Path(source).expanduser().resolve()
+    source = Path(SOURCE_FILE).expanduser().resolve()
     dest = Path(destination).expanduser().resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
 
@@ -255,4 +254,4 @@ if __name__ == "__main__":
     partition_CT_0 = dataset.load_partition(split="CT", partition_id=0)
     split_CT = dataset.load_split("CT")
     dataset.save_dataset("data_fl")
-    create_new_datasheet(SOURCE_FILE, "data_fl/datasheet.md", dataset)
+    create_new_datasheet("data_fl/datasheet.md", dataset)

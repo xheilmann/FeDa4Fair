@@ -47,7 +47,7 @@ name and number._
 For FairFL-data: XH and MC were funded by the “TOPML: Trading Off Non-Functional Properties of Machine Learning” project funded by the
 Carl-Zeiss-Stiftung in the Förderprogramm “Durchbrüche”, identifying code P2021-02-014.
 LC was funded by The European Union Horizon 2020 program under grant agreement No. 101120763 (TANGO).
-AM ....
+AM was funded by the National Recovery and Resilience Plan (PNRR), under agreements: PNRR - M4C2 - Investimento 1.3, Partenariato Esteso PE00000013 - "FAIR - Future Artificial Intelligence Research" - Spoke 1 "Human-centered AI"
 For the specific present dataset: [tag:funding]to be filled[/tag]
 
 ### Any other comments?

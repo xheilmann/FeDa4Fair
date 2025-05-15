@@ -19,4 +19,6 @@ run_sweep_and_agent () {
 }
 
 # run_sweep_and_agent "baseline_attribute"
-run_sweep_and_agent "baseline_value"
+# run_sweep_and_agent "baseline_value"
+# run_sweep_and_agent "puffle_attribute"
+run_sweep_and_agent "puffle_value"

@@ -610,7 +610,7 @@ class Learning:
         if train_parameters.metric == "disparity":
             criterion_regularization = RegularizationLoss()
             # We compute the violation on the entire test set with the current model
-            unfairness_test = criterion_regularization.violation_with_dataset_2(
+            unfairness_test = criterion_regularization.violation_with_dataset_3(
                 model=model,
                 dataset=test_loader,
                 device=train_parameters.device,

@@ -19,16 +19,16 @@ from FederatedDataset.PartitionTypes.non_iid_partition_with_sensitive_feature im
 )
 from FederatedDataset.PartitionTypes.representative import Representative
 from FederatedDataset.Utils.utils import PartitionUtils
-from PIL import Image
-from Utils.model_utils import ModelUtils
-from Utils.train_parameters import TrainParameters
 from flwr.common.typing import Scalar
 from opacus import PrivacyEngine
 from opacus.grad_sample import GradSampleModule
 from opacus.optimizers import DPOptimizer
+from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
+from Utils.model_utils import ModelUtils
+from Utils.train_parameters import TrainParameters
 
 
 class Utils:
@@ -59,15 +59,11 @@ class Utils:
             return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
         elif mechanism_type == "geometric":
             p = 1 - np.exp(-epsilon / sensitivity)
-            return (
-                np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1)
-            )[0]
+            return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
         elif mechanism_type == "gaussian":
             return np.random.normal(loc=0, scale=sigma, size=1)[0]
         else:
-            raise ValueError(
-                "The mechanism type must be either laplace, geometric or gaussian"
-            )
+            raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
 
     @staticmethod
     def seed_everything(seed: int):
@@ -88,9 +84,7 @@ class Utils:
             name = "experiment" if not args.run_name else args.run_name
             wandb_run = wandb.init(
                 # set the wandb project where this run will be logged
-                project=(
-                    "FL_fairness" if args.project_name is None else args.project_name
-                ),
+                project=("FL_fairness" if args.project_name is None else args.project_name),
                 name=name,
                 # track hyperparameters and run metadata
                 config={
@@ -124,9 +118,7 @@ class Utils:
         else:
             wandb_run = wandb.init(
                 # set the wandb project where this run will be logged
-                project=(
-                    "FL_fairness" if args.project_name is None else args.project_name
-                ),
+                project=("FL_fairness" if args.project_name is None else args.project_name),
                 # name=f"FL - Lambda {args.DPL_lambda} - LR {args.lr} - Batch {args.batch_size}",
                 # track hyperparameters and run metadata
                 config={
@@ -172,15 +164,9 @@ class Utils:
 
         # Return a dictionary with the statistics of the dataset
         return {
-            "counter_combination": {
-                str(key): value for key, value in counter_combination.items()
-            },
-            "counter_sens_features": {
-                str(key): value for key, value in counter_sens_features.items()
-            },
-            "counter_targets": {
-                str(key): value for key, value in counter_targets.items()
-            },
+            "counter_combination": {str(key): value for key, value in counter_combination.items()},
+            "counter_sens_features": {str(key): value for key, value in counter_sens_features.items()},
+            "counter_targets": {str(key): value for key, value in counter_targets.items()},
             "client_disparity": client_disparity,
             "unfair_client": client_metadata,
         }
@@ -244,15 +230,9 @@ class Utils:
             counter_targets = Counter(targets)
 
             dictionary = {
-                "counter_combination": {
-                    str(key): value for key, value in counter_combination.items()
-                },
-                "counter_sens_features": {
-                    str(key): value for key, value in counter_sens_features.items()
-                },
-                "counter_targets": {
-                    str(key): value for key, value in counter_targets.items()
-                },
+                "counter_combination": {str(key): value for key, value in counter_combination.items()},
+                "counter_sens_features": {str(key): value for key, value in counter_sens_features.items()},
+                "counter_targets": {str(key): value for key, value in counter_targets.items()},
                 "client_disparity": disparity,
                 "unfair_client": metadata,
             }
@@ -294,9 +274,7 @@ class Utils:
     def set_params(model: torch.nn.ModuleList, params: List[np.ndarray]):
         """Set model weights from a list of NumPy ndarrays."""
         params_dict = zip(model.state_dict().keys(), params)
-        state_dict = OrderedDict(
-            {k: torch.from_numpy(np.copy(v)) for k, v in params_dict}
-        )
+        state_dict = OrderedDict({k: torch.from_numpy(np.copy(v)) for k, v in params_dict})
         model.load_state_dict(state_dict, strict=True)
 
     @staticmethod
@@ -305,9 +283,7 @@ class Utils:
             return transforms.Compose(
                 [
                     transforms.ToTensor(),
-                    transforms.Normalize(
-                        (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-                    ),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                 ],
             )
         elif dataset_name == "mnist":
@@ -337,6 +313,8 @@ class Utils:
         elif dataset == "income":
             return torch.load(path_to_data)
         elif dataset == "income_NO_RACE":
+            return torch.load(path_to_data)
+        elif dataset == "income_cross_device":
             return torch.load(path_to_data)
         elif dataset == "employment":
             return torch.load(path_to_data)
@@ -390,15 +368,9 @@ class Utils:
 
         images, sensitive_attribute, labels = torch.load(path_to_dataset)
         mapping = {-1: 0, 1: 1, 0: 0}
-        if (
-            train_parameters.metric == "disparity"
-            or train_parameters.metric == "equalised_odds"
-        ):
+        if train_parameters.metric == "disparity" or train_parameters.metric == "equalised_odds":
             sensitive_attribute = torch.tensor(
-                [
-                    mapping[item] if item in mapping else item
-                    for item in sensitive_attribute
-                ]
+                [mapping[item] if item in mapping else item for item in sensitive_attribute]
             )
         else:
             sensitive_attribute = torch.tensor([item for item in sensitive_attribute])
@@ -486,9 +458,7 @@ class Utils:
             possible_z = np.unique(np.concatenate((possible_z, unique_z)))
             possible_y = np.unique(np.concatenate((possible_y, unique_y)))
             with open(
-                splits_dir
-                / str(p)
-                / ("train.pt" if partition == "train" else "test.pt"),
+                splits_dir / str(p) / ("train.pt" if partition == "train" else "test.pt"),
                 "wb",
             ) as f:
                 torch.save([imgs, sensitive_features, labels], f)
@@ -547,16 +517,11 @@ class Utils:
         return splits_dir
 
     @staticmethod
-    def plot_distributions(
-        title: str, counter_groups: list, nodes: list, all_combinations: list
-    ):
+    def plot_distributions(title: str, counter_groups: list, nodes: list, all_combinations: list):
         plt.figure(figsize=(20, 8))
         previous_sum = []
         for combination in all_combinations:
-            counter = [
-                counter[(int(combination[0]), int(combination[-1]))]
-                for counter in counter_groups
-            ]
+            counter = [counter[(int(combination[0]), int(combination[-1]))] for counter in counter_groups]
             print(counter)
             if previous_sum:
                 plt.bar(range(len(counter)), counter, bottom=previous_sum)
@@ -645,13 +610,7 @@ class Utils:
     ):
         """Generates trainset/valset object and returns appropiate dataloader."""
 
-        partition = (
-            "train"
-            if partition == "train"
-            else "test"
-            if partition == "test"
-            else "val"
-        )
+        partition = "train" if partition == "train" else "test" if partition == "test" else "val"
         dataset = Utils.get_dataset(Path(path_to_data), cid, partition, dataset)
 
         # we use as number of workers all the cpu cores assigned to this actor

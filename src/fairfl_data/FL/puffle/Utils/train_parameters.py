@@ -42,3 +42,4 @@ class TrainParameters:
     unprivileged_group: int = None
     sensitive_attribute: str = None
     dataset_name: str = None
+    cross_silo: bool = False

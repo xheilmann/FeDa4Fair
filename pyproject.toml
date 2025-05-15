@@ -74,3 +74,8 @@ ignore = [
 
 [tool.uv.sources]
 flwr = { git = "https://github.com/lucacorbucci/flower"}# , extra = "simulation", branch="main" }
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]

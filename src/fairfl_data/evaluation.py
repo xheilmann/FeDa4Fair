@@ -207,6 +207,9 @@ def local_client_fairness_plot(
     figsize: tuple = (6, 6),
     ylabel: str = "Fairness Value Before",
     xlabel: str = "Fairness Value After",
+    title_font_size: int = 25,
+    label_font_size: int = 25,
+    ticks_font_size: int = 20,
 ) -> plt.Figure:
     """
     Plot a scatter comparison of fairness values from two dataframes.
@@ -265,11 +268,14 @@ def local_client_fairness_plot(
     ax.scatter(fairness2, fairness1, alpha=0.7)
     ax.plot([min_val - 0.05, max_val + 0.05], [min_val - 0.05, max_val + 0.05], linestyle="dotted", color="gray")
 
+    # ticks font size
+    ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+
     ax.set_xlim(min_val - 0.05, max_val + 0.05)
     ax.set_ylim(min_val - 0.05, max_val + 0.05)
-    ax.set_xlabel(f"{xlabel}")
-    ax.set_ylabel(f"{ylabel}")
-    ax.set_title(title)
+    ax.set_xlabel(f"{xlabel}", fontsize=label_font_size)
+    ax.set_ylabel(f"{ylabel}", fontsize=label_font_size)
+    ax.set_title(title, fontsize=title_font_size)
     ax.grid(True)
 
     return fig

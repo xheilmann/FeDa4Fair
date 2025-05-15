@@ -1,8 +1,102 @@
 import copy
 import json
 import os
+from itertools import product
 
 import dill
+import numpy as np
+import pandas as pd
+from fairlearn.metrics import MetricFrame, false_positive_rate, selection_rate, true_positive_rate
+from sklearn.metrics import confusion_matrix
+
+# def demographic_disparity_by_group(y_pred, sensitive_features):
+#     """
+#     Calculates demographic disparity (statistical parity difference) across sensitive groups,
+#     and identifies the pair of groups with the maximum disparity.
+
+#     Parameters:
+#     y_pred (np.array): Predicted labels (binary: 0 or 1).
+#     sensitive_features (np.array or pd.Series): Sensitive feature(s) defining the groups.
+
+#     Returns:
+#     tuple:
+#         float: The maximum demographic disparity.
+#         tuple: The pair of sensitive groups (group_a, group_b) with the maximum disparity.
+#     """
+#     if not isinstance(sensitive_features, pd.Series):
+#         sensitive_features = pd.Series(sensitive_features)
+
+#     unique_groups = sensitive_features.unique()
+#     print(unique_groups)
+#     positive_rates = {}
+
+#     # Calculate positive prediction rate for each group
+#     for group in unique_groups:
+#         group_indices = sensitive_features[sensitive_features == group].index
+#         y_pred_group = y_pred[group_indices]
+#         positive_rate = np.mean(y_pred_group)  # Pr(Ŷ=1 | A=group)
+#         positive_rates[group] = positive_rate
+
+#     # Find the maximum absolute difference and the group pair responsible
+#     max_disparity = 0.0
+#     responsible_pair = (None, None)
+
+#     for i, group_a in enumerate(unique_groups):
+#         for group_b in unique_groups[i + 1 :]:
+#             disparity = abs(positive_rates[group_a] - positive_rates[group_b])
+#             if disparity > max_disparity:
+#                 max_disparity = disparity
+#                 responsible_pair = (group_a, group_b)
+
+#     return max_disparity, responsible_pair
+
+
+# def equalized_odds_difference_by_outcome(y_true, y_pred, sensitive_features):
+#     """
+#     Calculates the equalized odds difference, considering outcomes separately for each group.
+
+#     Parameters:
+#     y_true (np.array): True labels.
+#     y_pred (np.array): Predicted labels.
+#     sensitive_features (np.array): Sensitive feature(s) that define the groups.
+
+#     Returns:
+#     float: The equalized odds difference.
+#     """
+#     if not isinstance(sensitive_features, pd.Series):
+#         sensitive_features = pd.Series(sensitive_features)
+
+#     unique_groups = sensitive_features.unique()
+#     possible_outcomes = np.unique(y_true)
+
+#     tpr_values = {group: {} for group in unique_groups}
+#     fpr_values = {group: {} for group in unique_groups}
+
+#     for group in unique_groups:
+#         group_indices = sensitive_features[sensitive_features == group].index
+#         y_true_group = y_true[group_indices]
+#         y_pred_group = y_pred[group_indices]
+
+#         tn, fp, fn, tp = confusion_matrix(y_true_group, y_pred_group).ravel()
+#         tpr_values[group][1] = tp / (tp + fn) if (tp + fn) > 0 else 0  # TPR for outcome 1
+#         fpr_values[group][1] = fp / (fp + tn) if (fp + tn) > 0 else 0  # FPR for outcome 1
+#         # For binary classification where outcomes are 0 and 1, we can also consider metrics for the negative outcome (0)
+#         if len(possible_outcomes) == 2:
+#             tn_r, fn_r, fp_r, tp_r = confusion_matrix(1 - y_true_group, 1 - y_pred_group).ravel()
+#             tpr_values[group][0] = tp_r / (tp_r + fp_r) if (tp_r + fp_r) > 0 else 0  # TNR (TPR for outcome 0)
+#             fpr_values[group][0] = fn_r / (fn_r + tn_r) if (fn_r + tn_r) > 0 else 0  # FNR (FPR for outcome 0)
+
+#     tpr_diffs = []
+#     fpr_diffs = []
+
+#     for outcome in possible_outcomes:
+#         tprs_outcome = [tpr_values[group].get(outcome, 0) for group in unique_groups]
+#         fprs_outcome = [fpr_values[group].get(outcome, 0) for group in unique_groups]
+
+#         tpr_diffs.append(max(tprs_outcome) - min(tprs_outcome))
+#         fpr_diffs.append(max(fprs_outcome) - min(fprs_outcome))
+
+#     return max(abs(max(tpr_diffs)), abs(max(fpr_diffs)))
 
 
 class AggregationFunctions:
@@ -15,6 +109,94 @@ class AggregationFunctions:
         fed_dir: str,
     ) -> dict:
         total_examples = sum([n_examples for n_examples, _ in metrics])
+
+        for _, metric in metrics:
+            if "y_true" in metric:
+                node_name = metric["cid"]
+                y_true = np.array([int(item) for item in metric["y_true"]])
+                y_pred = np.array(metric["y_pred"])
+                sensitive_attribute_1 = np.array(list(metric["sensitive_attributes_1"]))
+                sensitive_attribute_2 = np.array(list(metric["sensitive_attributes_2"]))
+                sensitive_attribute_3 = np.array(list(metric["sensitive_attributes_3"]))
+
+                # # Calculate the equalized odds difference
+                # equalized_odds_diff = equalized_odds_difference_by_outcome(
+                #     y_true=y_true,
+                #     y_pred=y_pred,
+                #     sensitive_features=sensitive_attribute_1,
+                # )
+                # # print(f" ------> Test Node {node_name}, Equalized Odds Difference: {equalized_odds_diff}")
+                # # Calculate the equalized odds difference
+                # equalized_odds_diff_second = equalized_odds_difference_by_outcome(
+                #     y_true=y_true,
+                #     y_pred=y_pred,
+                #     sensitive_features=sensitive_attribute_2,
+                # )
+                # # print(f" ------> Test Node {node_name}, Equalized Odds Difference Second: {equalized_odds_diff_second}")
+                # # Calculate the equalized odds difference
+                # # equalized_odds_diff_third = equalized_odds_difference_by_outcome(
+                # #     y_true=y_true,
+                # #     y_pred=y_pred,
+                # #     sensitive_features=sensitive_attribute_3,
+                # # )
+                # # print(f" ------> Test Node {node_name}, Equalized Odds Difference Third: {equalized_odds_diff_third}")
+                # agg_metrics = {
+                #     f"Test Node {node_name} - EO.": equalized_odds_diff,
+                #     f"Test Node {node_name} - Second EO.": equalized_odds_diff_second,
+                #     # f"Test Node {node_name} - Third EO.": equalized_odds_diff_third,
+                #     "FL Round": server_round,
+                # }
+                # if wandb_run:
+                #     wandb_run.log(agg_metrics)
+
+                def dem_parity_by_group(sens_attribute_list: list, y_true: list, y_pred):
+                    sf_data = pd.DataFrame({"DP_RACE": sens_attribute_list})
+
+                    sel_rate = MetricFrame(
+                        metrics={"sel": selection_rate},
+                        y_true=y_true,
+                        y_pred=y_pred,
+                        sensitive_features=sf_data,
+                    )
+                    df = sel_rate.by_group
+                    diff_matrix = df["sel"].values[:, None] - df["sel"].values[None, :]
+                    index = df.index.values
+                    column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(df)), repeat=2)]
+
+                    diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
+                    diff_df = pd.Series([diff_df.max(), diff_df.idxmax()], index=[f"DP_SEX_DP", f"DP_SEX_val"])
+                    dp_third = diff_df[0]
+                    group_3 = diff_df[1].split("_")[1]
+                    return dp_third, group_3
+
+                dp_diff, group_1 = dem_parity_by_group(
+                    y_true=y_true,
+                    y_pred=y_pred,
+                    sens_attribute_list=sensitive_attribute_1,
+                )
+                dp_second, group_2 = dem_parity_by_group(
+                    y_pred=y_pred,
+                    y_true=y_true,
+                    sens_attribute_list=sensitive_attribute_2,
+                )
+
+                dp_third, group_3 = dem_parity_by_group(
+                    y_true=y_true,
+                    y_pred=y_pred,
+                    sens_attribute_list=sensitive_attribute_3,
+                )
+
+                agg_metrics = {
+                    f"Test Node {node_name} - First DP NEW.": dp_diff,
+                    f"Test Node {node_name} - Second DP NEW.": dp_second,
+                    f"Test Node {node_name} - Third DP NEW.": dp_third,
+                    f"Test Node {node_name} - Group 1": group_1,
+                    f"Test Node {node_name} - Group 2": group_2,
+                    f"Test Node {node_name} - Group 3": float(int(group_3)),
+                    "FL Round": server_round,
+                }
+                if wandb_run:
+                    wandb_run.log(agg_metrics)
 
         loss_test = (
             sum(
@@ -83,37 +265,37 @@ class AggregationFunctions:
                 _,
             ) = AggregationFunctions.handle_counters(metrics, "third_counters", fed_dir)
 
-            sex_unfair_income = [15, 17, 9, 5, 13, 7, 18, 8, 19, 6]
-            mar_unfair_income = [14, 3, 0, 4, 11, 16, 12, 2, 10, 1]
+            # sex_unfair_income = [15, 17, 9, 5, 13, 7, 18, 8, 19, 6]
+            # mar_unfair_income = [14, 3, 0, 4, 11, 16, 12, 2, 10, 1]
 
-            sex_unfair_employment = [14, 3, 0, 4, 11, 16, 12, 2, 10, 1]
-            mar_unfair_employment = [15, 17, 9, 5, 13, 7, 18, 8, 19, 6]
+            # sex_unfair_employment = [14, 3, 0, 4, 11, 16, 12, 2, 10, 1]
+            # mar_unfair_employment = [15, 17, 9, 5, 13, 7, 18, 8, 19, 6]
 
-            (
-                _,
-                _,
-                _,
-                max_disparity_statistics_SEX_unfair,
-                _,
-            ) = AggregationFunctions.handle_counters(
-                metrics,
-                "counters",
-                fed_dir,
-                unfair_list=sex_unfair_income if train_parameters.dataset_name == "income" else sex_unfair_employment,
-            )
+            # (
+            #     _,
+            #     _,
+            #     _,
+            #     max_disparity_statistics_SEX_unfair,
+            #     _,
+            # ) = AggregationFunctions.handle_counters(
+            #     metrics,
+            #     "counters",
+            #     fed_dir,
+            #     unfair_list=sex_unfair_income if train_parameters.dataset_name == "income" else sex_unfair_employment,
+            # )
 
-            (
-                _,
-                _,
-                _,
-                max_disparity_statistics_MAR_unfair,
-                _,
-            ) = AggregationFunctions.handle_counters(
-                metrics,
-                "second_counters",
-                fed_dir,
-                unfair_list=mar_unfair_income if train_parameters.dataset_name == "income" else mar_unfair_employment,
-            )
+            # (
+            #     _,
+            #     _,
+            #     _,
+            #     max_disparity_statistics_MAR_unfair,
+            #     _,
+            # ) = AggregationFunctions.handle_counters(
+            #     metrics,
+            #     "second_counters",
+            #     fed_dir,
+            #     unfair_list=mar_unfair_income if train_parameters.dataset_name == "income" else mar_unfair_employment,
+            # )
 
             if wandb_run:
                 for combination in disparity_combinations:
@@ -134,8 +316,8 @@ class AggregationFunctions:
                 "Test Disparity with statistics": max_disparity_statistics,
                 "Test Disparity with statistics Second value": max_disparity_statistics_second_value,
                 "Test Disparity with statistics Third value": max_disparity_statistics_third_value,
-                "Test Disparity with statistics SEX": max_disparity_statistics_SEX_unfair,
-                "Test Disparity with statistics MAR": max_disparity_statistics_MAR_unfair,
+                # "Test Disparity with statistics SEX": max_disparity_statistics_SEX_unfair,
+                # "Test Disparity with statistics MAR": max_disparity_statistics_MAR_unfair,
                 "FL Round": server_round,
                 "Test F1": f1_test,
             }
@@ -382,9 +564,9 @@ class AggregationFunctions:
                         Y_target_Z_not_sensitive_value += sum_counters[f"{target}|{not_sensitive_value}"]
                         Z_not_sensitive_value += sum_possible_sensitive_attributes[not_sensitive_value]
 
-                print(
-                    f" ------> {key} - Y_target_Z_sensitive_value: {Y_target_Z_sensitive_value}, Z_sensitive_value: {Z_sensitive_value}, Z_not_sensitive_value: {Z_not_sensitive_value}, Y_target_Z_not_sensitive_value: {Y_target_Z_not_sensitive_value}"
-                )
+                if Z_sensitive_value == 0 and Z_not_sensitive_value == 0:
+                    continue
+
                 if Z_sensitive_value == 0:
                     disparity = abs(Y_target_Z_not_sensitive_value / Z_not_sensitive_value)
                 elif Z_not_sensitive_value == 0:

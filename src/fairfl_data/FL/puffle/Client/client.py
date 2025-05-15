@@ -346,7 +346,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             del private_model_regularization
         gc.collect()
 
-        print(f"Client {self.cid} Counter: ", counters)
+        # print(f"Client {self.cid} Counter: ", counters)
         # Return local model and statistics
         return (
             Utils.get_params(self.net),
@@ -383,13 +383,19 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         # Load data for this client and get trainloader
         num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
 
+        
+        if self.train_parameters.cross_silo == True:
+            partition = "test" if self.train_parameters.sweep == False else "val"
+        else:
+            partition = "train"
+
         dataset = Utils.get_dataloader(
             self.fed_dir,
             self.cid,
             batch_size=self.train_parameters.batch_size,
             workers=num_workers,
             dataset=self.dataset_name,
-            partition="test" if not self.train_parameters.sweep else "val",
+            partition=partition,
         )
 
         # Send model to device
@@ -501,8 +507,6 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             possible_targets=possible_targets,
             # train_parameters=self.train_parameters,
         )
-        print("third sensitive attributes: ", third_sensitive_attributes)
-        print("Third counters: ", third_counters)
 
         self.net.to("cpu")
         gc.collect()
@@ -514,6 +518,9 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 if self.train_parameters.sensitive_attribute == "SEX"
                 else float(max_disparity_second),
                 "max_disparity_validation_second": float(max_disparity_second)
+                if self.train_parameters.sensitive_attribute == "SEX"
+                else float(max_disparity),
+                "max_disparity_validation_third": float(max_disparity_third)
                 if self.train_parameters.sensitive_attribute == "SEX"
                 else float(max_disparity),
                 "validation_loss": test_loss,
@@ -542,6 +549,11 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "third_counters": third_counters,
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "sensitive_attributes_1": sensitive_attributes,
+                "sensitive_attributes_2": second_sensitive_attributes,
+                "sensitive_attributes_3": third_sensitive_attributes,
             }
 
         # Return statistics

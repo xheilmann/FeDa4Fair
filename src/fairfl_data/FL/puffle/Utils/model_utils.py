@@ -100,6 +100,8 @@ class ModelUtils:
             return LinearClassificationNet(input_size=49, output_size=2)
         elif dataset == "income_NO_RACE":
             return LinearClassificationNet(input_size=41, output_size=2)
+        elif dataset == "income_cross_device":
+            return LinearClassificationNet(input_size=41, output_size=2)
         elif dataset == "employment":
             return LinearClassificationNet(input_size=88, output_size=2)
         elif dataset == "employment_NO_RACE":

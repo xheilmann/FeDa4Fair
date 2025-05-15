@@ -22,6 +22,8 @@ import numpy as np
 import torch
 from Client.client import FlowerClientDisparity
 from ClientManager.client_manager import SimpleClientManager
+from flwr.common.logger import log
+from flwr.common.typing import Scalar
 from Server.server import Server
 from Strategy.fed_avg import FedAvg
 from Utils.aggregations_fuctions import AggregationFunctions
@@ -30,8 +32,6 @@ from Utils.model_utils import ModelUtils
 from Utils.tabular_data_loader import prepare_tabular_data
 from Utils.train_parameters import TrainParameters
 from Utils.utils import Utils
-from flwr.common.logger import log
-from flwr.common.typing import Scalar
 
 
 def signal_handler(sig, frame):
@@ -49,30 +49,18 @@ parser = argparse.ArgumentParser(description="Flower Simulation with PyTorch")
 
 # ----------------------
 # Experiment Settings
-parser.add_argument(
-    "--num_client_cpus", type=float, default=1
-)  # Percentage of CPUs used by each client
-parser.add_argument(
-    "--num_client_gpus", type=float, default=1
-)  # Percentage of GPUs used by each client
-parser.add_argument(
-    "--num_rounds", type=int, default=5
-)  # Number of rounds of federated learning
+parser.add_argument("--num_client_cpus", type=float, default=1)  # Percentage of CPUs used by each client
+parser.add_argument("--num_client_gpus", type=float, default=1)  # Percentage of GPUs used by each client
+parser.add_argument("--num_rounds", type=int, default=5)  # Number of rounds of federated learning
 # Dataset we want to use, based on this we will use a different model
 parser.add_argument("--dataset", type=str, default=None)
 parser.add_argument("--pool_size", type=int, default=100)  # Number of clients
-parser.add_argument(
-    "--wandb", type=bool, default=False
-)  # If we want to use wandb to log the results
-parser.add_argument(
-    "--cross_silo", type=bool, default=False
-)  # If we are in a cross silo scenario
+parser.add_argument("--wandb", type=bool, default=False)  # If we want to use wandb to log the results
+parser.add_argument("--cross_silo", type=bool, default=False)  # If we are in a cross silo scenario
 parser.add_argument(
     "--seed", type=int, default=42
 )  # Used to set the seed of the random functions and to sample every time the same test clients
-parser.add_argument(
-    "--debug", type=bool, default=False
-)  # Used to print debug information
+parser.add_argument("--debug", type=bool, default=False)  # Used to print debug information
 parser.add_argument(
     "--probability_estimation", type=bool, default=False
 )  # If we want to use the probability estimation
@@ -81,23 +69,15 @@ parser.add_argument("--perfect_probability_estimation", type=bool, default=False
 
 # ----------------------
 # Privacy Settings
-parser.add_argument(
-    "--regularization", type=bool, default=False
-)  # If we want to use DPL Regularization
+parser.add_argument("--regularization", type=bool, default=False)  # If we want to use DPL Regularization
 # parser.add_argument("--private", type=bool, default=True)  # If we want to use DP-SGD
 parser.add_argument("--epsilon", type=float, default=None)  # Target Epsilon for DP-SGD
-parser.add_argument(
-    "--epsilon_lambda", type=float, default=None
-)  # Target Epsilon for Lambda computation
-parser.add_argument(
-    "--epsilon_statistics", type=float, default=None
-)  # Target Epsilon for statistics sharing
+parser.add_argument("--epsilon_lambda", type=float, default=None)  # Target Epsilon for Lambda computation
+parser.add_argument("--epsilon_statistics", type=float, default=None)  # Target Epsilon for statistics sharing
 # parser.add_argument(
 #     "--noise_multiplier", type=float, default=None
 # )  # Noise multiplier for DP-SGD
-parser.add_argument(
-    "--clipping", type=float, default=1000000000
-)  # Clipping value for DP-SGD
+parser.add_argument("--clipping", type=float, default=1000000000)  # Clipping value for DP-SGD
 # parser.add_argument("--delta", type=float, default=None)
 
 # ----------------------
@@ -110,43 +90,27 @@ parser.add_argument(
     "--node_shuffle_seed", type=int, default=None
 )  # Seed to shuffle the nodes of validation/train group but not the test group
 
-parser.add_argument(
-    "--sweep", type=bool, default=False
-)  # true if we are using wandb sweep to tune the hyperparameters
+parser.add_argument("--sweep", type=bool, default=False)  # true if we are using wandb sweep to tune the hyperparameters
 
 # ----------------------
 # Hyperparameters
-parser.add_argument(
-    "--weight_decay_lambda", type=float, default=None
-)  # weight decay for the alpha
+parser.add_argument("--weight_decay_lambda", type=float, default=None)  # weight decay for the alpha
 parser.add_argument("--optimizer", type=str, default=0)  # optimizer we want to use
-parser.add_argument(
-    "--alpha_target_lambda", type=float, default=None
-)  # alpha (velocity) to update the lambda
+parser.add_argument("--alpha_target_lambda", type=float, default=None)  # alpha (velocity) to update the lambda
 parser.add_argument("--epochs", type=int, default=1)  # Number of epochs per round
 parser.add_argument("--batch_size", type=int, default=64)  # Batch size
 parser.add_argument("--lr", type=float, default="0.1")
 
 # ----------------------
 # Percentage of samples sampled from train, validation and test group
-parser.add_argument(
-    "--sampled_clients", type=float, default=0.1
-)  # Percentage of training clients sampled
-parser.add_argument(
-    "--sampled_clients_test", type=float, default=0.1
-)  # Percentage of test clients sampled
-parser.add_argument(
-    "--sampled_clients_validation", type=float, default=0
-)  # Percentage of validation clients sampled
+parser.add_argument("--sampled_clients", type=float, default=0.1)  # Percentage of training clients sampled
+parser.add_argument("--sampled_clients_test", type=float, default=0.1)  # Percentage of test clients sampled
+parser.add_argument("--sampled_clients_validation", type=float, default=0)  # Percentage of validation clients sampled
 
 # ----------------------
 # Distributions of training/validation/test nodes
-parser.add_argument(
-    "--training_nodes", type=float, default=0
-)  # Percentage of training nodes
-parser.add_argument(
-    "--validation_nodes", type=float, default=0
-)  # Percentage of validation nodes
+parser.add_argument("--training_nodes", type=float, default=0)  # Percentage of training nodes
+parser.add_argument("--validation_nodes", type=float, default=0)  # Percentage of validation nodes
 parser.add_argument("--test_nodes", type=float, default=0)  # Percentage of test nodes
 parser.add_argument("--project_name", type=str, default=None)  # project name for wandb
 parser.add_argument("--run_name", type=str, default=None)  # run name for wandb
@@ -168,13 +132,9 @@ parser.add_argument(
 parser.add_argument(
     "--regularization_lambda", type=float, default=None
 )  # value to initialize the Lambda, this is used when starting_lambda_mode is fixed
-parser.add_argument(
-    "--update_lambda", type=bool, default=False
-)  # if we want to update the Lambda during the training
+parser.add_argument("--update_lambda", type=bool, default=False)  # if we want to update the Lambda during the training
 
-parser.add_argument(
-    "--momentum", type=float, default=0
-)  # Momentum value applied to the Lambda
+parser.add_argument("--momentum", type=float, default=0)  # Momentum value applied to the Lambda
 
 parser.add_argument("--target", type=float, default=None)
 
@@ -184,9 +144,7 @@ parser.add_argument("--target", type=float, default=None)
 parser.add_argument("--partition_type", type=str, default="non_iid")
 parser.add_argument("--percentage_unbalanced_nodes", type=float, default=None)
 parser.add_argument("--unbalanced_ratio", type=float, default=0.4)
-parser.add_argument(
-    "--alpha", type=int, default=1000000
-)  # Alpha of the dirichlet distribution
+parser.add_argument("--alpha", type=int, default=1000000)  # Alpha of the dirichlet distribution
 
 # ----------------------
 # Parameters to generate the tabular dataset with Mikko's implementation
@@ -209,9 +167,7 @@ parser.add_argument(
 parser.add_argument(
     "--opposite_group_to_increment", type=int, default=None, nargs="+"
 )  # group of <target, sensitive value> that we want to increment when opposite_direction is true
-parser.add_argument(
-    "--number_of_samples_per_node", type=int, default=None
-)  # maximum number of samples per node
+parser.add_argument("--number_of_samples_per_node", type=int, default=None)  # maximum number of samples per node
 parser.add_argument(
     "--ratio_unfairness", type=float, default=None, nargs="+"
 )  # percentage of samples removed from group_to_reduce on the unfair nodes
@@ -265,12 +221,8 @@ if __name__ == "__main__":
         args.node_shuffle_seed = node_shuffle_seed
 
     if args.dataset == "celeba":
-        print(
-            f"Removing files in {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl"
-        )
-        os.system(
-            f"rm -rf {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl"
-        )
+        print(f"Removing files in {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl")
+        os.system(f"rm -rf {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl")
     else:
         os.system(f"rm -rf {args.dataset_path}{args.splitted_data_dir}/*.pkl")
 
@@ -329,14 +281,11 @@ if __name__ == "__main__":
         epsilon_lambda=args.epsilon_lambda,
         epsilon_statistics=args.epsilon_statistics,
         metric=args.metric,
-        privileged_group=(
-            tuple(args.privileged_group) if args.privileged_group else None
-        ),
-        unprivileged_group=(
-            tuple(args.unprivileged_group) if args.unprivileged_group else None
-        ),
+        privileged_group=(tuple(args.privileged_group) if args.privileged_group else None),
+        unprivileged_group=(tuple(args.unprivileged_group) if args.unprivileged_group else None),
         sensitive_attribute=args.sensitive_attribute,
         dataset_name=dataset_name,
+        cross_silo=args.cross_silo,
     )
 
     if args.tabular_data:
@@ -350,30 +299,16 @@ if __name__ == "__main__":
             num_nodes=args.pool_size,
             ratio_unfair_nodes=args.ratio_unfair_nodes,
             opposite_direction=args.opposite_direction,
-            ratio_unfairness=(
-                tuple(args.ratio_unfairness) if args.ratio_unfairness else None
-            ),
-            group_to_reduce=(
-                tuple(args.group_to_reduce) if args.group_to_reduce else None
-            ),
-            group_to_increment=(
-                tuple(args.group_to_increment) if args.group_to_increment else None
-            ),
+            ratio_unfairness=(tuple(args.ratio_unfairness) if args.ratio_unfairness else None),
+            group_to_reduce=(tuple(args.group_to_reduce) if args.group_to_reduce else None),
+            group_to_increment=(tuple(args.group_to_increment) if args.group_to_increment else None),
             number_of_samples_per_node=args.number_of_samples_per_node,
-            opposite_group_to_reduce=(
-                tuple(args.opposite_group_to_reduce)
-                if args.opposite_group_to_reduce
-                else None
-            ),
+            opposite_group_to_reduce=(tuple(args.opposite_group_to_reduce) if args.opposite_group_to_reduce else None),
             opposite_group_to_increment=(
-                tuple(args.opposite_group_to_increment)
-                if args.opposite_group_to_increment
-                else None
+                tuple(args.opposite_group_to_increment) if args.opposite_group_to_increment else None
             ),
             opposite_ratio_unfairness=(
-                tuple(args.opposite_ratio_unfairness)
-                if args.opposite_ratio_unfairness
-                else None
+                tuple(args.opposite_ratio_unfairness) if args.opposite_ratio_unfairness else None
             ),
             one_group_nodes=args.one_group_nodes,
             splitted_data_dir=args.splitted_data_dir,
@@ -406,19 +341,11 @@ if __name__ == "__main__":
             partition_type=args.partition_type,
             alpha=args.alpha,
             train_parameters=train_parameters,
-            group_to_reduce=(
-                tuple(args.group_to_reduce) if args.group_to_reduce else None
-            ),
-            group_to_increment=(
-                tuple(args.group_to_increment) if args.group_to_increment else None
-            ),
+            group_to_reduce=(tuple(args.group_to_reduce) if args.group_to_reduce else None),
+            group_to_increment=(tuple(args.group_to_increment) if args.group_to_increment else None),
             number_of_samples_per_node=args.number_of_samples_per_node,
-            ratio_unfair_nodes=(
-                args.ratio_unfair_nodes if args.ratio_unfair_nodes else None
-            ),
-            ratio_unfairness=(
-                tuple(args.ratio_unfairness) if args.ratio_unfairness else None
-            ),
+            ratio_unfair_nodes=(args.ratio_unfair_nodes if args.ratio_unfair_nodes else None),
+            ratio_unfairness=(tuple(args.ratio_unfairness) if args.ratio_unfairness else None),
             one_group_nodes=args.one_group_nodes,
             splitted_data_dir=args.splitted_data_dir,
         )
@@ -522,11 +449,7 @@ if __name__ == "__main__":
         num_training_nodes=num_training_nodes,
         num_validation_nodes=num_validation_nodes,
         num_test_nodes=num_test_nodes,
-        node_shuffle_seed=(
-            node_shuffle_seed
-            if args.node_shuffle_seed is None
-            else args.node_shuffle_seed
-        ),
+        node_shuffle_seed=(node_shuffle_seed if args.node_shuffle_seed is None else args.node_shuffle_seed),
         fed_dir=fed_dir,
         ratio_unfair_nodes=args.ratio_unfair_nodes,
         fl_rounds=args.num_rounds,

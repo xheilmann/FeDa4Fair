@@ -637,6 +637,7 @@ def prepare_tabular_data(
         or dataset_name == "employment"
         or dataset_name == "employment_NO_RACE"
         or dataset_name == "income_NO_RACE"
+        or dataset_name == "income_cross_device"
     ):
         for client_name in range(num_nodes):
             os.system(f"rm -rf {dataset_path}/{splitted_data_dir}/{client_name}/train.pt")
@@ -663,28 +664,28 @@ def prepare_tabular_data(
                 allow_pickle=True,
             )
 
-            X_test = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_dataframes_{client_name}_test.npy",
-                allow_pickle=True,
-            )
-            Y_test = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_labels_{client_name}_test.npy",
-                allow_pickle=True,
-            )
-            Z_test = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_groups_{client_name}_test.npy",
-                allow_pickle=True,
-            )
-            W_test = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_second_groups_{client_name}_test.npy",
-                allow_pickle=True,
-            )
-            T_test = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_third_groups_{client_name}_test.npy",
-                allow_pickle=True,
-            )
-
             if cross_silo:
+                X_test = np.load(
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_dataframes_{client_name}_test.npy",
+                    allow_pickle=True,
+                )
+                Y_test = np.load(
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_labels_{client_name}_test.npy",
+                    allow_pickle=True,
+                )
+                Z_test = np.load(
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_groups_{client_name}_test.npy",
+                    allow_pickle=True,
+                )
+                W_test = np.load(
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_second_groups_{client_name}_test.npy",
+                    allow_pickle=True,
+                )
+                T_test = np.load(
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_third_groups_{client_name}_test.npy",
+                    allow_pickle=True,
+                )
+
                 if sweep:
                     (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
                         X_train,
@@ -739,6 +740,50 @@ def prepare_tabular_data(
                 torch.save(
                     custom_dataset,
                     f"{dataset_path}/{splitted_data_dir}/{client_name}/test.pt",
+                )
+            else:
+                if sweep:
+                    (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
+                        X_train,
+                        Y_train,
+                        Z_train,
+                        W_train,
+                        T_train,
+                        test_size=0.2,
+                        random_state=validation_seed,
+                    )
+
+                    custom_dataset = TabularDataset(
+                        x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
+                        z=[item.item() for item in Z_val],  # .astype(np.float32),
+                        w=[item.item() for item in W_val],  # .astype(np.float32),
+                        t=[item.item() for item in T_val],  # .astype(np.float32),
+                        y=[item.item() for item in Y_val],  # .astype(np.float32),
+                    )
+                    torch.save(
+                        custom_dataset,
+                        f"{dataset_path}/{splitted_data_dir}/{client_name}/val.pt",
+                    )
+
+                # save train
+                custom_dataset = TabularDataset(
+                    x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
+                    z=[item.item() for item in Z_train],  # .astype(np.float32),
+                    w=[item.item() for item in W_train],  # .astype(np.float32),
+                    t=[item.item() for item in T_train],  # .astype(np.float32),
+                    y=[item.item() for item in Y_train],  # .astype(np.float32),
+                )
+
+                # shuffle the custom_dataset based on validation_seed
+                random.seed(validation_seed)
+                np.random.seed(validation_seed)
+                custom_dataset.shuffle()
+                random.seed(seed)
+                np.random.seed(seed)
+
+                torch.save(
+                    custom_dataset,
+                    f"{dataset_path}/{splitted_data_dir}/{client_name}/train.pt",
                 )
 
         fed_dir = f"{dataset_path}/{splitted_data_dir}"

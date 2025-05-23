@@ -28,12 +28,17 @@ This dataset was created so that it represents **value bias** in a federated lea
 FeDa4Fair is built on top of the [ACS PUMS](https://www.census.gov/programs-surveys/acs/microdata.html) subset of the US census data 
 obtained via the [folktables](https://github.com/social-foundations/folktables) APIs.
 To clarify the relationship between the present dataset and the U.S. census data:
+
 * The American Community Survey (ACS) is a yearly initiative undertaken by the U.S. Census Bureau with the objective to represent demographics and social status in the U.S.
+
 * The ACS Public Use Microdata Sample (ACS PUMS) is a subset of the ACS (about 1 percent) which is released to the general public.
+
 * Folktables is a library that uses API endpoints offered by the Census Bureau to download PUMS data and test it in the space of algorithmic fairness.
+
 * FeDa4Fair is a library that employs Folktables to offer data, divided at the U.S. state level and further, to employ it in the space of federated learning 
 and fairness. FeDa4Fair offers some flexibility in the sense that researchers might employ different partitioning of the data beyond the state-level, for instance
 to test client-level federated learning techniques.
+
 * The present dataset was obtained with FeDa4Fair in April 2025.
 
 ### Who created the dataset (e.g., which team, research group) and on behalf of which entity (e.g., company, institution, organization)?

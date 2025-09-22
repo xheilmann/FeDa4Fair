@@ -410,6 +410,6 @@ _If so, please describe how. If not, please describe how its obsolescence will b
 _If so, please provide a description. Will these contributions be validated/verified? If so,
 please describe how. If not, why not? Is there a process for communicating/distributing these
 contributions to other users? If so, please provide a description._
-FeDa4Fair, the library employed to create this dataset, is hosted on [Github](https://github.com/xheilmann/FeDa4Fair).
+FeDa4Fair, the library employed to create this dataset, is hosted on [Github].
 
 ### Any other comments?

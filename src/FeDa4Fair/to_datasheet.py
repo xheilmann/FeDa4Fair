@@ -19,13 +19,10 @@ def get_git_info(repo: Path | str = ".", remote_name: str = "origin"):
 
     def run(*args: str) -> str:
         try:
-            return subprocess.check_output(
-                ["git", *args], cwd=repo, stderr=subprocess.STDOUT, text=True
-            ).strip()
+            return subprocess.check_output(["git", *args], cwd=repo, stderr=subprocess.STDOUT, text=True).strip()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                f"git {' '.join(args)} failed: {e.output.strip()}.\n"
-                "Perhaps your remote is not called 'origin'?"
+                f"git {' '.join(args)} failed: {e.output.strip()}.\nPerhaps your remote is not called 'origin'?"
             ) from e
 
     commit_sha = run("rev-parse", "HEAD")
@@ -61,11 +58,7 @@ def compute_sensitive_attr_proportions(
 
         split_props[split_name] = {}
         for sa in sens:
-            vc = (
-                df[sa].value_counts(normalize=True)
-                .round(decimal_places)
-                .to_dict()
-            )
+            vc = df[sa].value_counts(normalize=True).round(decimal_places).to_dict()
             split_props[split_name][sa] = vc
             overall_counts[sa].update(df[sa])
 
@@ -77,19 +70,11 @@ def compute_sensitive_attr_proportions(
         for pid in range(partitioner.num_partitions):
             pdf = pd.DataFrame(partitioner.load_partition(partition_id=pid))
             part_props[split_name][pid] = {
-                sa: pdf[sa]
-                .value_counts(normalize=True)
-                .round(decimal_places)
-                .to_dict()
-                for sa in sens
+                sa: pdf[sa].value_counts(normalize=True).round(decimal_places).to_dict() for sa in sens
             }
 
     overall_props = {
-        sa: {
-            k: round(v / overall_total, decimal_places)
-            for k, v in cnt.items()
-        }
-        for sa, cnt in overall_counts.items()
+        sa: {k: round(v / overall_total, decimal_places) for k, v in cnt.items()} for sa, cnt in overall_counts.items()
     }
 
     return {
@@ -97,7 +82,6 @@ def compute_sensitive_attr_proportions(
         "splits": split_props,
         "partitions": part_props,
     }
-
 
 
 def prep_info_dict(debug: bool = False):
@@ -136,7 +120,7 @@ def create_new_datasheet(
     keep_missing: bool = True,
 ) -> None:
     KEEP = "KEEP"
-    DROP = None 
+    DROP = None
 
     replacements: dict[str, Any] = prep_info_dict()
 
@@ -151,33 +135,27 @@ def create_new_datasheet(
     replacements["employment"] = KEEP if data_json["_dataset_name"] == "ACSEmployment" else DROP
 
     # basic fields
-    replacements["name"] = data_json["_dataset_name"] + 'FeDa4Fair' + datetime.now().strftime("%Y-%m-%d")
+    replacements["name"] = data_json["_dataset_name"] + "FeDa4Fair" + datetime.now().strftime("%Y-%m-%d")
     replacements["year"] = f"{data_json['_year']} with horizon {data_json['_horizon']}"
     replacements["sensitivedescriptions"] = data_json["_sensitive_attributes"]
 
     # unit of analysis – individuals vs. households
-    replacements["individuals"] = (
-        "individual" if data_json["_dataset_name"] == "ACSEmployment" else "household"
-    )
+    replacements["individuals"] = "individual" if data_json["_dataset_name"] == "ACSEmployment" else "household"
 
-    replacements["sens_remaining"] = (
-        "Yes" if dataset._sensitive_attributes else "No"
-    )
+    replacements["sens_remaining"] = "Yes" if dataset._sensitive_attributes else "No"
 
     # sensitive attribute proportions
     sens_stats = compute_sensitive_attr_proportions(dataset)
     replacements["sens_overall"] = json.dumps(sens_stats["overall"], indent=2)
     replacements["sens_by_split"] = json.dumps(sens_stats["splits"], indent=2)
-    replacements["sens_by_partition"] = json.dumps(
-        sens_stats["partitions"], indent=2
-    )
+    replacements["sens_by_partition"] = json.dumps(sens_stats["partitions"], indent=2)
 
     # modification information
     repl = dataset._modification_dict
     if repl is not None:
         replacements["modification"] = json.dumps(repl, indent=2)
     else:
-        replacements["modification"] = 'No modification was done.'
+        replacements["modification"] = "No modification was done."
 
     # column mames
     colnames = next(iter(dataset._dataset.values())).column_names[:-1]
@@ -188,15 +166,16 @@ def create_new_datasheet(
     replacements["nrows"] = json.dumps(nrows)
 
     TAG_BLOCK = re.compile(
-        r"\[tag:([^\]]+)\](.*?)\[/tag\]",   # ← (.*?) is now group 2
-        flags=re.DOTALL
+        r"\[tag:([^\]]+)\](.*?)\[/tag\]",  # ← (.*?) is now group 2
+        flags=re.DOTALL,
     )
     seen: dict[str, int] = defaultdict(int)
 
     def _replace(match: re.Match[str]) -> str:
-        tag  = match.group(1)
+        tag = match.group(1)
         body = match.group(2)
-        idx  = seen[tag]; seen[tag] += 1
+        idx = seen[tag]
+        seen[tag] += 1
 
         if tag not in replacements:
             return "**To be Filled -- Incomplete Datasheet!**" if keep_missing else match.group(0)
@@ -216,13 +195,12 @@ def create_new_datasheet(
         if value == "":
             return "**To be Filled -- Incomplete Datasheet!**" if keep_missing else ""
 
-        return str(value)    
+        return str(value)
 
     dest.write_text(
         TAG_BLOCK.sub(_replace, source.read_text(encoding="utf-8")),
         encoding="utf-8",
     )
-
 
 
 if __name__ == "__main__":
@@ -232,25 +210,26 @@ if __name__ == "__main__":
         partitioners={"CT": 2, "DE": 1},
         fairness_metric="DP",
         fairness_level="attribute",
-        modification_dict={"CT": {
-            "MAR": {
-                "drop_rate": 0.6,
-                "flip_rate": 0.3,
-                "value": 1,
-                "attribute": "SEX",
-                "attribute_value": 1,
-            },
-            "SEX": {
-                "drop_rate": 0.5,
-                "flip_rate": 0.2,
-                "value": 2,
-                "attribute": None,
-                "attribute_value": None,
-            },
-        }
-        }
+        modification_dict={
+            "CT": {
+                "MAR": {
+                    "drop_rate": 0.6,
+                    "flip_rate": 0.3,
+                    "value": 1,
+                    "attribute": "SEX",
+                    "attribute_value": 1,
+                },
+                "SEX": {
+                    "drop_rate": 0.5,
+                    "flip_rate": 0.2,
+                    "value": 2,
+                    "attribute": None,
+                    "attribute_value": None,
+                },
+            }
+        },
     )
-    
+
     partition_CT_0 = dataset.load_partition(split="CT", partition_id=0)
     split_CT = dataset.load_split("CT")
     dataset.save_dataset("data_fl")

@@ -17,7 +17,11 @@ The functions are build in a similar way as https://flower.ai/docs/datasets/ref-
 from typing import Any, Literal, Optional, Union
 
 import matplotlib
-from flwr_datasets.visualization.comparison_label_distribution import _set_tick_on_value_axes, _initialize_comparison_figsize, _initialize_axis_sharing
+from flwr_datasets.visualization.comparison_label_distribution import (
+    _set_tick_on_value_axes,
+    _initialize_comparison_figsize,
+    _initialize_axis_sharing,
+)
 from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
 
 from fairness_computation import compute_fairness
@@ -31,7 +35,6 @@ from flwr_datasets.common import EventType, event
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.visualization.constants import PLOT_TYPES
 from flwr_datasets.visualization.label_distribution import plot_label_distributions
-
 
 
 def plot_comparison_label_distribution(
@@ -195,6 +198,7 @@ def plot_comparison_label_distribution(
 
     return fig, axes, dataframe_list
 
+
 def plot_fairness_distributions(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
@@ -322,7 +326,7 @@ def plot_fairness_distributions(
     plot_kwargs["vmin"] = 0
     plot_kwargs["vmax"] = 1
     plot_kwargs["cmap"] = "Spectral_r"
-    plot_kwargs["annot_kws"] = {"fontsize":14}
+    plot_kwargs["annot_kws"] = {"fontsize": 14}
 
     axis = _plot_heatmap(
         dataframe,
@@ -459,7 +463,7 @@ def plot_comparison_fairness_distribution(
         raise TypeError(f"Label name has to be of type List[str] or str but given {type(sens_att)}")
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
-    matplotlib.rcParams.update({'font.size': 16})
+    matplotlib.rcParams.update({"font.size": 16})
 
     fig, axes = plt.subplots(
         nrows=1,

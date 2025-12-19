@@ -34,7 +34,6 @@ from joblib import Parallel, delayed
 import seaborn as sns
 
 
-
 def evaluate_fairness(
     partitioner_dict: dict[str, Partitioner],
     max_num_partitions: Optional[int] = 10,
@@ -261,7 +260,7 @@ def local_client_fairness_plot(
 
     min_val = min(fairness1.min(), fairness2.min())
     max_val = max(fairness1.max(), fairness2.max())
-    matplotlib.rcParams.update({'font.size': 16})
+    matplotlib.rcParams.update({"font.size": 16})
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(fairness2, fairness1, alpha=0.7)
@@ -375,7 +374,6 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
     - Pandas DataFrame of results, figure for each dataset in parallel.
     """
 
-
     tasks = []
 
     for dataset_name, X_train, y_train, X_test, y_test, sf_data in datasets:
@@ -407,17 +405,15 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
 
     fairness_columns = [col for col in df.columns if col.startswith(f"{fairness_metric}_")]
     models = df["model"].unique()
-    datasets = list(df['dataset'].unique())
+    datasets = list(df["dataset"].unique())
     total_hues = len(models)
     bar_width = 0.8 / total_hues
-
 
     for col in fairness_columns:
         plt.figure(figsize=(12, 6))
         sns.set_style("whitegrid")
 
         ax = sns.barplot(data=df, x="dataset", y=col, hue=df["model"], dodge=True)
-
 
         # Extract bar colors from the plot
         bar_containers = ax.containers
@@ -442,8 +438,7 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
             color = bar_colors[hue_index]
             color_index += 1
 
-            ax.plot(x_pos, acc, marker='o', color=color, markersize=10, label="Accuracy" if i == 0 else "")
-
+            ax.plot(x_pos, acc, marker="o", color=color, markersize=10, label="Accuracy" if i == 0 else "")
 
         ax.set_title(f"{col} / accuracy")
         ax.set_ylabel(f"{fairness_metric} / Accuracy")

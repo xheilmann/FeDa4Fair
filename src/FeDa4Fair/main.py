@@ -30,7 +30,7 @@ modification_dict = {
     }
 }
 
-#an example, but more details can be found in example.ipynb
+# an example, but more details can be found in example.ipynb
 
 for name in ["ACSIncome"]:
     for tt_split in ["cross-silo"]:

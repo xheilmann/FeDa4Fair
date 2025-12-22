@@ -18,6 +18,8 @@ dependencies = [
     "torchvision==0.20.1",
     "xgboost>=3.0.0",
     "ipywidgets>=8.1.7",
+    "streamlit>=1.31.0",
+    "ty>=0.0.4",
 ]
 
 #[project.scripts]
@@ -29,6 +31,8 @@ dependencies = [
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
 select = [
     "ALL", # include all the rules, including new ones
 ]
@@ -67,5 +71,13 @@ ignore = [
     "TD002",
     "TD003",
     "FIX002", # too verbose descriptions of todos
+    "D203",   # incompatible with D211
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["T201", "INP001", "PTH100", "PTH118", "PTH120", "SLF001"]
+"dashboard/*" = ["T201", "INP001", "PTH100", "PTH118", "PTH120", "SLF001"]
+"tests/*" = ["SLF001", "PT009", "PTH100", "PTH118", "PTH120"]
+"src/FeDa4Fair/creating_datasets.py" = ["T201", "PLR0912", "PLR0915", "PD901", "PD011", "PD002", "PLR2004", "N806"]
+"src/FeDa4Fair/example.ipynb" = ["T201", "N816", "ARG002", "D404"]
 

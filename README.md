@@ -47,3 +47,42 @@ We provide 4 benchmarking datasets and their corresponding datasheets:
 2. **Attribute-device** dataset: a dataset which can be used in cross-device settings where the attribute bias varies over clients ([attribute-device](src/FeDa4Fair/data/cross_device_attribute_final))
 3. **Value-silo** dataset: a dataset which can be used in cross-silo settings where the value bias varies over clients for the RACE attribute ([value-silo](src/FeDa4Fair/data/cross_silo_value_final))
 4. **Value-device** dataset: a  dataset which can be used in cross-device settings where the value bias varies over clients for the RACE attribute ([value-device](src/FeDa4Fair/data/cross_device_value_final))
+
+## Using Generic Datasets (Hugging Face & Local)
+
+FeDa4Fair supports loading arbitrary datasets from Hugging Face Hub or local files.
+
+### 1. Hugging Face Datasets
+
+You can load any dataset available on Hugging Face Hub by specifying its name.
+
+```python
+from FairFederatedDataset import FairFederatedDataset
+
+fds = FairFederatedDataset(
+    dataset="lucacorbucci/Dutch_Census",
+    partitioners={"train": 10},  # Split train set into 10 partitions
+    label_name="occupation_binary",
+    sensitive_attributes=["sex_binary"],
+    fairness_metric="DP"
+)
+fds._prepare_dataset()
+```
+
+See `examples/dutch_census_example.py` for a complete example.
+
+### 2. Local Image Datasets
+
+To use a local dataset (e.g., images), organize your data in a folder structure supported by Hugging Face `imagefolder` or `folder` builders, or simply point to the directory if it contains metadata.
+
+```python
+fds = FairFederatedDataset(
+    dataset="imagefolder",
+    data_dir="/path/to/local/data",
+    partitioners={"train": 2},
+    label_name="label",
+    sensitive_attributes=["sensitive_attr"],
+)
+```
+
+See `examples/celeba_example.py` for an example using a mock local dataset.

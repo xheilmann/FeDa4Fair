@@ -14,7 +14,7 @@
 """Functions to compute fairness metrics."""
 
 from itertools import product
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import pandas as pd
@@ -130,6 +130,7 @@ def compute_fairness(
     label_name: str = "label",
     sens_cols: list[str] | None = None,
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
+    progress_callback: Callable[[int], None] | None = None,
 ) -> pd.DataFrame:
     """
     Computes fairness metrics across dataset partitions.
@@ -155,6 +156,8 @@ def compute_fairness(
         List of sensitive attributes to drop from features before training/inference.
     size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
         Detail level of result.
+    progress_callback : Callable[[int], None] | None, default=None
+        Callback function to report progress.
 
     Returns
     -------
@@ -173,6 +176,8 @@ def compute_fairness(
     partition_id_to_fairness = {}
 
     for partition_id in range(num_parts):
+        if progress_callback is not None:
+            progress_callback(partition_id)
         partition = partitioner.load_partition(partition_id)
         partition_test_data = partitioner_test.load_partition(partition_id)
 

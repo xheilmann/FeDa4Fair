@@ -119,6 +119,10 @@ modification_dict = None
 
 if inject_bias:
     st.sidebar.subheader("Bias Settings")
+    
+    # Initialize bias settings in session state if not present
+    if "bias_settings" not in st.session_state:
+        st.session_state["bias_settings"] = {}
 
     # Determine options for Target Split/State
     if dataset_name in ["ACSIncome", "ACSEmployment"]:
@@ -126,31 +130,44 @@ if inject_bias:
         target_state = st.sidebar.selectbox("Target Split/State", target_options)
     else:
         target_state = st.sidebar.text_input("Target Split/State (e.g., train)", "train")
+    
+    # Retrieve current settings for this state or default to 0
+    current_settings = st.session_state["bias_settings"].get(target_state, {})
+    current_drop = current_settings.get("drop_rate", 0.0)
+    current_flip = current_settings.get("flip_rate", 0.0)
 
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        drop_rate = st.sidebar.slider("Drop Rate", 0.0, 1.0, 0.0)
+        drop_rate = st.sidebar.slider("Drop Rate", 0.0, 1.0, current_drop, key=f"drop_{target_state}")
     with col2:
-        flip_rate = st.sidebar.slider("Flip Rate", 0.0, 1.0, 0.0)
+        flip_rate = st.sidebar.slider("Flip Rate", 0.0, 1.0, current_flip, key=f"flip_{target_state}")
 
     # Simplified modification for demo
     sens_attr_name = st.sidebar.text_input("Sensitive Attribute Name", "SEX" if "ACS" in dataset_name else "sex_binary")
     sens_attr_val = st.sidebar.number_input("Sensitive Attribute Value", value=1)
 
     target_label_val = st.sidebar.number_input("Target Label Value (to drop/flip)", value=1)
-
+    
+    # Update session state with new values for current target_state
     if drop_rate > 0 or flip_rate > 0:
-        modification_dict = {
-            target_state: {
-                sens_attr_name: {
-                    "drop_rate": drop_rate,
-                    "flip_rate": flip_rate,
-                    "value": target_label_val,
-                    "attribute": sens_attr_name,
-                    "attribute_value": sens_attr_val,
-                }
-            }
+        st.session_state["bias_settings"][target_state] = {
+            "drop_rate": drop_rate,
+            "flip_rate": flip_rate,
+            "value": target_label_val,
+            "attribute": sens_attr_name,
+            "attribute_value": sens_attr_val,
         }
+    elif target_state in st.session_state["bias_settings"]:
+        # Remove if both are 0
+        del st.session_state["bias_settings"][target_state]
+
+    # Construct modification_dict from session state
+    if st.session_state["bias_settings"]:
+        modification_dict = {}
+        for state, settings in st.session_state["bias_settings"].items():
+            modification_dict[state] = {
+                settings["attribute"]: settings
+            }
 
 st.sidebar.header("Evaluation Settings")
 fairness_metric = st.sidebar.selectbox("Fairness Metric", ["DP", "EO"])
@@ -239,6 +256,21 @@ if st.button("Load and Evaluate"):
 
             # Helper to run compute_fairness over multiple splits
             def compute_all_fairness(splits, model_class=None):
+                total_steps = 0
+                for split in splits:
+                    part_obj = fds.partitioners[split]
+                    num_parts = min(max_parts_eval, part_obj.num_partitions)
+                    total_steps += num_parts
+
+                progress_bar = st.progress(0, text="Loading partitions...")
+                steps_done = 0
+
+                def progress_callback(pid):
+                    nonlocal steps_done
+                    steps_done += 1
+                    p = min(steps_done / total_steps, 1.0)
+                    progress_bar.progress(p, text=f"Loading partitions... ({steps_done}/{total_steps})")
+
                 all_results = []
                 for split in splits:
                      part_obj = fds.partitioners[split]
@@ -256,10 +288,13 @@ if st.button("Load and Evaluate"):
                         label_name=fds.label_column,
                         size_unit=size_unit,
                         max_num_partitions=max_parts_eval,
+                        progress_callback=progress_callback,
                      )
                      # Rename index to include split name
                      dataframe.index = [f"{split}_{i}" for i in dataframe.index]
                      all_results.append(dataframe)
+                
+                progress_bar.empty()
                 return pd.concat(all_results)
 
             # Helper for display logic

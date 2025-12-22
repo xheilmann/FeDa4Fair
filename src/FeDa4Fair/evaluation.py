@@ -11,67 +11,75 @@
 # limitations under the License.
 # ==============================================================================
 
-"""This file implements evaluation functions for fairness: evaluation on partitioners,
-evaluation on 5 different models, scatter plot on fairness values e.g. before and after training"""
+"""Evaluation functions for fairness."""
 
-import os
 import pickle
+from pathlib import Path
+from typing import Any, Literal
 
-import matplotlib
-import pandas as pd
-from matplotlib import pyplot as plt
-from fairness_computation import _compute_fairness
-from plots import plot_comparison_label_distribution, plot_comparison_fairness_distribution
-from typing import Any, Optional, Union, Literal
 import matplotlib.colors as mcolors
-from flwr_datasets.partitioner import Partitioner
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score
-from joblib import Parallel, delayed
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
+from fairness_computation import _compute_fairness
+from flwr_datasets.partitioner import Partitioner
+from joblib import Parallel, delayed
+from plots import (
+    plot_comparison_fairness_distribution,
+    plot_comparison_label_distribution,
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+# Try to import XGBoost, but make it optional
+try:
+    from xgboost import XGBClassifier
+
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBClassifier = None
+    XGBOOST_AVAILABLE = False
+except Exception:  # noqa: BLE001
+    XGBClassifier = None
+    XGBOOST_AVAILABLE = False
 
 
 def evaluate_fairness(
     partitioner_dict: dict[str, Partitioner],
-    max_num_partitions: Optional[int] = 10,
-    sens_columns: Union[str, list[str]] = ["SEX", "MAR", "RAC1P"],
-    intersectional_fairness: list[str] = None,
+    max_num_partitions: int | None = 10,
+    sens_columns: str | list[str] | None = None,
+    intersectional_fairness: list[str] | None = None,
     size_unit: Literal["percent", "absolute"] = "absolute",
     fairness_metric: Literal["DP", "EO"] = "DP",
     fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
     partition_id_axis: Literal["x", "y"] = "y",
-    figsize: Optional[tuple[float, float]] = None,
+    figsize: tuple[float, float] | None = None,
     subtitle: str = "Fairness Distribution Per Partition",
-    titles: Optional[list[str]] = None,
-    cmap: Optional[Union[str, mcolors.Colormap]] = None,
+    titles: list[str] | None = None,
+    cmap: str | mcolors.Colormap | None = None,
     legend: bool = False,
-    legend_title: Optional[str] = None,
+    legend_title: str | None = None,
     verbose_labels: bool = False,
-    plot_kwargs_list: Optional[list[Optional[dict[str, Any]]]] = None,
-    legend_kwargs: Optional[dict[str, Any]] = None,
-    model: Optional = None,
+    plot_kwargs_list: list[dict[str, Any] | None] | None = None,
+    legend_kwargs: dict[str, Any] | None = None,
+    model: Any | None = None,
     label_name: str = "label",
     path: str = "data_stats",
 ) -> None:
     """
+    Save, evaluate and visualize fairness metrics and data counts across partitions.
 
-    Save, evaluate and visualize fairness metrics and data counts across partitions defined by a set of `Partitioner` objects.
-
-    Parameters:
+    Parameters
     ----------
     partitioner_dict : dict[str, Partitioner]
-        A dictionary where keys are labels or dataset identifiers, and values are Partitioner objects
-        from flower datasets.
+        A dictionary where keys are labels or dataset identifiers, and values are Partitioner objects.
 
     max_num_partitions : int, optional
-        The maximum number of partitions to display per dataset (default is 30).
+        The maximum number of partitions to display per dataset (default is 10).
 
-    sens_columns : str or list of str, default=["SEX", "MAR", "RAC1P"]
-        Sensitive attribute(s) as column names used to evaluate fairness (e.g., gender, marital status, race).
-        These columns are taken out during model training if a model is specified.
+    sens_columns : str or list of str, optional
+        Sensitive attribute(s) used to evaluate fairness. Defaults to ["SEX", "MAR", "RAC1P"] if None.
 
     intersectional_fairness : list[str], optional
         If provided, evaluate intersectional fairness using combinations of the listed attributes.
@@ -83,57 +91,58 @@ def evaluate_fairness(
         Fairness metric to evaluate. "DP" = Demographic Parity, "EO" = Equalized Odds.
 
     fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
-        The level at which fairness is evaluated:
-        - "attribute": only worst fairness metric is returned,
-        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
-        - "attribute-value": all possible fairness metric values are returned.
+        The level at which fairness is evaluated.
 
     partition_id_axis : {"x", "y"}, default="y"
-        Axis to use for partition labels in the resulting plot.
+        Axis to use for partition labels.
 
     figsize : tuple(float, float), optional
-        Custom figure size for the plots.
+        Custom figure size.
 
     subtitle : str, default="Fairness Distribution Per Partition"
-        Subtitle to display on the plot(s).
+        Subtitle to display.
 
     titles : list[str], optional
-        A list of titles, one for each subplot (matching the keys in `partitioner_dict`).
+        A list of titles, one for each subplot.
 
     cmap : str or matplotlib.colors.Colormap, optional
-        Colormap for the fairness metric visualization.
+        Colormap for visualization.
 
     legend : bool, default=False
         Whether to display a legend.
 
     legend_title : str, optional
-        Title for the legend, if displayed.
+        Title for the legend.
 
-    verbose_labels : bool, default=True
-        Whether to show detailed labels on the plot axes.
+    verbose_labels : bool, default=False
+        Whether to show detailed labels.
 
     plot_kwargs_list : list of dict, optional
-        A list of additional keyword arguments to pass to the plotting function,
-        one per partitioner/dataset.
+        Additional keyword arguments for plotting.
 
     legend_kwargs : dict, optional
-        Additional keyword arguments to customize the legend.
+        Additional keyword arguments for legend.
 
     model : optional
-        Optional model object to use for fairness evaluation
-        (e.g., for EO).
+        Model object to use for evaluation.
 
     label_name : str, default="label"
         The name of the label column.
 
     path : str, default="data_stats"
-        Output path where plots or related data are saved. The directory must exist.
+        Output path for saved files.
 
-    Returns:
+    Returns
     -------
     None
-        Displays one or more fairness evaluation plots. Save outputs in path.
+
     """
+    if sens_columns is None:
+        sens_columns = ["SEX", "MAR", "RAC1P"]
+
+    if isinstance(sens_columns, str):
+        sens_columns = [sens_columns]
+
     for label in sens_columns:
         fig_dis, axes_dis, df_list_dis = plot_comparison_label_distribution(
             partitioner_list=list(partitioner_dict.values()),
@@ -153,22 +162,25 @@ def evaluate_fairness(
             legend_kwargs=legend_kwargs,
         )
 
-        df = merge_dataframes_with_names(df_list_dis, list(partitioner_dict.keys()))
-        df.to_csv(os.path.join(path, f"{label}_count_df.csv"))
-        fig_dis.savefig(os.path.join(path, f"{label}_count_fig.pdf"), dpi=1200)
+        merged_df = merge_dataframes_with_names(df_list_dis, list(partitioner_dict.keys()))
+        output_path = Path(path)
+        output_path.mkdir(parents=True, exist_ok=True)
+        merged_df.to_csv(output_path / f"{label}_count_df.csv")
+        fig_dis.savefig(output_path / f"{label}_count_fig.pdf", dpi=1200)
 
-        fig_dis.show()
-        with open(f"{path}/fig_ax_count.pkl", "wb") as f:
+        with (output_path / "fig_ax_count.pkl").open("wb") as f:
             pickle.dump({"fig": fig_dis, "ax": axes_dis}, f)
 
     all_sensitive_attributes = sens_columns
-    names = partitioner_dict.keys()
+    names = list(partitioner_dict.keys())
     if model is not None:
-        names = [key for key, value in partitioner_dict.items() if "train" in key]
-    if intersectional_fairness is not None:
-        sens_columns = [f"{intersectional_fairness}"]
+        names = [key for key in partitioner_dict if "train" in key]
 
-    for sens_att in sens_columns:
+    eff_sens_columns = sens_columns
+    if intersectional_fairness is not None:
+        eff_sens_columns = [f"{intersectional_fairness}"]
+
+    for sens_att in eff_sens_columns:
         fig, axes, df_list = plot_comparison_fairness_distribution(
             partitioner_dict=partitioner_dict,
             sens_att=sens_att,
@@ -188,14 +200,12 @@ def evaluate_fairness(
             label_name=label_name,
             intersectional_fairness=intersectional_fairness,
         )
-        fig.show()
         df_fairness = merge_dataframes_with_names(df_list, names)
-        df_fairness.to_csv(os.path.join(path, f"{sens_att}_{fairness_metric}_df.csv"))
-        fig.savefig(os.path.join(path, f"{sens_att}_{fairness_metric}_fig.pdf"), dpi=1200)
+        df_fairness.to_csv(output_path / f"{sens_att}_{fairness_metric}_df.csv")
+        fig.savefig(output_path / f"{sens_att}_{fairness_metric}_fig.pdf", dpi=1200)
 
-        with open(f"{path}/fig_ax_{fairness_metric}.pkl", "wb") as f:
+        with (output_path / f"fig_ax_{fairness_metric}.pkl").open("wb") as f:
             pickle.dump({"fig": fig, "ax": axes}, f)
-        # print(df_list)
 
 
 def local_client_fairness_plot(
@@ -211,48 +221,41 @@ def local_client_fairness_plot(
     """
     Plot a scatter comparison of fairness values from two dataframes.
 
-    The function compares the fairness values of clients from two dataframes by plotting
-    them in a scatter plot. The x-axis represents the fairness values from `df2` and the y-axis
-    represents the fairness values from `df1`. A diagonal dotted line is added to visualize
-    equality between both sets.
-
     Parameters
     ----------
     df1 : pd.DataFrame
-        First DataFrame containing client IDs and fairness values (plotted on y-axis).
-
+        First DataFrame.
     df2 : pd.DataFrame
-        Second DataFrame containing client IDs and fairness values (plotted on x-axis).
-
+        Second DataFrame.
     client_column : str, default="Partition ID"
-        Name of the column containing the client IDs in both dataframes.
-
+        Name of client ID column.
     fairness_column : str, default="RAC1P_DP"
-        Name of the column containing the fairness metric values in both dataframes.
-
+        Name of fairness metric column.
     title : str, optional
-        Title of the plot.
-
+        Title of plot.
     figsize : tuple, optional
-        Figure size in inches.
-
+        Figure size.
     ylabel: str, optional
-        Y-axis label_name of the plot.
-
+        Y-axis label.
     xlabel: str, optional
-        X-axis label_name of the plot.
+        X-axis label.
 
     Returns
     -------
     matplotlib.figure.Figure
-        The matplotlib figure object containing the plot.
 
     """
-    assert df1[client_column].is_unique == True, "The client ID column must be unique."
-    merged = pd.merge(
-        df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
-        df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
-        on=client_column,
+    if not df1[client_column].is_unique:
+        msg = "The client ID column must be unique."
+        raise ValueError(msg)
+
+    merged = (
+        df1[[client_column, fairness_column]]
+        .rename(columns={fairness_column: "fairness1"})
+        .merge(
+            df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+            on=client_column,
+        )
     )
 
     fairness1 = merged["fairness1"]
@@ -260,7 +263,6 @@ def local_client_fairness_plot(
 
     min_val = min(fairness1.min(), fairness2.min())
     max_val = max(fairness1.max(), fairness2.max())
-    matplotlib.rcParams.update({"font.size": 16})
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(fairness2, fairness1, alpha=0.7)
@@ -268,10 +270,10 @@ def local_client_fairness_plot(
 
     ax.set_xlim(min_val - 0.05, max_val + 0.05)
     ax.set_ylim(min_val - 0.05, max_val + 0.05)
-    ax.set_xlabel(f"{xlabel}")
-    ax.set_ylabel(f"{ylabel}")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.set_title(title)
-    ax.grid(True)
+    ax.grid(visible=True)
 
     return fig
 
@@ -279,112 +281,56 @@ def local_client_fairness_plot(
 # Dictionary of models to evaluate
 MODELS = {
     "LogisticRegression": LogisticRegression(max_iter=5000),
-    #'SVM': SVC(),
-    #'MLP': MLPClassifier(max_iter=1000),
-    "XGBoost": XGBClassifier(eval_metric="logloss"),
 }
 
-
-def evaluate_model(model_name, model, X_train, y_train, X_test, y_test, fairness_metric, sf_data, fairness_level):
-    """
-    Trains and evaluates a classification model on accuracy and fairness metrics.
-
-    Parameters:
-    ----------
-    model_name : str
-        Name of the model being evaluated (e.g., "LogisticRegression", "SVM").
-
-    model : sklearn-like estimator
-        The machine learning model object implementing `.fit()` and `.predict()` methods.
-
-    X_train : array-like or pd.DataFrame
-        Training feature data.
-
-    y_train : array-like or pd.Series
-        Training target labels.
-
-    X_test : array-like or pd.DataFrame
-        Testing feature data.
-
-    y_test : array-like or pd.Series
-        True labels for the test data.
-
-    fairness_metric : str
-        The fairness metric to compute. Supported values include:
-        - "DP": Demographic Parity
-        - "EO": Equalized Odds
-
-    sf_data : dict[str, np.array]
-        Dictionary that includes sensitive feature columns (e.g., "SEX", "RACE") as key and attribute values corresponding to the entries in X_test as numpy array as values.
-        This is used to compute the fairness metrics.
-
-    fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
-        The level at which fairness is evaluated:
-        - "attribute": only worst fairness metric is returned,
-        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+if XGBOOST_AVAILABLE:
+    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")
 
 
-    Returns:
-    -------
-    dict
-        Dictionary containing:
-        - 'model': model name
-        - 'accuracy': model accuracy on test data
-        - Fairness metrics (e.g., 'DP_SEX', 'EO_RACE') depending on the evaluation
-    """
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
+def evaluate_model(
+    model_name: str,
+    model: Any,
+    x_train: Any,
+    y_train: Any,
+    x_test: Any,
+    y_test: Any,
+    fairness_metric: Literal["DP", "EO"],
+    sf_data: dict[str, np.ndarray],
+    fairness_level: str,
+) -> dict:
+    """Trains and evaluates a classification model."""
+    model.fit(x_train, y_train)
+    preds = model.predict(x_test)
     acc = accuracy_score(y_test, preds)
-    dict = {"model": model_name, "accuracy": acc}
+    results = {"model": model_name, "accuracy": acc}
     for key, value in sf_data.items():
         if fairness_level == "value":
-            dict[f"value_{fairness_metric}_{key}"] = _compute_fairness(
+            results[f"value_{fairness_metric}_{key}"] = _compute_fairness(
                 y_test, preds, value, fairness_metric, key, fairness_level
-            ).values[1]
+            ).to_numpy()[1]
 
-        dict[f"{fairness_metric}_{key}"] = _compute_fairness(
+        results[f"{fairness_metric}_{key}"] = _compute_fairness(
             y_test, preds, value, fairness_metric, key, fairness_level
-        ).values[0]
+        ).to_numpy()[0]
 
-    return dict
-
-
-def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairness_level="attribute"):
-    """
-    Evaluates multiple models on multiple datasets in parallel in terms of accuracy and fairness metrics.
-
-    Parameters:
-    ----------
-    datasets : list[tuples]
-        list of tuples (name, X_train, y_train, X_test, y_test, sf_data) where _train, _test are numpy arrays and sf_data a dictionary of the form {"sensitive_attribute": np.array(sensitive_values),...}
-
-    n_jobs: int, default -1 = all cores
-        number of parallel jobs
-
-    fairness_metric: str, default "DP"
-        string of metric to use for fairness, possible to choose from Demographic Parity ("DP") and Equalized Odds ("EO")
-
-    fairness_level : {"attribute", "value", "attribute-value"}, default="attribute"
-        The level at which fairness is evaluated:
-        - "attribute": only worst fairness metric is returned,
-        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
+    return results
 
 
-    Returns:
-    - Pandas DataFrame of results, figure for each dataset in parallel.
-    """
-
+def evaluate_models_on_datasets(
+    datasets: list[tuple], n_jobs: int = -1, fairness_metric: str = "DP", fairness_level: str = "attribute"
+) -> tuple[pd.DataFrame, Any]:
+    """Evaluates multiple models on multiple datasets in parallel."""
     tasks = []
 
-    for dataset_name, X_train, y_train, X_test, y_test, sf_data in datasets:
+    for _name, x_train, y_train, x_test, y_test, sf_data in datasets:
         for model_name, model in MODELS.items():
             tasks.append(
                 delayed(evaluate_model)(
                     model_name,
                     model,
-                    X_train,
+                    x_train,
                     y_train,
-                    X_test,
+                    x_test,
                     y_test,
                     fairness_metric=fairness_metric,
                     sf_data=sf_data,
@@ -401,21 +347,20 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
         res["dataset"] = dataset_name
         expanded_results.append(res)
 
-    df = pd.DataFrame(expanded_results)
+    results_df = pd.DataFrame(expanded_results)
 
-    fairness_columns = [col for col in df.columns if col.startswith(f"{fairness_metric}_")]
-    models = df["model"].unique()
-    datasets = list(df["dataset"].unique())
-    total_hues = len(models)
+    fairness_columns = [col for col in results_df.columns if col.startswith(f"{fairness_metric}_")]
+    models_list = list(results_df["model"].unique())
+    datasets_list = list(results_df["dataset"].unique())
+    total_hues = len(models_list)
     bar_width = 0.8 / total_hues
 
     for col in fairness_columns:
         plt.figure(figsize=(12, 6))
         sns.set_style("whitegrid")
 
-        ax = sns.barplot(data=df, x="dataset", y=col, hue=df["model"], dodge=True)
+        ax = sns.barplot(data=results_df, x="dataset", y=col, hue="model", dodge=True)
 
-        # Extract bar colors from the plot
         bar_containers = ax.containers
         bar_colors = []
         for container in bar_containers:
@@ -423,20 +368,17 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
                 bar_colors.append(patch.get_facecolor())
                 break
 
-        color_index = 0  # To track color per bar in the same order
-
-        for i, row in df.iterrows():
-            dataset = row["dataset"]
-            model = row["model"]
+        for i, row in results_df.iterrows():
+            d_name = row["dataset"]
+            m_name = row["model"]
             acc = row["accuracy"]
 
-            bar_index = datasets.index(dataset)
-            hue_index = list(models).index(model)
+            bar_index = datasets_list.index(d_name)
+            hue_index = models_list.index(m_name)
             offset = (hue_index - (total_hues - 1) / 2) * bar_width
             x_pos = bar_index + offset
 
             color = bar_colors[hue_index]
-            color_index += 1
 
             ax.plot(x_pos, acc, marker="o", color=color, markersize=10, label="Accuracy" if i == 0 else "")
 
@@ -446,39 +388,24 @@ def evaluate_models_on_datasets(datasets, n_jobs=-1, fairness_metric="DP", fairn
         handles, labels = ax.get_legend_handles_labels()
 
         seen = set()
-        unique_handles_labels = [(h, l) for h, l in zip(handles, labels) if not (l in seen or seen.add(l))]
-        ax.legend(*zip(*unique_handles_labels))
+        unique_handles_labels = [
+            (h, label) for h, label in zip(handles, labels, strict=False) if not (label in seen or seen.add(label))
+        ]
+        ax.legend(*zip(*unique_handles_labels, strict=False))
 
         plt.tight_layout()
         plt.show()
-    return df, plt
+    return results_df, plt
 
 
-def merge_dataframes_with_names(dfs, names, name_column="state"):
-    """
-    Merges a list of DataFrames and adds a column indicating their source.
-
-    Parameters:
-    ----------
-    dfs : list of pd.DataFrame
-        A list of pandas DataFrames to merge.
-
-    names : list of str
-        A list of source names corresponding to each DataFrame in `dfs`. Must be the same length as `dfs`.
-
-    name_column : str
-        Name of the new column to be added, which tags each row with its corresponding source name.
-
-    Returns:
-    -------
-    pd.DataFrame
-        A single merged DataFrame containing all rows from `dfs`, with an additional column
-        named `name_column` indicating the original source of each row.
-    """
-    assert len(dfs) == len(names), "Each DataFrame must have a corresponding name."
+def merge_dataframes_with_names(dfs: list[pd.DataFrame], names: list[str], name_column: str = "state") -> pd.DataFrame:
+    """Merges a list of DataFrames and adds a column indicating their source."""
+    if len(dfs) != len(names):
+        msg = "Each DataFrame must have a corresponding name."
+        raise ValueError(msg)
 
     tagged_dfs = []
-    for df, name in zip(dfs, names):
+    for df, name in zip(dfs, names, strict=False):
         df_copy = df.copy()
         df_copy[name_column] = name
         tagged_dfs.append(df_copy)

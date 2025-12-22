@@ -1,3 +1,4 @@
+# noqa: N999
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,71 +12,67 @@
 # limitations under the License.
 # ==============================================================================
 
-"""This file implements FairFederatedDataset as subclass of FederatedDataset (https://flower.ai/docs/datasets/ref-api/flwr_datasets.FederatedDataset.html)"""
+"""Implements FairFederatedDataset as subclass of FederatedDataset."""
 
 import dataclasses
 import datetime
-import json
-from pathlib import Path
 import inspect
+import json
 import warnings
 from os import PathLike
-from typing import Any, Optional, Union, Literal
+from pathlib import Path
+from typing import Any, Literal
+
 import pandas as pd
-from datasets import Dataset, DatasetDict
+from datasets import ClassLabel, Dataset, DatasetDict, load_dataset
+from evaluation import evaluate_fairness
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
-from flwr_datasets.preprocessor import Preprocessor, Divider
+from flwr_datasets.preprocessor import Divider, Preprocessor
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
-from evaluation import evaluate_fairness
+from joblib import Parallel, delayed
 from utils import drop_data, flip_data
 
 
-def _clone_partitioner(obj):
+def _clone_partitioner(obj: Any) -> Any:
     """
     Creates a new instance of the same class as obj with the same arguments.
+
     Assumes that arguments to __init__ are stored as attributes in obj.
     """
-    cls = obj.__class__  # Get the class of obj
+    cls = obj.__class__
     init_signature = inspect.signature(cls.__init__)
-
     arg_names = [param for param in init_signature.parameters if param != "self"]
-
     init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
-
     return cls(**init_args)
 
 
 class FairFederatedDataset(FederatedDataset):
     """
-    Subclass from flower FederatedDateset.
     Representation of a dataset designed for federated learning, fairness evaluation, and analytics.
 
-    Supports downloading, loading, preprocessing, modifying, evaluating, mapping and partitioning the dataset across multiple clients
-    (e.g., edge devices or simulated silos). Fairness can be evaluated using specified sensitive attributes
-    or default ones.
+    Supports downloading, loading, preprocessing, modifying, evaluating, mapping and partitioning
+    the dataset across multiple clients (e.g., edge devices or simulated silos).
 
     If `sens_cols` are provided:
         - If two attributes are provided, intersectional fairness is evaluated.
-        - If not provided, fairness is evaluated using default attributes: "SEX", "MAR", and "RAC1P".
-
-    Partitions are created on a per-split basis using `Partitioner` objects from
-    `flwr_datasets.partitioner`.
+        - If not provided, fairness is evaluated using default attributes for ACS datasets:
+          "SEX", "MAR", and "RAC1P".
 
     Parameters
     ----------
     dataset : str, default="ACSIncome"
-        The name of the dataset to load ( "ACSIncome" or "ACSEmployment"). This can be extended by the users.
+        The name of the dataset to load. Supports "ACSIncome", "ACSEmployment" (via folktables),
+        or any Hugging Face dataset name (e.g., "celeba", "mnist").
 
     subset : Optional[str], default=None
-        Optional dataset subset to load (e.g., a specific demographic or region).
+        Optional dataset subset to load (e.g., a specific configuration of a HF dataset).
 
     preprocessor : Optional[Union[Preprocessor, dict[str, tuple[str, ...]]]], default=None
         A callable or configuration dictionary used to apply transformations on the dataset.
-        Can be used to resplit, remove or engineer features.
 
     partitioners : dict[str, Union[Partitioner, int]]
-        Dictionary mapping dataset splits (e.g., state names) to partitioning strategies.
+        Dictionary mapping dataset splits (e.g., state names or 'train') to partitioning strategies.
         Each split can use a custom `Partitioner` or an integer specifying the number of IID partitions.
 
     shuffle : bool, default=True
@@ -85,85 +82,84 @@ class FairFederatedDataset(FederatedDataset):
         Seed for reproducible shuffling. If `None`, a random seed is used.
 
     states : Optional[list[str]], default=None
-        List of states to include in the dataset. If `None`, all available states are included.
+        List of states to include for ACS datasets. If `None` and using ACS, defaults to all US states.
+        For non-ACS datasets, this can be used to filter specific splits if applicable.
 
     year : Optional[str], default="2018"
-        The ACS year to load ("2014" until "2018" are directly supported).
+        The ACS year to load (for ACS datasets).
 
     horizon : Optional[str], default="1-Year"
-        Horizon of the ACS sample ("1-Year" or "5-Year").
+        Horizon of the ACS sample (for ACS datasets).
 
     sensitive_attributes : Optional[list[str]], default=None
-        List of attributes used to evaluate intersectional fairness. If not provided, the fairness metrics are evaluated for each of ["SEX", "MAR", "RAC1P"].
+        List of attributes used to evaluate intersectional fairness.
 
     fairness_level : Literal["attribute", "value", "attribute-value"], default="attribute"
-        The level at which fairness is evaluated:
-        - "attribute": only worst fairness metric is returned,
-        - "value": worst fairness metric as well as for which values this fairness was calculated is returned,
-        - "attribute-value": all possible fairness metric values are returned.
+        The level at which fairness is evaluated.
 
     fairness_metric : Literal["DP", "EO"], default="DP"
-        Fairness metric to evaluate:
-        - "DP": Demographic Parity
-        - "EO": Equalized Odds
+        Fairness metric to evaluate (Demographic Parity or Equalized Odds).
 
-    fl_setting : Literal["cross-silo", None], default=None
+    fl_setting : Literal["cross-silo", "cross-device", None], default=None
         Strategy used to split the dataset into train/test:
-        - "cross-silo": splits each clients dataset (each partition of the splits) into train, validation and test set
-        - None: no train-test splitting
-        - NOTE: for cross-device settings we propose to split the clients into clients for training and clients for testing after the dataset is generated.
+        - "cross-silo": splits each client's dataset into train/val/test.
+        - "cross-device": typically assumes existing train/test splits.
 
-    perc_train_val_test : Optional[list[float]], default=[0.7, 0.15, 0.15]
+    perc_train_val_test : Optional[list[float]], default=None
         Proportions for train, validation, and test sets in the cross-silo setting.
+        Defaults to [0.7, 0.15, 0.15] if None.
 
     path : Optional[PathLike], default=None
         Optional path where the dataset should be saved.
 
     modification_dict : Optional[dict[int, dict[str, ...]]], default=None
-        Optional dictionary to apply data modifications (e.g., label_name flipping, dropping datapoints)
-        to specific states, (e.g. { "CT": { "MAR": { "drop_rate": 0.2, "flip_rate": 0.1, "value": 2, "attribute": "SEX", "attribute_value": 2, },
-        "SEX": { "drop_rate": 0.3, "flip_rate": 0.2, "value": 2, "attribute": None, "attribute_value": None, }, }}). These entries must always be given.
-        If attribute and attribute_value are given, the dropping and flipping will be applied on the intersecting group. Also, either dropping or
-        flipping is possible by specifying a rate of 0 if not wanted. This always happens after the mapping specified in the mapping parameter.
+        Optional dictionary to apply data modifications (e.g., dropping datapoints) to specific partitions.
 
     mapping : Optional[dict[str, dict[int, int]]], default=None
         Optional remapping dictionary of categorical features or labels.
 
-    **load_dataset_kwargs : dict
-        Additional keyword arguments passed to `datasets.load_dataset`. Common examples:
-        - `num_proc=4` (parallel loading)
-        - `trust_remote_code=True`
-        Avoid passing parameters that change the return type (e.g., non-`DatasetDict`).
+    label_name : Optional[str], default=None
+        The name of the target label column. If None, it is inferred for known datasets (ACS).
+        Required for generic Hugging Face datasets if not standard.
 
-    Returns
-    -------
-    None
-        Initializes and configures a federated dataset with fairness-aware capabilities.
+    **load_dataset_kwargs : dict
+        Additional keyword arguments passed to `datasets.load_dataset`.
+
     """
 
     def __init__(
         self,
         *,
         dataset: str = "ACSIncome",
-        subset: Optional[str] = None,
-        preprocessor: Optional[Union[Preprocessor, dict[str, tuple[str, ...]]]] = None,
-        partitioners: dict[str, Union[Partitioner, int]],
+        subset: str | None = None,
+        preprocessor: Preprocessor | dict[str, tuple[str, ...]] | None = None,
+        partitioners: dict[str, Partitioner | int],
         shuffle: bool = True,
-        seed: Optional[int] = 42,
-        states: Optional[list[str]] = None,
-        year: Optional[str] = "2018",
-        horizon: Optional[str] = "1-Year",
-        sensitive_attributes: Optional[list[str]] = None,
+        seed: int | None = 42,
+        states: list[str] | None = None,
+        year: str | None = "2018",
+        horizon: str | None = "1-Year",
+        sensitive_attributes: list[str] | None = None,
         fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
         fairness_metric: Literal["DP", "EO"] = "DP",
         fl_setting: Literal["cross-silo", "cross-device", None] = None,
-        perc_train_val_test: Optional[list[float]] = [0.7, 0.15, 0.15],
-        path: Optional[PathLike] = None,
-        modification_dict: Optional[dict[int, dict[str, ...]]] = None,
-        mapping: Optional[dict[str, dict[int, int]]] = None,
+        perc_train_val_test: list[float] | None = None,
+        path: PathLike | None = None,
+        modification_dict: dict[int, dict[str, ...]] | None = None,
+        mapping: dict[str, dict[int, int]] | None = None,
+        label_name: str | None = None,
+        preloaded_data: dict[str, pd.DataFrame] | None = None,
         **load_dataset_kwargs: Any,
     ) -> None:
-        partitioners = self._initialize_states(states, partitioners)
+        # Initialize states only if using ACS datasets or if states are explicitly provided
+        self._states = states
+        if dataset in ["ACSIncome", "ACSEmployment"] and self._states is None:
+            self._states = self._get_default_us_states()
+
+        # If partitioners is None, we need to defer its creation or set a default
+        if partitioners is None:
+            partitioners = dict.fromkeys(self._states, 1) if self._states else {"train": 1}
+
         super().__init__(
             dataset=dataset,
             subset=subset,
@@ -173,42 +169,91 @@ class FairFederatedDataset(FederatedDataset):
             seed=seed,
             **load_dataset_kwargs,
         )
-        self._check_dataset()
+
         self._year = year
         self._horizon = horizon
         self._sensitive_attributes = sensitive_attributes
         self._fairness_level = fairness_level
         self._fairness_metric = fairness_metric
         self._fl_setting = fl_setting
-        self._perc_train_test_split = perc_train_val_test
+        self._perc_train_test_split = perc_train_val_test if perc_train_val_test is not None else [0.7, 0.15, 0.15]
         self._path = path
         self._modification_dict = modification_dict
         self._mapping = mapping
+        self._label = label_name
+        self._preloaded_data = preloaded_data
+
+        # Infer label for known datasets if not provided
+        if self._label is None:
+            if dataset == "ACSIncome":
+                self._label = "PINCP"
+            elif dataset == "ACSEmployment":
+                self._label = "ESR"
+
+    @property
+    def label_column(self) -> str:
+        """Return the name of the label column."""
+        return self._label
+
+    def prepare(self) -> None:
+        """Explicitly trigger dataset preparation."""
+        if not self._dataset_prepared:
+            self._prepare_dataset()
 
     def save_dataset(self, dataset_path: PathLike) -> None:
         """
-        Save the dataset to disk as csv files with names by state and partition index.
+        Save the dataset to disk as csv files with names by split and partition index.
         """
         if not self._dataset_prepared:
             self._prepare_dataset()
+
         if self._sensitive_attributes is not None:
             warnings.warn(
-                "The data you are saving contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training."
+                "The data you are saving contains columns with sensitive attributes. "
+                "If these should not be in the training data later, please remove them before training.",
+                stacklevel=2,
             )
+
         for key, value in self._partitioners.items():
             partitioner = value
+            # Ensure partitioner is valid
+            if isinstance(partitioner, int):
+                # This should have been converted to a Partitioner object by parent or us
+                # But if it's still int, we can't save.
+                continue
+
             num_partitions = partitioner.num_partitions
             for i in range(num_partitions):
                 partition = partitioner.load_partition(partition_id=i)
-                partition.to_csv(path_or_buf=f"{dataset_path}/{key}_{i}.csv")
+                # Ensure directory exists
+                Path(str(dataset_path)).mkdir(parents=True, exist_ok=True)
+                # Check if partition is image or tabular
+                # If tabular (pandas compatible), save as CSV
+                try:
+                    partition_df = partition.to_pandas()
+                    partition_df.to_csv(path_or_buf=f"{dataset_path}/{key}_{i}.csv", index=False)
+                except Exception:  # noqa: BLE001
+                    # Likely image dataset or complex structure.
+                    # Fallback to saving as HF dataset to disk or pickle?
+                    # For now, just warn
+                    warnings.warn(f"Partition {key}_{i} could not be saved to CSV (likely non-tabular).", stacklevel=2)
 
-    def evaluate(self, file):
+    def evaluate(self, file: PathLike | None = None) -> None:  # noqa: ARG002
         """
-        Can be called at all times and runs once during _prepare_dataset. Then all partitions will be evaluated in terms of sensitive attribute value counts and the given fairness metric.
+        Evaluate fairness on all partitions.
         """
         if not self._dataset_prepared:
             self._prepare_dataset()
         titles = list(self._dataset.keys())
+
+        # Determine sensitive columns to evaluate
+        sens_cols = self._sensitive_attributes if self._sensitive_attributes else ["SEX", "MAR", "RAC1P"]
+
+        # Only set intersectional_fairness if we have more than one attribute
+        intersectional = (
+            self._sensitive_attributes if (self._sensitive_attributes and len(self._sensitive_attributes) > 1) else None
+        )
+
         evaluate_fairness(
             partitioner_dict=self.partitioners,
             max_num_partitions=None,
@@ -217,16 +262,21 @@ class FairFederatedDataset(FederatedDataset):
             titles=titles,
             legend=True,
             label_name=self._label,
-            intersectional_fairness=self._sensitive_attributes,
+            sens_columns=sens_cols,
+            intersectional_fairness=intersectional,
         )
 
-    def _split_into_train_val_test(self):
+    def _split_into_train_val_test(self) -> None:
         """
         If cross-silo setting is chosen, splits the dataset into train, test and validation sets.
         """
         divider_dict = {}
         partitioners_dict = {}
-        for entry in self._dataset.keys():
+
+        # Check if keys exist before trying to split
+        keys_to_process = list(self._dataset.keys())
+
+        for entry in keys_to_process:
             divider_dict[entry] = {
                 f"{entry}_train": self._perc_train_test_split[0],
                 f"{entry}_val": self._perc_train_test_split[1],
@@ -235,180 +285,258 @@ class FairFederatedDataset(FederatedDataset):
 
         divider = Divider(divide_config=divider_dict)
         if self._fl_setting == "cross-silo":
-            for entry in self._dataset.keys():
-                partitioners_dict[f"{entry}_train"] = self._partitioners[entry]
-                partitioners_dict[f"{entry}_val"] = _clone_partitioner(self._partitioners[entry])
-                partitioners_dict[f"{entry}_test"] = _clone_partitioner(self._partitioners[entry])
+            for entry in keys_to_process:
+                # We need to ensure the partitioner for this entry exists
+                original_partitioner = self._partitioners.get(entry)
+                if original_partitioner:
+                    partitioners_dict[f"{entry}_train"] = original_partitioner
+                    partitioners_dict[f"{entry}_val"] = _clone_partitioner(original_partitioner)
+                    partitioners_dict[f"{entry}_test"] = _clone_partitioner(original_partitioner)
+
             self._dataset = divider(self._dataset)
             self._partitioners = partitioners_dict
         elif self._fl_setting != "cross-device":
-            raise ValueError("This train-val-test split strategy is not supported.")
+            # If it is None, we do nothing. If it is something else, error?
+            if self._fl_setting is not None:
+                msg = "This train-val-test split strategy is not supported."
+                raise ValueError(msg)
+
         self._event = {
-            "load_partition": {split: False for split in self._partitioners},
+            "load_partition": dict.fromkeys(self._partitioners, False),
         }
 
     def _prepare_dataset(self) -> None:
         """
-        This is overwritten from FederatedDataset to fit to our datasets.
-        Prepars the dataset (prior to partitioning) by download, shuffle,
-        preprocessing, mapping, modification_dict and fl_setting.
-
-        Run only ONCE when triggered by load_* function. (In future more control whether
-        this should happen lazily or not can be added). The operations done here should
-        not happen more than once.
-
-        It is controlled by a single flag, `_dataset_prepared` that is set True at the
-        end of the function.
+        Prepare the dataset by downloading, shuffling, preprocessing, and modifying.
         """
-        data_source = ACSDataSource(survey_year=self._year, horizon=self._horizon, survey="person", use_archive=True)
-        self._dataset = DatasetDict()
-        self._check_partitioners_correctness()
-        for state in self._states:
-            acs_data = data_source.get_data(states=[state], download=True)
-            if self._dataset_name == "ACSEmployment":
-                features, label, group = ACSEmployment.df_to_pandas(acs_data)
-                self._label = "ESR"
-            else:
-                features, label, group = ACSIncome.df_to_pandas(acs_data)
-                self._label = "PINCP"
-            state_data = pd.concat([features, label], axis=1)
-            if self._mapping is not None:
-                for key, value in self._mapping.items():
-                    state_data[key] = state_data[key].replace(value)
-            if self._modification_dict is not None:
-                if state in self._modification_dict.keys():
-                    state_data = self._modify_data(state_data, state)
-            self._dataset[state] = Dataset.from_pandas(state_data)
-        if not isinstance(self._dataset, DatasetDict):
-            raise ValueError(
-                "Probably one of the specified parameter in `load_dataset_kwargs` "
-                "change the return type of the datasets.load_dataset function. "
-                "Make sure to use parameter such that the return type is DatasetDict. "
-                f"The return type is currently: {type(self._dataset)}."
-            )
+        # Case 1: Special handling for ACS datasets (Folktables)
+        if self._dataset_name in ["ACSIncome", "ACSEmployment"]:
+            self._prepare_acs_dataset()
+        else:
+            # Case 2: Generic Hugging Face Dataset
+            self._prepare_generic_dataset()
 
+        # Common post-processing
         if self._shuffle:
-            # Note it shuffles all the splits. The self._dataset is DatasetDict
-            # so e.g. {"train": train_data, "test": test_data}. All splits get shuffled.
             self._dataset = self._dataset.shuffle(seed=self._seed)
+
         if self._preprocessor:
             self._dataset = self._preprocessor(self._dataset)
+
         if self._fl_setting is not None:
             self._split_into_train_val_test()
+
         self._dataset_prepared = True
         available_splits = list(self._dataset.keys())
+        self._event["load_split"] = dict.fromkeys(available_splits, False)
 
-        self._event["load_split"] = {split: False for split in available_splits}
-        self.evaluate(self._path)
+        # Run initial evaluation if needed (and if tabular/compatible)
+        try:
+            # Check if evaluation is possible (requires label and sensitive attribute)
+            if self._label and (self._sensitive_attributes or self._dataset_name in ["ACSIncome", "ACSEmployment"]):
+                self.evaluate(self._path)
+        except Exception as e:  # noqa: BLE001
+            warnings.warn(f"Could not perform initial fairness evaluation: {e}", stacklevel=2)
+
         if self._sensitive_attributes is not None:
             warnings.warn(
-                "Your current data contains columns with sensitive attributes. If these should not be in the training data later, please remove them before training."
+                "Your current data contains columns with sensitive attributes. "
+                "If these should not be in the training data later, please remove them before training.",
+                stacklevel=2,
             )
+
         if self._path is not None:
             self.save_dataset(self._path)
 
-    def _check_dataset(self):
+    @staticmethod
+    def load_acs_raw_data(dataset_name: str, states: list[str], year: str, horizon: str) -> dict[str, pd.DataFrame]:
         """
-        Checks if the dataset is supported.
+        Load raw ACS data for the given states in parallel.
+        Returns a dictionary mapping state codes to pandas DataFrames.
         """
-        if self._dataset_name not in ["ACSIncome", "ACSEmployment"]:
-            raise ValueError(f"This dataset is not compatible. Please choose ACSIncome or ACSEmployment.")
 
-    def _initialize_states(self, states, partitioners):
-        """
-        Initializes the US states to all states if not specified and adds the partitioners for this.
-        """
-        if states is None:
-            self._states = [
-                "AL",
-                "AK",
-                "AZ",
-                "AR",
-                "CA",
-                "CO",
-                "CT",
-                "DE",
-                "FL",
-                "GA",
-                "HI",
-                "ID",
-                "IL",
-                "IN",
-                "IA",
-                "KS",
-                "KY",
-                "LA",
-                "ME",
-                "MD",
-                "MA",
-                "MI",
-                "MN",
-                "MS",
-                "MO",
-                "MT",
-                "NE",
-                "NV",
-                "NH",
-                "NJ",
-                "NM",
-                "NY",
-                "NC",
-                "ND",
-                "OH",
-                "OK",
-                "OR",
-                "PA",
-                "RI",
-                "SC",
-                "SD",
-                "TN",
-                "TX",
-                "UT",
-                "VT",
-                "VA",
-                "WA",
-                "WV",
-                "WI",
-                "WY",
-                "PR",
-            ]
+        def _load_state_raw(state):
+            data_source = ACSDataSource(survey_year=year, horizon=horizon, survey="person")
+            acs_data = data_source.get_data(states=[state], download=True)
+            if dataset_name == "ACSEmployment":
+                features, label, _group = ACSEmployment.df_to_pandas(acs_data)
+            else:
+                features, label, _group = ACSIncome.df_to_pandas(acs_data)
 
+            return state, pd.concat([features, label], axis=1)
+
+        results = Parallel(n_jobs=-1)(delayed(_load_state_raw)(state) for state in states)
+        return dict(results)
+
+    def _prepare_acs_dataset(self) -> None:
+        """Helper to prepare ACSIncome/ACSEmployment datasets."""
+        # Verify partitioners match states if we are in this mode
+        self._check_partitioners_correctness()
+
+        # 1. Load Data (Use preloaded if available, otherwise load)
+        if self._preloaded_data is not None:
+            raw_data_dict = self._preloaded_data
         else:
-            self._states = states
+            raw_data_dict = self.load_acs_raw_data(self._dataset_name, self._states, self._year, self._horizon)
 
-        if partitioners is None:
-            partitioners = {key: 1 for key in self._states}
+        # 2. Modify and Wrap
+        self._dataset = DatasetDict()
 
-        return partitioners
+        for state, state_data in raw_data_dict.items():
+            # Create a copy to avoid modifying the cached preloaded data in place
+            data_to_use = state_data.copy()
 
-    def _modify_data(self, data, state):
+            if self._mapping is not None:
+                for key, value in self._mapping.items():
+                    if key in data_to_use.columns:
+                        data_to_use[key] = data_to_use[key].replace(value)
+
+            if self._modification_dict is not None and state in self._modification_dict:
+                # Apply modifications locally
+                modifications = self._modification_dict[state]
+                for col_name, config in modifications.items():
+                    drop_rate = config.get("drop_rate", 0)
+                    flip_rate = config.get("flip_rate", 0)
+                    value1 = config.get("value")
+                    column2 = config.get("attribute")
+                    value2 = config.get("attribute_value")
+
+                    if drop_rate > 0:
+                        data_to_use = drop_data(data_to_use, drop_rate, col_name, value1, self._label, column2, value2)
+                    if flip_rate > 0:
+                        data_to_use = flip_data(data_to_use, flip_rate, col_name, value1, self._label, column2, value2)
+
+            # Create Dataset and cast label to ClassLabel to fix warnings
+            # We need to ensure labels are 0..N-1 for ClassLabel
+            try:
+                unique_labels = sorted(data_to_use[self._label].unique())
+                num_classes = len(unique_labels)
+
+                # Map labels to 0..N-1
+                label_to_id = {label: i for i, label in enumerate(unique_labels)}
+                data_to_use[self._label] = data_to_use[self._label].map(label_to_id)
+
+                ds = Dataset.from_pandas(data_to_use)
+
+                # Cast to ClassLabel using the original values as names
+                ds = ds.cast_column(
+                    self._label, ClassLabel(num_classes=num_classes, names=[str(l) for l in unique_labels])
+                )
+            except Exception:
+                # If casting fails (e.g. continuous label or other issue), fall back to raw dataset
+                ds = Dataset.from_pandas(data_to_use)
+
+            self._dataset[state] = ds
+
+    def _prepare_generic_dataset(self) -> None:
+        """Helper to prepare generic Hugging Face datasets."""
+        # Load dataset using Hugging Face datasets library
+        loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
+
+        if isinstance(loaded_data, Dataset):
+            # If a single split is returned, wrap it in a DatasetDict
+            split_name = self._load_dataset_kwargs.get("split", "train")
+            self._dataset = DatasetDict({str(split_name): loaded_data})
+        elif isinstance(loaded_data, DatasetDict):
+            self._dataset = loaded_data
+        else:
+            msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
+            raise TypeError(msg)
+
+        # Apply modifications if specified (assuming tabular/pandas compatible for now)
+        if self._modification_dict:
+            for split_name in self._dataset:
+                if split_name in self._modification_dict:
+                    try:
+                        split_df = self._dataset[split_name].to_pandas()
+                        split_df = self._modify_data(split_df, split_name)
+                        self._dataset[split_name] = Dataset.from_pandas(split_df)
+                    except Exception as e:  # noqa: BLE001
+                        warnings.warn(f"Could not apply modification to split {split_name}: {e}", stacklevel=2)
+
+    def _get_default_us_states(self) -> list[str]:
+        return [
+            "AL",
+            "AK",
+            "AZ",
+            "AR",
+            "CA",
+            "CO",
+            "CT",
+            "DE",
+            "FL",
+            "GA",
+            "HI",
+            "ID",
+            "IL",
+            "IN",
+            "IA",
+            "KS",
+            "KY",
+            "LA",
+            "ME",
+            "MD",
+            "MA",
+            "MI",
+            "MN",
+            "MS",
+            "MO",
+            "MT",
+            "NE",
+            "NV",
+            "NH",
+            "NJ",
+            "NM",
+            "NY",
+            "NC",
+            "ND",
+            "OH",
+            "OK",
+            "OR",
+            "PA",
+            "RI",
+            "SC",
+            "SD",
+            "TN",
+            "TX",
+            "UT",
+            "VT",
+            "VA",
+            "WA",
+            "WV",
+            "WI",
+            "WY",
+            "PR",
+        ]
+
+    def _modify_data(self, data: pd.DataFrame, key: Any) -> pd.DataFrame:
         """
-        Modifies a pandas dataframe representing a state
-        according to the values given in _modification_dict by flipping labels or dropping datapoints
+        Modifies a pandas dataframe representing a split/state
+        according to the values given in _modification_dict.
         """
-        modifications = self._modification_dict[state]
-        for key, value in modifications.items():
-            drop_rate = value["drop_rate"]
-            flip_rate = value["flip_rate"]
-            value1 = value["value"]
-            column2 = value["attribute"]
-            value2 = value["attribute_value"]
-            data = drop_data(data, drop_rate, key, value1, self._label, column2, value2)
-            data = flip_data(data, flip_rate, key, value1, self._label, column2, value2)
+        if self._modification_dict is None or key not in self._modification_dict:
+            return data
+
+        modifications = self._modification_dict[key]
+
+        # Correct logic based on original implementation:
+        for col_name, config in modifications.items():
+            drop_rate = config.get("drop_rate", 0)
+            flip_rate = config.get("flip_rate", 0)
+            value1 = config.get("value")
+            column2 = config.get("attribute")
+            value2 = config.get("attribute_value")
+
+            if drop_rate > 0:
+                data = drop_data(data, drop_rate, col_name, value1, self._label, column2, value2)
+            if flip_rate > 0:
+                data = flip_data(data, flip_rate, col_name, value1, self._label, column2, value2)
+
         return data
 
-    def to_json(self, **json_kw) -> str:
+    def to_json(self, **json_kw: Any) -> str:
         """
         Returns the dataset as a JSON string.
-
-        * Dataclasses → `asdict`
-        * pathlib.Path → str(path)
-        * datetime/date/time → ISO‑8601
-        * Everything with a `__dict__` → that dict
-        * Fallback → `str(obj)`
-
-        Extra **json_kw are forwarded to `json.dumps`
-        (e.g. `indent=2`, `sort_keys=True`, …).
         """
 
         def _default(o: Any) -> Any:

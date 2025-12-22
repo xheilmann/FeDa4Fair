@@ -1,20 +1,36 @@
+import json
 import re
 import subprocess
-import json
 from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Mapping, Sequence, Union, Any
+from collections.abc import Mapping, Sequence
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Union
 
 import pandas as pd
 from FairFederatedDataset import FairFederatedDataset
-
 
 Replacement = Union[str, Sequence[str]]
 SOURCE_FILE = Path("datasheet_template.md")
 
 
-def get_git_info(repo: Path | str = ".", remote_name: str = "origin"):
+def get_git_info(repo: Path | str = ".", remote_name: str = "origin") -> tuple[str, str | None]:
+    """
+    Retrieve current git commit SHA and remote URL.
+
+    Parameters
+    ----------
+    repo : Path | str, default="."
+        Path to the git repository.
+    remote_name : str, default="origin"
+        Name of the remote to get the URL for.
+
+    Returns
+    -------
+    tuple[str, str | None]
+        A tuple containing (commit_sha, remote_url).
+
+    """
     repo = Path(repo).expanduser().resolve()
 
     def run(*args: str) -> str:
@@ -84,8 +100,22 @@ def compute_sensitive_attr_proportions(
     }
 
 
-def prep_info_dict(debug: bool = False):
-    tag_block = re.compile(r"\[tag:([^\]]+)\](.*?)\[/tag\]", flags=re.DOTALL)
+def prep_info_dict(debug: bool = False) -> dict[str, Any]:
+    """
+    Parse the datasheet template to identify tags and collect git info.
+
+    Parameters
+    ----------
+    debug : bool, default=False
+        If True, print found tags for debugging.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary of tags and initial metadata (commit, remote).
+
+    """
+    tag_block = re.compile(r"[tag:([^\]]+)](.*?)[\[/tag\]]", flags=re.DOTALL)
 
     tags: dict[str, list[str]] = defaultdict(list)
 
@@ -119,6 +149,19 @@ def create_new_datasheet(
     dataset: FairFederatedDataset,
     keep_missing: bool = True,
 ) -> None:
+    """
+    Generate a filled datasheet markdown file from the template and dataset metadata.
+
+    Parameters
+    ----------
+    destination : Path | str
+        Path where the generated datasheet will be saved.
+    dataset : FairFederatedDataset
+        The dataset object containing metadata and statistics.
+    keep_missing : bool, default=True
+        If True, marks missing fields with a placeholder. If False, leaves the original tag.
+
+    """
     KEEP = "KEEP"
     DROP = None
 
@@ -166,7 +209,7 @@ def create_new_datasheet(
     replacements["nrows"] = json.dumps(nrows)
 
     TAG_BLOCK = re.compile(
-        r"\[tag:([^\]]+)\](.*?)\[/tag\]",  # ← (.*?) is now group 2
+        r"[tag:([^\]]+)](.*?)[\[/tag\]]",  # ← (.*?) is now group 2
         flags=re.DOTALL,
     )
     seen: dict[str, int] = defaultdict(int)

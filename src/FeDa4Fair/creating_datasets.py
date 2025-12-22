@@ -1,23 +1,53 @@
 import os
+
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from FairFederatedDataset import FairFederatedDataset
-from evaluation import evaluate_models_on_datasets
 from sklearn.model_selection import train_test_split
 
-# mapping parameter for attribute unfairness
-# mapping =  {"MAR": { 3:2, 4:2, 5:2}, "RAC1P": {8:2, 7:2, 9:2, 6:2, 5:2, 4:2, 3:2}}
-# mapping parameter for value unfairness
+from FeDa4Fair.evaluation import evaluate_models_on_datasets
+from FeDa4Fair.FairFederatedDataset import FairFederatedDataset
+
 mapping = {"MAR": {3: 2, 4: 2, 5: 2}, "RAC1P": {8: 5, 7: 5, 9: 5, 6: 3, 5: 4, 3: 4}}
 
 
-def split_df(df, split_number):
+def split_df(df: pd.DataFrame, split_number: int) -> list[pd.DataFrame]:
+    """
+    Split a DataFrame into a specified number of approximately equal parts.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to split.
+    split_number : int
+        The number of splits to create.
+
+    Returns
+    -------
+    list[pd.DataFrame]
+        A list of DataFrames.
+
+    """
     a = np.array_split(df, split_number)
     return a
 
 
-def create_cross_silo_data(fairness_level, path):
+def create_cross_silo_data(fairness_level: str, path: str) -> None:
+    """
+    Generate, evaluate, and save cross-silo datasets with varying bias levels.
+
+    This function initializes a FairFederatedDataset (ACSIncome), evaluates models on it,
+    and then iteratively injects bias (by dropping/flipping data) based on fairness evaluation results.
+    It saves the resulting datasets and performance metrics to CSV files.
+
+    Parameters
+    ----------
+    fairness_level : str
+        The fairness level to evaluate (e.g., "attribute", "value").
+    path : str
+        The base path for saving data and stats.
+
+    """
     ffds = FairFederatedDataset(
         dataset="ACSIncome",
         fl_setting=None,
@@ -169,7 +199,27 @@ def create_cross_silo_data(fairness_level, path):
     all_modifications_df.to_csv(f"{path}data_stats/crosssilo_{fairness_level}_modifications.csv", index=False)
 
 
-def preprocess_data_cross_silo(data1, datasets, fairness_level, state):
+def preprocess_data_cross_silo(data1: pd.DataFrame, datasets: list, fairness_level: str, state: str) -> list:
+    """
+    Preprocess data for cross-silo federated learning by splitting into train/test and extracting sensitive features.
+
+    Parameters
+    ----------
+    data1 : pd.DataFrame
+        The input DataFrame for a specific state/silo.
+    datasets : list
+        Accumulator list of processed datasets.
+    fairness_level : str
+        The fairness level (e.g., "attribute").
+    state : str
+        The identifier for the state/silo.
+
+    Returns
+    -------
+    list
+        Updated list of datasets with the processed data tuple appended.
+
+    """
     target1 = data1["PINCP"]
     data1.drop(inplace=True, columns=["PINCP"])
     if fairness_level == "attribute":
@@ -185,7 +235,23 @@ def preprocess_data_cross_silo(data1, datasets, fairness_level, state):
     return datasets
 
 
-def create_cross_device_data(fairness_level, split_number, path):
+def create_cross_device_data(fairness_level: str, split_number: int, path: str) -> None:
+    """
+    Generate, evaluate, and save cross-device datasets based on previously generated cross-silo data.
+
+    This function reads the cross-silo datasets, selects states based on fairness criteria,
+    splits them further (simulating devices), and evaluates models on them.
+
+    Parameters
+    ----------
+    fairness_level : str
+        The fairness level to evaluate.
+    split_number : int
+        Number of splits per state (simulating devices).
+    path : str
+        The base path.
+
+    """
     datasets_all = []
     dir = os.listdir(f"{path}data/cross_silo_{fairness_level}_final")
     for file in dir:
@@ -246,18 +312,42 @@ def create_cross_device_data(fairness_level, split_number, path):
 
     for state in states:
         data1 = pd.read_csv(f"{path}data/cross-device-{fairness_level}/{state}.csv")
-        data1.to_csv((f"{path}data/cross_device_{fairness_level}_final/{state}.csv"))
+        data1.to_csv(f"{path}data/cross_device_{fairness_level}_final/{state}.csv")
     df = df[df["dataset"].isin(states)]
     df.to_csv(f"{path}data/cross_device_{fairness_level}_final/model_perf_DP.csv", index=False)
     print(df)
 
 
-def preprocess_datasets(file, data1, path, split_number=6, fairness_level="attribute"):
+def preprocess_datasets(
+    file: str, data1: pd.DataFrame, path: str, split_number: int = 6, fairness_level: str = "attribute"
+) -> list:
+    """
+    Split a dataset into multiple parts and preprocess each for cross-device evaluation.
+
+    Parameters
+    ----------
+    file : str
+        Filename or identifier for the dataset.
+    data1 : pd.DataFrame
+        Input DataFrame.
+    path : str
+        Base path.
+    split_number : int, default=6
+        Number of splits.
+    fairness_level : str, default="attribute"
+        Fairness level.
+
+    Returns
+    -------
+    list
+        List of processed dataset tuples.
+
+    """
     split_datasets = split_df(data1, split_number)
     datasets = []
     for i in range(len(split_datasets)):
         data1 = split_datasets[i]
-        data1.to_csv((f"{path}data/cross-device-{fairness_level}/{file[:2]}_{i}.csv"))
+        data1.to_csv(f"{path}data/cross-device-{fairness_level}/{file[:2]}_{i}.csv")
         target1 = data1["PINCP"]
         data1.drop(inplace=True, columns=["PINCP"])
         if fairness_level == "attribute":
@@ -270,4 +360,5 @@ def preprocess_datasets(file, data1, path, split_number=6, fairness_level="attri
         X_train1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
         X_test1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
         datasets.append((f"{file[:2]}_{i}", X_train1.values, y_train1.values, X_test1.values, y_test1.values, sf_data1))
+    return datasets
     return datasets

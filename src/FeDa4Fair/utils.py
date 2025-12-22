@@ -11,11 +11,24 @@
 # limitations under the License.
 # ==============================================================================
 
-"""This file implements helper functions."""
+"""Helper functions."""
+
+from typing import Any
+
+import pandas as pd
 
 
-def drop_data(df, percentage, column1, value1, label_column, column2=None, value2=None):
-    """Drop a percentage of rows from a DataFrame that match specific criteria.
+def drop_data(
+    df: pd.DataFrame,
+    percentage: float,
+    column1: str,
+    value1: Any,
+    label_column: str,
+    column2: str | None = None,
+    value2: Any | None = None,
+) -> pd.DataFrame:
+    """
+    Drop a percentage of rows from a DataFrame that match specific criteria.
 
     This function removes a given percentage of rows with label_name=True where the value in `column1` matches `value1`
     and optionally, where `column2` matches `value2`.
@@ -48,25 +61,34 @@ def drop_data(df, percentage, column1, value1, label_column, column2=None, value
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of matching rows removed.
+
     """
     if not (0 <= percentage <= 1):
-        raise ValueError("Fraction must be between 0 and 1")
+        msg = "Fraction must be between 0 and 1"
+        raise ValueError(msg)
 
     condition = df[column1] == value1
     if column2 is not None and value2 is not None:
         condition &= df[column2] == value2
 
-    matching_rows = df[condition & (df[label_column] == True)]
+    matching_rows = df[condition & (df[label_column])]
     num_to_drop = int(len(matching_rows) * percentage)
     rows_to_drop = matching_rows.sample(n=num_to_drop, random_state=42).index
-    df_dropped = df.drop(index=rows_to_drop)
 
-    return df_dropped
+    return df.drop(index=rows_to_drop)
 
 
-def flip_data(df, percentage, column1, value1, label_column, column2=None, value2=None):
+def flip_data(
+    df: pd.DataFrame,
+    percentage: float,
+    column1: str,
+    value1: Any,
+    label_column: str,
+    column2: str | None = None,
+    value2: Any | None = None,
+) -> pd.DataFrame:
     """
-    Flip the label_name from True to False of a percentage of rows in a DataFrame that match specified criteria.
+    Flip the label_name from True to False of a percentage of rows matching specified criteria.
 
     This function modifies the DataFrame by flipping the value in the `label_column` from True to False
      for a specified percentage of rows where `column1 == value1`.
@@ -100,19 +122,20 @@ def flip_data(df, percentage, column1, value1, label_column, column2=None, value
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of labels flipped in the filtered subset.
+
     """
     if not (0 <= percentage <= 1):
-        raise ValueError("Fraction must be between 0 and 1")
+        msg = "Fraction must be between 0 and 1"
+        raise ValueError(msg)
 
     condition = df[column1] == value1
     if column2 is not None and value2 is not None:
         condition &= df[column2] == value2
 
-    matching_rows = df[condition & (df[label_column] == True)]
+    matching_rows = df[condition & (df[label_column])]
     num_to_flip = int(len(matching_rows) * percentage)
 
     if num_to_flip == 0:
-        print("No labels flipped: fraction too low or no matching rows.")
         return df
 
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index

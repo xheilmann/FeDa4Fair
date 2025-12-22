@@ -1,10 +1,14 @@
-from statistics import LinearRegression
+"""
+Example script demonstrating the usage of FairFederatedDataset and model evaluation.
 
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
+This script sets up a FairFederatedDataset for the ACSIncome dataset with specific
+partitioning and bias injection settings. It then demonstrates how to load partitions
+and splits, and shows how to evaluate models in a cross-silo setting.
+"""
 
+from evaluation import evaluate_models_on_datasets
 from FairFederatedDataset import FairFederatedDataset
-from evaluation import evaluate_models_on_datasets, local_client_fairness_plot
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
 # example mapping parameter:

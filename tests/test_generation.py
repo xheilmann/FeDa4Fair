@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from FeDa4Fair.dataset.generation import split_df, _filter_states_by_fairness, preprocess_data_cross_silo
 
+
 class TestGeneration(unittest.TestCase):
     def test_split_df(self):
         df = pd.DataFrame({"a": range(10)})
@@ -17,7 +18,7 @@ class TestGeneration(unittest.TestCase):
             "dataset": ["S1", "S1", "S2", "S2"],
             "model": ["XGBoost", "LogisticRegression", "XGBoost", "LogisticRegression"],
             "DP_SEX": [0.1, 0.15, 0.05, 0.05],
-            "DP_RACE": [0.01, 0.02, 0.1, 0.12]
+            "DP_RACE": [0.01, 0.02, 0.1, 0.12],
         }
         df = pd.DataFrame(data)
         # S1: SEX_DP > RACE_DP (count=2). np.min(SEX_DP) = 0.1 > 0.09. Should be included.
@@ -27,19 +28,22 @@ class TestGeneration(unittest.TestCase):
         self.assertNotIn("S2", states)
 
     def test_preprocess_data_cross_silo(self):
-        df = pd.DataFrame({
-            "PINCP": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            "SEX": [1, 2, 1, 2, 1, 2, 1, 2, 1, 2],
-            "MAR": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            "RAC1P": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        })
+        df = pd.DataFrame(
+            {
+                "PINCP": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+                "SEX": [1, 2, 1, 2, 1, 2, 1, 2, 1, 2],
+                "MAR": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                "RAC1P": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            }
+        )
         datasets = []
         res = preprocess_data_cross_silo(df, datasets, "attribute", "State1")
         self.assertEqual(len(res), 1)
         name, x_train, y_train, x_test, y_test, sf = res[0]
         self.assertEqual(name, "State1")
-        self.assertEqual(x_train.shape[1], 0) # PINCP, SEX, MAR, RAC1P dropped
+        self.assertEqual(x_train.shape[1], 0)  # PINCP, SEX, MAR, RAC1P dropped
         self.assertIn("SEX", sf)
+
 
 if __name__ == "__main__":
     unittest.main()

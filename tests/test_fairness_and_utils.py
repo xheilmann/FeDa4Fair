@@ -29,9 +29,9 @@ class TestFairnessComputation(unittest.TestCase):
 
     def test_internal_compute_fairness_eo(self):
         y_true = [0, 1, 0, 1]
-        y_pred = [0, 1, 1, 0] # Some errors
+        y_pred = [0, 1, 1, 0]  # Some errors
         sf_data = pd.DataFrame({"sensitive": [0, 0, 1, 1]})
-        
+
         # Test EO
         res = _compute_fairness(
             y_true=y_true,
@@ -39,7 +39,7 @@ class TestFairnessComputation(unittest.TestCase):
             sf_data=sf_data,
             fairness_metric="EO",
             sens_att="sensitive",
-            size_unit="attribute"
+            size_unit="attribute",
         )
         self.assertIn("sensitive_EO", res.index)
 
@@ -47,7 +47,7 @@ class TestFairnessComputation(unittest.TestCase):
         y_true = [0, 1, 0, 1]
         y_pred = [0, 1, 0, 1]
         sf_data = pd.DataFrame({"sensitive": [0, 0, 1, 1]})
-        
+
         # Test attribute-value returns all pairwise diffs
         res = _compute_fairness(
             y_true=y_true,
@@ -55,7 +55,7 @@ class TestFairnessComputation(unittest.TestCase):
             sf_data=sf_data,
             fairness_metric="DP",
             sens_att="sensitive",
-            size_unit="attribute-value"
+            size_unit="attribute-value",
         )
         # Pairs: 0_0, 0_1, 1_0, 1_1
         self.assertIn("0_1", res.index)

@@ -32,12 +32,12 @@ def split_df(df: pd.DataFrame, split_number: int) -> list[pd.DataFrame]:
     """
     if split_number <= 0:
         return [df]
-    
+
     # Calculate chunk size
     n = len(df)
     chunk_size = n // split_number
     remainder = n % split_number
-    
+
     splits = []
     start = 0
     for i in range(split_number):
@@ -45,7 +45,7 @@ def split_df(df: pd.DataFrame, split_number: int) -> list[pd.DataFrame]:
         end = start + chunk_size + (1 if i < remainder else 0)
         splits.append(df.iloc[start:end].copy())
         start = end
-        
+
     return splits
 
 
@@ -64,9 +64,7 @@ def create_cross_silo_data(
     all_modifications = []
     for dr in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         df = pd.read_csv(f"{path_str}data_stats/crosssilo_{fairness_level}_{np.round(dr - 0.1, 2)}.csv")
-        states, partitioners, modification_dict, silo_modifications = _determine_modifications(
-            df, dr, fairness_level
-        )
+        states, partitioners, modification_dict, silo_modifications = _determine_modifications(df, dr, fairness_level)
         all_modifications.extend(silo_modifications)
 
         if len(states) <= 1:
@@ -103,7 +101,7 @@ def _determine_modifications(df, dr, fairness_level):
     states, partitioners, modification_dict, silo_modifications = [], {}, {}, []
     for entry in df["dataset"].unique():
         df_entry = df[(df["dataset"] == entry) & df["model"].isin(["XGBoost", "LogisticRegression"])]
-        
+
         if fairness_level == "attribute":
             res = _get_attribute_modifications(entry, df_entry, dr)
         else:
@@ -123,13 +121,15 @@ def _get_attribute_modifications(entry, df_entry, dr):
     sex_dp = df_entry["DP_SEX"].values
     count = sum(1 for i in range(len(df_entry)) if sex_dp[i] > race_dp[i])
 
-    if count == 2 or count != 0: # Combined count == 2 and 'else' case from original
+    if count == 2 or count != 0:  # Combined count == 2 and 'else' case from original
         min_val = np.min(sex_dp)
-        if count == 2 and min_val >= 0.09: return None
+        if count == 2 and min_val >= 0.09:
+            return None
         attr = "SEX"
-    else: # count == 0
+    else:  # count == 0
         min_val = np.min(race_dp)
-        if min_val >= 0.09: return None
+        if min_val >= 0.09:
+            return None
         attr = "RAC1P"
 
     mod = {attr: {"drop_rate": dr, "flip_rate": 0, "value": 2, "attribute": None, "attribute_value": None}}
@@ -218,16 +218,16 @@ def create_cross_device_data(
     """
     path_str = str(path)
     datasets_all = _load_silo_datasets(fairness_level, split_number, path_str)
-    
+
     df, fig = evaluate_models_on_datasets(datasets_all, n_jobs=3, fairness_level=fairness_level)
     df.to_csv(f"{path_str}data_stats/crossdevice_{fairness_level}.csv", index=False)
-    
+
     states = _filter_states_by_fairness(df, fairness_level)
 
     for state in states:
         data1 = pd.read_csv(Path(f"{path_str}data/cross-device-{fairness_level}/{state}.csv"))
         data1.to_csv(Path(f"{path_str}data/cross_device_{fairness_level}_final/{state}.csv"))
-    
+
     df = df[df["dataset"].isin(states)]
     df.to_csv(Path(f"{path_str}data/cross_device_{fairness_level}_final/model_perf_DP.csv"), index=False)
 
@@ -257,11 +257,13 @@ def _filter_attribute_fairness(df):
         df_entry = df[(df["dataset"] == entry) & df["model"].isin(["XGBoost", "LogisticRegression"])]
         race_dp, sex_dp = df_entry["DP_RACE"].values, df_entry["DP_SEX"].values
         count = sum(1 for i in range(len(df_entry)) if sex_dp[i] > race_dp[i])
-        
+
         if count == 2:
-            if np.min(sex_dp) > 0.09: states.append(entry)
+            if np.min(sex_dp) > 0.09:
+                states.append(entry)
         elif count == 0:
-            if 0.175 > np.min(race_dp) > 0.12: states.append(entry)
+            if 0.175 > np.min(race_dp) > 0.12:
+                states.append(entry)
     return states
 
 
@@ -270,7 +272,8 @@ def _filter_value_fairness(df):
     for entry in df["dataset"].unique():
         df_entry = df[(df["dataset"] == entry) & df["model"].isin(["XGBoost", "LogisticRegression"])]
         if df_entry["value_DP_RACE"].values[0][-3:-2] == df_entry["value_DP_RACE"].values[1][-3:-2]:
-            if np.min(df_entry["DP_RACE"].values) > 0.09: states.append(entry)
+            if np.min(df_entry["DP_RACE"].values) > 0.09:
+                states.append(entry)
     return states
 
 

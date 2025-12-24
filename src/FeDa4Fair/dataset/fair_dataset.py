@@ -220,7 +220,7 @@ class FairFederatedDataset(FederatedDataset):
             split = list(self.partitioners.keys())[0]
 
         partition = super().load_partition(partition_id, split)
-        
+
         # Apply sample cap if specified
         if self._sample_cap is not None:
             partition_df = partition.to_pandas()
@@ -253,7 +253,9 @@ class FairFederatedDataset(FederatedDataset):
                     partition_df = self._modify_data(partition_df, mod_key)
                     return Dataset.from_pandas(partition_df)
             except Exception as e:  # noqa: BLE001
-                warnings.warn(f"Could not apply modification to partition {partition_id} ({mod_key}): {e}", stacklevel=2)
+                warnings.warn(
+                    f"Could not apply modification to partition {partition_id} ({mod_key}): {e}", stacklevel=2
+                )
 
         return partition
 
@@ -289,7 +291,11 @@ class FairFederatedDataset(FederatedDataset):
         partition = self.load_partition(partition_id, split=key)
         Path(str(dataset_path)).mkdir(parents=True, exist_ok=True)
 
-        p_name = self._client_names[partition_id] if self._client_names and partition_id < len(self._client_names) else str(partition_id)
+        p_name = (
+            self._client_names[partition_id]
+            if self._client_names and partition_id < len(self._client_names)
+            else str(partition_id)
+        )
         file_name = f"{key}_{p_name}.csv"
 
         try:

@@ -6,6 +6,7 @@ from FeDa4Fair.metrics.evaluation import evaluate_model, merge_dataframes_with_n
 
 import FeDa4Fair.metrics.evaluation as evaluation
 
+
 class TestEvaluation(unittest.TestCase):
     def test_evaluate_model(self):
         # Mock return value
@@ -15,7 +16,7 @@ class TestEvaluation(unittest.TestCase):
         x_train, y_train = np.array([[1], [2]]), np.array([0, 1])
         x_test, y_test = np.array([[1], [2]]), np.array([0, 1])
         sf_data = {"SEX": np.array([0, 1])}
-        
+
         # Mock model
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0, 1])
@@ -31,9 +32,9 @@ class TestEvaluation(unittest.TestCase):
                 y_test=y_test,
                 fairness_metric="DP",
                 sf_data=sf_data,
-                fairness_level="attribute"
+                fairness_level="attribute",
             )
-            
+
             print(f"Mock called: {mock_cf.called}")
             self.assertTrue(mock_cf.called)
             self.assertEqual(res["DP_SEX"], 0.1)
@@ -42,13 +43,14 @@ class TestEvaluation(unittest.TestCase):
         df1 = pd.DataFrame({"val": [1]})
         df2 = pd.DataFrame({"val": [2]})
         names = ["A", "B"]
-        
+
         merged = merge_dataframes_with_names([df1, df2], names)
-        
+
         self.assertEqual(len(merged), 2)
         self.assertIn("state", merged.columns)
         self.assertEqual(merged.iloc[0]["state"], "A")
         self.assertEqual(merged.iloc[1]["state"], "B")
+
 
 if __name__ == "__main__":
     unittest.main()

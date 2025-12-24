@@ -170,8 +170,10 @@ def _get_tag_replacement(tag, body, idx, replacements, keep_missing, original):
         return "**To be Filled -- Incomplete Datasheet!**" if keep_missing else original
 
     value = replacements[tag]
-    if value is None: return "" # DROP
-    if value == "KEEP": return body.strip()
+    if value is None:
+        return ""  # DROP
+    if value == "KEEP":
+        return body.strip()
 
     if isinstance(value, (list, tuple)):
         if idx >= len(value):
@@ -185,10 +187,10 @@ def _get_datasheet_replacements(dataset: FairFederatedDataset) -> dict[str, Any]
     """Gather all replacement values for the datasheet tags."""
     replacements = prep_info_dict()
     data_json = json.loads(dataset.to_json())
-    
+
     replacements.update(_get_dataset_basic_info(data_json, dataset))
     replacements.update(_get_dataset_stats_info(dataset))
-    
+
     repl = dataset._modification_dict
     replacements["modification"] = json.dumps(repl, indent=2) if repl is not None else "No modification was done."
     return replacements
@@ -198,7 +200,7 @@ def _get_dataset_basic_info(data_json: dict, dataset: FairFederatedDataset) -> d
     """Extract basic descriptive information from the dataset."""
     is_income = data_json["_dataset_name"] == "ACSIncome"
     is_employment = data_json["_dataset_name"] == "ACSEmployment"
-    
+
     return {
         "income": "KEEP" if is_income else None,
         "employment": "KEEP" if is_employment else None,
@@ -213,7 +215,7 @@ def _get_dataset_basic_info(data_json: dict, dataset: FairFederatedDataset) -> d
 def _get_dataset_stats_info(dataset: FairFederatedDataset) -> dict[str, Any]:
     """Compute statistics and proportions for the datasheet."""
     sens_stats = compute_sensitive_attr_proportions(dataset)
-    
+
     if dataset._dataset is None:
         colnames, nrows = [], 0
     else:

@@ -235,15 +235,28 @@ def plot_comparison_fairness_distribution(
 
     figsize = _initialize_comparison_figsize(figsize, num_p)
     axes_sharing = _initialize_axis_sharing("absolute", "heatmap", partition_id_axis)
-    fig, axes = plt.subplots(nrows=1, ncols=num_p, figsize=figsize, layout="constrained", **axes_sharing) # type: ignore
+    fig, axes = plt.subplots(nrows=1, ncols=num_p, figsize=figsize, layout="constrained", **axes_sharing)  # type: ignore
     axes_list = [axes] if num_p == 1 else list(axes)
     titles = titles or ["" for _ in range(num_p)]
     p_kwargs_list = plot_kwargs_list or [None] * num_p
 
     df_list = _plot_all_fairness_distributions(
-        p_list, p_list_val, eff_sens_atts, intersectional_fairness, size_unit, 
-        partition_id_axis, axes_list, max_num_partitions, cmap, legend, 
-        p_kwargs_list, legend_kwargs, fairness_metric, model, eff_sens_cols, label_name
+        p_list,
+        p_list_val,
+        eff_sens_atts,
+        intersectional_fairness,
+        size_unit,
+        partition_id_axis,
+        axes_list,
+        max_num_partitions,
+        cmap,
+        legend,
+        p_kwargs_list,
+        legend_kwargs,
+        fairness_metric,
+        model,
+        eff_sens_cols,
+        label_name,
     )
 
     for idx, axis in enumerate(axes_list):
@@ -265,19 +278,44 @@ def _prepare_fairness_partitioners(partitioner_dict, model):
 
 
 def _plot_all_fairness_distributions(
-    p_list, p_list_val, eff_sens_atts, intersectional, size_unit, p_id_axis, 
-    axes_list, max_parts, cmap, legend, p_kwargs_list, l_kwargs, f_metric, model, eff_cols, label_name
+    p_list,
+    p_list_val,
+    eff_sens_atts,
+    intersectional,
+    size_unit,
+    p_id_axis,
+    axes_list,
+    max_parts,
+    cmap,
+    legend,
+    p_kwargs_list,
+    l_kwargs,
+    f_metric,
+    model,
+    eff_cols,
+    label_name,
 ):
     df_list = []
     for idx, (p, s_att, p_kw, ax) in enumerate(zip(p_list, eff_sens_atts, p_kwargs_list, axes_list, strict=False)):
         target_s_att = intersectional or s_att
         is_last = idx == (len(p_list) - 1)
-        
+
         _, _, df = plot_fairness_distributions(
-            partitioner=p, partitioner_test=p_list_val[idx], label_name=label_name, 
-            sens_att=target_s_att, size_unit=size_unit, max_num_partitions=max_parts, 
-            partition_id_axis=p_id_axis, axis=ax, cmap=cmap, legend=legend if is_last else False, 
-            plot_kwargs=p_kw, legend_kwargs=l_kwargs, fairness_metric=f_metric, model=model, sens_cols=eff_cols
+            partitioner=p,
+            partitioner_test=p_list_val[idx],
+            label_name=label_name,
+            sens_att=target_s_att,
+            size_unit=size_unit,
+            max_num_partitions=max_parts,
+            partition_id_axis=p_id_axis,
+            axis=ax,
+            cmap=cmap,
+            legend=legend if is_last else False,
+            plot_kwargs=p_kw,
+            legend_kwargs=l_kwargs,
+            fairness_metric=f_metric,
+            model=model,
+            sens_cols=eff_cols,
         )
         df_list.append(df)
     return df_list

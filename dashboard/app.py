@@ -76,7 +76,9 @@ US_STATES = [
 
 st.sidebar.header("Dataset Configuration")
 
-dataset_name = st.sidebar.selectbox("Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"])
+dataset_name = st.sidebar.selectbox(
+    "Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"]
+)
 
 selected_states = None
 if dataset_name in ["ACSIncome", "ACSEmployment"]:
@@ -106,7 +108,12 @@ else:
 
 seed = st.sidebar.number_input("Random Seed", value=42)
 shuffle = st.sidebar.checkbox("Shuffle Data?", value=True)
-sample_cap = st.sidebar.number_input("Sample Cap per Client (Optional)", min_value=0, value=0, help="0 means no cap. Caps total samples per client maintaining distribution.")
+sample_cap = st.sidebar.number_input(
+    "Sample Cap per Client (Optional)",
+    min_value=0,
+    value=0,
+    help="0 means no cap. Caps total samples per client maintaining distribution.",
+)
 
 st.sidebar.header("Partitioning")
 num_partitions = st.sidebar.slider("Number of Clients (per State/Split)", min_value=1, max_value=50, value=5)
@@ -131,8 +138,10 @@ modification_dict = None
 
 if inject_bias:
     st.sidebar.subheader("Group-Based Bias Injection")
-    
-    mitigation_threshold = st.sidebar.slider("Mitigation Threshold", 0.0, 0.2, 0.08, 0.01, help="Target unfairness threshold for mitigation.")
+
+    mitigation_threshold = st.sidebar.slider(
+        "Mitigation Threshold", 0.0, 0.2, 0.08, 0.01, help="Target unfairness threshold for mitigation."
+    )
 
     if "bias_groups" not in st.session_state:
         st.session_state.bias_groups = [
@@ -323,7 +332,7 @@ if st.button("Load and Evaluate"):
                             label_name=fds.label_column,
                             size_unit=size_unit,
                             fds=fds,
-                            split=s
+                            split=s,
                         )
 
                         # Check threshold
@@ -332,11 +341,13 @@ if st.button("Load and Evaluate"):
                             if not (0 <= val <= mitigation_threshold):
                                 all_met_threshold = False
                                 failing_clients.append((s, idx))
-                    
+
                     if all_met_threshold:
-                        st.success(f"✅ All mitigated clients are within unfairness threshold (0 - {mitigation_threshold}).")
+                        st.success(
+                            f"✅ All mitigated clients are within unfairness threshold (0 - {mitigation_threshold})."
+                        )
                         break
-                    
+
                     if iteration < max_iterations - 1:
                         st.warning(f"⚠️ {len(failing_clients)} client(s) still above threshold. Re-balancing...")
                         # Re-run prepare (which re-applies balance_data) or manually call it?
@@ -344,9 +355,11 @@ if st.button("Load and Evaluate"):
                         # calling it again on the same fds object isn't easy without resetting.
                         # For simplicity in this dashboard demo, we inform that perfect balance is hard with small data.
                         # In a real scenario, we'd iteratively prune.
-                        fds.prepare() # Re-prepare might help due to randomness
+                        fds.prepare()  # Re-prepare might help due to randomness
                     else:
-                        st.error("❌ Could not reach threshold after maximum iterations. Dataset might be too small or skewed.")
+                        st.error(
+                            "❌ Could not reach threshold after maximum iterations. Dataset might be too small or skewed."
+                        )
 
                 st.write(f"📊 Total samples removed during mitigation: **{fds._total_removed_samples}**")
 
@@ -421,7 +434,7 @@ if st.button("Load and Evaluate"):
                     cols_to_keep.append("Accuracy")
                 if "Sample Count" in df.columns:
                     cols_to_keep.append("Sample Count")
-                
+
                 return df[cols_to_keep]
 
             # 1. Dataset Fairness (DP only)

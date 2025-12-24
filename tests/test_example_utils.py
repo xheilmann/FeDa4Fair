@@ -4,30 +4,33 @@ import numpy as np
 import torch
 from torch import nn
 from FeDa4Fair.utils.example_utils import (
-    pre_process_income, 
-    pre_process_single_datasets, 
-    TabularDataset, 
+    pre_process_income,
+    pre_process_single_datasets,
+    TabularDataset,
     weighted_average,
     set_params,
     get_params,
     ImageDataset,
     SimpleCNN,
-    get_default_image_transform
+    get_default_image_transform,
 )
+
 
 class TestExampleUtils(unittest.TestCase):
     def test_pre_process_income(self):
-        df = pd.DataFrame({
-            "COW": [1, 2],
-            "SCHL": [10, 20],
-            "AGEP": [20, 30],
-            "WKHP": [40, 50],
-            "OCCP": [100, 200],
-            "POBP": [1, 2],
-            "RELP": [0, 1],
-            "SEX": [1, 2],
-            "PINCP": [0, 1]
-        })
+        df = pd.DataFrame(
+            {
+                "COW": [1, 2],
+                "SCHL": [10, 20],
+                "AGEP": [20, 30],
+                "WKHP": [40, 50],
+                "OCCP": [100, 200],
+                "POBP": [1, 2],
+                "RELP": [0, 1],
+                "SEX": [1, 2],
+                "PINCP": [0, 1],
+            }
+        )
         processed = pre_process_income(df)
         self.assertIn("COW_1", processed.columns)
         self.assertIn("SCHL_10", processed.columns)
@@ -35,18 +38,12 @@ class TestExampleUtils(unittest.TestCase):
         self.assertEqual(processed["AGEP"].max(), 1.0)
 
     def test_pre_process_single_datasets(self):
-        df = pd.DataFrame({
-            ">50K": [0, 1],
-            "SEX": [1, 2],
-            "MAR": [1, 3],
-            "RAC1P": [1, 8],
-            "feat1": [0.1, 0.2]
-        })
+        df = pd.DataFrame({">50K": [0, 1], "SEX": [1, 2], "MAR": [1, 3], "RAC1P": [1, 8], "feat1": [0.1, 0.2]})
         dfs, labels, groups, groups2, groups3 = pre_process_single_datasets(df)
         self.assertEqual(len(dfs), 1)
-        self.assertEqual(dfs[0].shape, (2, 4)) # 4 features after dropping >50K
+        self.assertEqual(dfs[0].shape, (2, 4))  # 4 features after dropping >50K
         self.assertEqual(labels[0].tolist(), [[0], [1]])
-        self.assertEqual(groups[0].tolist(), [[1], [0]]) # 1 stays 1, others 0
+        self.assertEqual(groups[0].tolist(), [[1], [0]])  # 1 stays 1, others 0
 
     def test_tabular_dataset(self):
         x = np.array([[1.0, 2.0], [3.0, 4.0]])
@@ -59,15 +56,12 @@ class TestExampleUtils(unittest.TestCase):
         np.testing.assert_array_equal(x_s, x[0])
         self.assertEqual(z_s, z[0])
         self.assertEqual(y_s, y[0])
-        
+
         ds.shuffle()
         self.assertEqual(len(ds), 2)
 
     def test_weighted_average(self):
-        metrics = [
-            (10, {"accuracy": 0.8}),
-            (20, {"accuracy": 0.9})
-        ]
+        metrics = [(10, {"accuracy": 0.8}), (20, {"accuracy": 0.9})]
         result = weighted_average(metrics)
         # (10*0.8 + 20*0.9) / 30 = (8 + 18) / 30 = 26 / 30 = 0.8666...
         self.assertAlmostEqual(result["accuracy"], 0.8666666, places=5)
@@ -97,6 +91,7 @@ class TestExampleUtils(unittest.TestCase):
     def test_get_default_image_transform(self):
         transform = get_default_image_transform()
         self.assertTrue(callable(transform))
+
 
 if __name__ == "__main__":
     unittest.main()

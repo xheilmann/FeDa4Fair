@@ -142,12 +142,13 @@ def compute_fairness(
     if sens_cols is None:
         sens_cols = []
 
-    num_parts = min(max_num_partitions or float('inf'), partitioner.num_partitions)
+    num_parts = min(max_num_partitions or float("inf"), partitioner.num_partitions)
     partition_id_to_fairness = {}
 
     for partition_id in range(int(num_parts)):
-        if progress_callback is not None: progress_callback(partition_id)
-        
+        if progress_callback is not None:
+            progress_callback(partition_id)
+
         # If fds and split are provided, use fds.load_partition to include bias injection
         if fds is not None and split is not None:
             partition = fds.load_partition(partition_id, split=split)

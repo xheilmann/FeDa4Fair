@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"
 from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
 
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
+from FeDa4Fair.dataset.partitioning import RepresentativeDiversityPartitioner
 from FeDa4Fair.metrics.fairness import compute_fairness
 from FeDa4Fair.utils.data_utils import generate_bias_by_groups
 
@@ -117,7 +118,26 @@ sample_cap = st.sidebar.number_input(
 
 st.sidebar.header("Partitioning")
 num_partitions = st.sidebar.slider("Number of Clients (per State/Split)", min_value=1, max_value=50, value=5)
-partition_strategy = st.sidebar.selectbox("Partition Strategy", ["IID", "Dirichlet (Non-IID)"])
+partition_strategy = st.sidebar.selectbox(
+    "Partition Strategy", ["IID", "Dirichlet (Non-IID)", "Representative diversity"]
+)
+
+# Handle Representative Diversity UI
+rep_div_sens_1 = None
+rep_div_sens_2 = None
+
+if partition_strategy == "Representative diversity":
+    if dataset_name in ["ACSIncome", "ACSEmployment"]:
+        st.sidebar.error("Representative Diversity is not supported for ACS datasets.")
+    else:
+        st.sidebar.markdown("**Representative Diversity Settings**")
+        # Default sensitive attributes
+        default_sens = "sex_binary"
+        if dataset_name == "Other (Hugging Face)":
+            default_sens = sens_attr
+
+        rep_div_sens_1 = st.sidebar.text_input("Primary Sensitive Attribute", default_sens, key="rd_s1")
+        rep_div_sens_2 = st.sidebar.text_input("Secondary Sensitive Attribute (Optional)", "", key="rd_s2")
 
 alpha = 1.0
 if partition_strategy == "Dirichlet (Non-IID)":
@@ -129,6 +149,15 @@ def create_partitioner():
         return DirichletPartitioner(
             num_partitions=num_partitions, partition_by=label_name if label_name else "PINCP", alpha=alpha, seed=seed
         )
+    if partition_strategy == "Representative diversity":
+        if dataset_name in ["ACSIncome", "ACSEmployment"]:
+            return IidPartitioner(num_partitions=num_partitions)  # Fallback or error handled upstream
+
+        partition_cols = [rep_div_sens_1]
+        if rep_div_sens_2 and rep_div_sens_2.strip():
+            partition_cols.append(rep_div_sens_2)
+
+        return RepresentativeDiversityPartitioner(num_partitions=num_partitions, partition_by=partition_cols, seed=seed)
     return IidPartitioner(num_partitions=num_partitions)
 
 
@@ -361,12 +390,27 @@ if st.button("Load and Evaluate"):
                             "❌ Could not reach threshold after maximum iterations. Dataset might be too small or skewed."
                         )
 
-                st.write(f"📊 Total samples removed during mitigation: **{fds._total_removed_samples}**")
-
             # Save fds to session state for persistence
             st.session_state["fds"] = fds
 
             st.success("Dataset Loaded!")
+
+            # Calculate total samples used by clients
+            total_samples = 0
+            # Reset the removed counter before calculating to avoid double counting from previous steps
+            fds._total_removed_samples = 0
+            with st.spinner("Calculating total samples..."):
+                for split_name, partitioner in fds.partitioners.items():
+                    # Check if partitioner is an int (number of partitions) or a Partitioner object
+                    num_parts = partitioner.num_partitions if hasattr(partitioner, "num_partitions") else partitioner
+                    for pid in range(num_parts):
+                        # load_partition applies modifications so len(ds) is the final count
+                        ds = fds.load_partition(pid, split=split_name)
+                        total_samples += len(ds)
+
+            col1, col2 = st.columns(2)
+            col1.metric("Total Samples Used", total_samples)
+            col2.metric("Total Samples Removed (Balancing)", fds._total_removed_samples)
 
             # Evaluate Fairness
 

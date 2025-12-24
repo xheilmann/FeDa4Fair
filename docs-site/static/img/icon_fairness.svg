@@ -1,0 +1,16 @@
+<svg width="200" height="200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Base/Stand -->
+  <path d="M12 19V21M7 21H17" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Main Beam -->
+  <path d="M12 5V19" stroke="#4a4a4a" stroke-width="2"/>
+  <path d="M4 8H20" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Left Plate (representing Group A) -->
+  <path d="M4 8L6 14C6 15.1046 6.89543 16 8 16H10" stroke="#0073e6" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="7" cy="11" r="1.5" fill="#0073e6" fill-opacity="0.6"/>
+  <!-- Right Plate (representing Group B) -->
+  <path d="M20 8L18 14C18 15.1046 17.1046 16 16 16H14" stroke="#0073e6" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="17" cy="11" r="1.5" fill="#0073e6" fill-opacity="0.6"/>
+  <!-- Checkmark for 'Benchmarking/Success' -->
+  <circle cx="12" cy="5" r="3" fill="#0073e6"/>
+  <path d="M10.5 5L11.5 6L13.5 4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

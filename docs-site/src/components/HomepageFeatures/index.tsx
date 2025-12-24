@@ -11,32 +11,32 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Federated Datasets',
+    Svg: require('@site/static/img/icon_federated.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Easily create federated datasets for <b>Cross-Silo</b> and <b>Cross-Device</b> settings.
+        Simulate realistic client distributions with flexible partitioning strategies.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Fairness Benchmarking',
+    Svg: require('@site/static/img/icon_fairness.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Evaluate your federated learning models with built-in fairness metrics like
+        <b> Demographic Parity (DP)</b> and <b>Equalized Odds (EO)</b>, calculated globally or per-client.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'Controlled Bias',
+    Svg: require('@site/static/img/icon_bias.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Systematically inject <b>Attribute Skew</b> (demographic imbalance) and
+        <b> Value Skew</b> (label correlation bias) to test the robustness of your fair FL algorithms.
       </>
     ),
   },

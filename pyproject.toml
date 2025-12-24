@@ -14,13 +14,20 @@ dependencies = [
     "pandas>=2.2.3",
     "pip>=25.1.1",
     "ruff>=0.11.2",
+    "scipy>=1.12.0",
     "torch==2.5.1",
     "torchvision==0.20.1",
     "xgboost>=3.0.0",
     "ipywidgets>=8.1.7",
     "streamlit>=1.31.0",
     "ty>=0.0.4",
+    "plotly>=6.5.0",
+    "complexipy>=5.1.0",
 ]
+
+[tool.uv]
+package = true
+
 
 #[project.scripts]
 #FeDa4Fair = "FeDa4Fair:main"
@@ -72,12 +79,27 @@ ignore = [
     "TD003",
     "FIX002", # too verbose descriptions of todos
     "D203",   # incompatible with D211
+    #### project specific
+    "N999",   # ignore invalid module name FeDa4Fair
+    "PLR0913", # ignore too many arguments (design choice)
+    "FBT001",  # ignore boolean-typed positional argument
+    "FBT002",
+    "SLF001",  # ignore private member access (internal library usage)
+    "PD901",   # ignore generic 'df' variable name
+    "T201",    # allow print (common in scripts/reporting)
+    "N806",    # allow non-lowercase variables in functions
+    "N816",    # allow mixedCase in global scope (notebooks/examples)
+    "PLR0911", # allow many return statements
+    "S603",    # allow subprocess check
+    "S607",    # allow partial executable path
+    "ARG002",  # allow unused method arguments
+    "D404",    # allow docstrings starting with 'This'
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "examples/*" = ["T201", "INP001", "PTH100", "PTH118", "PTH120", "SLF001"]
 "dashboard/*" = ["T201", "INP001", "PTH100", "PTH118", "PTH120", "SLF001"]
 "tests/*" = ["SLF001", "PT009", "PTH100", "PTH118", "PTH120"]
-"src/FeDa4Fair/creating_datasets.py" = ["T201", "PLR0912", "PLR0915", "PD901", "PD011", "PD002", "PLR2004", "N806"]
-"src/FeDa4Fair/example.ipynb" = ["T201", "N816", "ARG002", "D404"]
+"src/FeDa4Fair/dataset/generation.py" = ["T201", "PLR0912", "PLR0915", "PD901", "PD011", "PD002", "PLR2004", "N806"]
+"src/FeDa4Fair/examples/example.ipynb" = ["T201", "N816", "ARG002", "D404"]
 

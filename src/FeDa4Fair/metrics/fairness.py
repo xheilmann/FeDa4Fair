@@ -13,8 +13,9 @@
 
 """Functions to compute fairness metrics."""
 
+from collections.abc import Callable
 from itertools import product
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -32,7 +33,7 @@ def _compute_fairness(
     y_pred: Any,
     sf_data: pd.DataFrame,
     fairness_metric: Literal["DP", "EO"],
-    sens_att: str,
+    sens_att: str | list[str],
     size_unit: Literal["value", "attribute", "attribute-value"],
 ) -> pd.Series:
     """
@@ -48,8 +49,8 @@ def _compute_fairness(
         DataFrame containing sensitive feature(s).
     fairness_metric : Literal["DP", "EO"]
         "DP" for Demographic Parity, "EO" for Equalized Odds.
-    sens_att : str
-        Name of the sensitive attribute column.
+    sens_att : str | list[str]
+        Name(s) of the sensitive attribute column(s).
     size_unit : Literal["value", "attribute", "attribute-value"]
         Level of detail for the returned metric.
 
@@ -103,17 +104,18 @@ def _compute_fairness(
 
     diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
 
+    sens_att_name = str(sens_att) if isinstance(sens_att, list) else sens_att
     if size_unit == "value":
         # Return max diff and the pair responsible
         return pd.Series(
             [diff_df.max(), diff_df.idxmax()],
-            index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"],
+            index=[f"{sens_att_name}_{fairness_metric}", f"{sens_att_name}_val"],
         )
     if size_unit == "attribute":
         # Return only the max difference
         return pd.Series(
             [diff_df.max(), diff_df.max()],
-            index=[f"{sens_att}_{fairness_metric}", f"{sens_att}_val"],
+            index=[f"{sens_att_name}_{fairness_metric}", f"{sens_att_name}_val"],
         )
 
     # "attribute-value" returns all pairwise differences
@@ -124,108 +126,77 @@ def compute_fairness(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
     model: Any,
-    sens_att: str,
+    sens_att: str | list[str],
     max_num_partitions: int | None = None,
     fairness_metric: Literal["DP", "EO"] = "DP",
     label_name: str = "label",
     sens_cols: list[str] | None = None,
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     progress_callback: Callable[[int], None] | None = None,
+    fds: Any | None = None,
+    split: str | None = None,
 ) -> pd.DataFrame:
     """
     Computes fairness metrics across dataset partitions.
-
-    Parameters
-    ----------
-    partitioner : Partitioner
-        Partitioner containing the training/reference data.
-    partitioner_test : Partitioner
-        Partitioner containing the test data for evaluation.
-    model : Any
-        Model to evaluate. If provided, it is trained on `partitioner` data and evaluated on `partitioner_test`.
-        If None, data labels are used directly (data bias check).
-    sens_att : str
-        Name of the sensitive attribute column.
-    max_num_partitions : Optional[int], default=None
-        Limit the number of partitions to evaluate.
-    fairness_metric : Literal["DP", "EO"], default="DP"
-        Metric to compute.
-    label_name : str, default="label"
-        Name of the label column.
-    sens_cols : Optional[list[str]], default=None
-        List of sensitive attributes to drop from features before training/inference.
-    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
-        Detail level of result.
-    progress_callback : Callable[[int], None] | None, default=None
-        Callback function to report progress.
-
-    Returns
-    -------
-    pd.DataFrame
-        Fairness metrics for each partition.
-
     """
     if sens_cols is None:
         sens_cols = []
 
-    if max_num_partitions is None:
-        num_parts = partitioner.num_partitions
-    else:
-        num_parts = min(max_num_partitions, partitioner.num_partitions)
-
+    num_parts = min(max_num_partitions or float('inf'), partitioner.num_partitions)
     partition_id_to_fairness = {}
 
-    for partition_id in range(num_parts):
-        if progress_callback is not None:
-            progress_callback(partition_id)
-        partition = partitioner.load_partition(partition_id)
-        partition_test_data = partitioner_test.load_partition(partition_id)
+    for partition_id in range(int(num_parts)):
+        if progress_callback is not None: progress_callback(partition_id)
+        
+        # If fds and split are provided, use fds.load_partition to include bias injection
+        if fds is not None and split is not None:
+            partition = fds.load_partition(partition_id, split=split)
+            partition_test_data = fds.load_partition(partition_id, split=split)
+        else:
+            partition = partitioner.load_partition(partition_id)
+            partition_test_data = partitioner_test.load_partition(partition_id)
 
         if model is not None:
-            # Training and Prediction Mode
-            train_df = partition.to_pandas()
-            test_df = partition_test_data.to_pandas()
-
-            # Prepare Training Data
-            cols_to_drop = [*sens_cols, label_name]
-            x_train = train_df.drop(columns=cols_to_drop, errors="ignore")
-            y_train = train_df[label_name].to_numpy().flatten()
-
-            # Train Model
-            model.fit(x_train, y_train)
-
-            # Prepare Test Data
-            x_test = test_df.drop(columns=cols_to_drop, errors="ignore")
-            y_pred = model.predict(x_test)
-
-            y_true = test_df[label_name].to_numpy()
-            acc = accuracy_score(y_true, y_pred)
-
-            sf_data = test_df[[sens_att]]  # Keep as DataFrame for fairlearn
-
+            fairness_series = _evaluate_model_on_partition(
+                model, partition, partition_test_data, sens_att, fairness_metric, label_name, sens_cols, size_unit
+            )
         else:
-            # Data Bias Mode (No Model)
-            raw_df = partition.to_pandas()
-            y_true = raw_df[[label_name]]
-            y_pred = raw_df[[label_name]]  # "Prediction" is just the label
-            sf_data = raw_df[[sens_att]]
-            acc = None
-
-        fairness_series = _compute_fairness(
-            y_true=y_true,
-            y_pred=y_pred,
-            sf_data=sf_data,
-            fairness_metric=fairness_metric,
-            sens_att=sens_att,
-            size_unit=size_unit,
-        )
-
-        if acc is not None:
-            fairness_series["Accuracy"] = acc
+            fairness_series = _evaluate_data_bias_on_partition(
+                partition, sens_att, fairness_metric, label_name, size_unit
+            )
 
         partition_id_to_fairness[partition_id] = fairness_series
 
     dataframe = pd.DataFrame.from_dict(partition_id_to_fairness, orient="index")
     dataframe.index.name = "Partition ID"
-
     return dataframe
+
+
+def _evaluate_model_on_partition(
+    model, partition, partition_test_data, sens_att, fairness_metric, label_name, sens_cols, size_unit
+):
+    train_df, test_df = partition.to_pandas(), partition_test_data.to_pandas()
+    if not (isinstance(train_df, pd.DataFrame) and isinstance(test_df, pd.DataFrame)):
+        raise TypeError("Partition data is not a pandas DataFrame")
+
+    cols_to_drop = [*sens_cols, label_name]
+    x_train, y_train = train_df.drop(columns=cols_to_drop, errors="ignore"), train_df[label_name].to_numpy().flatten()
+    model.fit(x_train, y_train)
+
+    x_test = test_df.drop(columns=cols_to_drop, errors="ignore")
+    y_pred, y_true = model.predict(x_test), test_df[label_name].to_numpy()
+    sf_data = test_df[sens_att] if isinstance(sens_att, list) else test_df[[sens_att]]
+
+    fairness_series = _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_unit)
+    fairness_series["Accuracy"] = accuracy_score(y_true, y_pred)
+    return fairness_series
+
+
+def _evaluate_data_bias_on_partition(partition, sens_att, fairness_metric, label_name, size_unit):
+    raw_df = partition.to_pandas()
+    if not isinstance(raw_df, pd.DataFrame):
+        raise TypeError("Partition data is not a pandas DataFrame")
+
+    y_true = raw_df[[label_name]]
+    sf_data = raw_df[sens_att] if isinstance(sens_att, list) else raw_df[[sens_att]]
+    return _compute_fairness(y_true, y_true, sf_data, fairness_metric, sens_att, size_unit)

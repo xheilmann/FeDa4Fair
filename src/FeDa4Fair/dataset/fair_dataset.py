@@ -1,4 +1,3 @@
-# noqa: N999
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -24,14 +23,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-from datasets import ClassLabel, Dataset, DatasetDict, load_dataset
-from evaluation import evaluate_fairness
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.preprocessor import Divider, Preprocessor
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 from joblib import Parallel, delayed
-from utils import drop_data, flip_data
+
+from datasets import ClassLabel, Dataset, DatasetDict, load_dataset
+from FeDa4Fair.metrics.evaluation import evaluate_fairness
+from FeDa4Fair.utils.data_utils import balance_data, drop_data, flip_data
 
 
 def _clone_partitioner(obj: Any) -> Any:
@@ -112,8 +112,9 @@ class FairFederatedDataset(FederatedDataset):
     path : Optional[PathLike], default=None
         Optional path where the dataset should be saved.
 
-    modification_dict : Optional[dict[int, dict[str, ...]]], default=None
-        Optional dictionary to apply data modifications (e.g., dropping datapoints) to specific partitions.
+    modification_dict : Optional[dict[Any, dict[str, ...]]], default=None
+        Optional dictionary to apply data modifications to specific splits or partitions.
+        Keys can be split names (e.g., "train", "AK") or partition indices/names.
 
     mapping : Optional[dict[str, dict[int, int]]], default=None
         Optional remapping dictionary of categorical features or labels.
@@ -121,6 +122,10 @@ class FairFederatedDataset(FederatedDataset):
     label_name : Optional[str], default=None
         The name of the target label column. If None, it is inferred for known datasets (ACS).
         Required for generic Hugging Face datasets if not standard.
+
+    client_names : Optional[list[str]], default=None
+        Optional list of names for partitions. If provided, these names can be used as keys in
+        `modification_dict` and for naming saved files.
 
     **load_dataset_kwargs : dict
         Additional keyword arguments passed to `datasets.load_dataset`.
@@ -145,10 +150,11 @@ class FairFederatedDataset(FederatedDataset):
         fl_setting: Literal["cross-silo", "cross-device", None] = None,
         perc_train_val_test: list[float] | None = None,
         path: PathLike | None = None,
-        modification_dict: dict[int, dict[str, ...]] | None = None,
+        modification_dict: dict[Any, dict[str, Any]] | None = None,
         mapping: dict[str, dict[int, int]] | None = None,
         label_name: str | None = None,
         preloaded_data: dict[str, pd.DataFrame] | None = None,
+        client_names: list[str] | None = None,
         **load_dataset_kwargs: Any,
     ) -> None:
         # Initialize states only if using ACS datasets or if states are explicitly provided
@@ -182,6 +188,8 @@ class FairFederatedDataset(FederatedDataset):
         self._mapping = mapping
         self._label = label_name
         self._preloaded_data = preloaded_data
+        self._client_names = client_names
+        self._total_removed_samples = 0
 
         # Infer label for known datasets if not provided
         if self._label is None:
@@ -193,20 +201,72 @@ class FairFederatedDataset(FederatedDataset):
     @property
     def label_column(self) -> str:
         """Return the name of the label column."""
-        return self._label
+        if self._label is None:
+            return ""
+        return str(self._label)
 
     def prepare(self) -> None:
         """Explicitly trigger dataset preparation."""
         if not self._dataset_prepared:
             self._prepare_dataset()
 
+    def load_partition(self, partition_id: int, split: str | None = None) -> Dataset:
+        """
+        Load a partition and apply modifications if specified.
+        """
+        if split is None:
+            split = list(self.partitioners.keys())[0]
+
+        partition = super().load_partition(partition_id, split)
+        return self._apply_modification_to_partition(partition, partition_id, split)
+
+    def _apply_modification_to_partition(self, partition: Dataset, partition_id: int, split: str) -> Dataset:
+        """
+        Apply modifications to a single partition.
+        """
+        if self._modification_dict is None:
+            return partition
+
+        # Determine the key to look for in modification_dict
+        mod_key = None
+        if self._client_names and partition_id < len(self._client_names):
+            mod_key = self._client_names[partition_id]
+
+        # If mod_key is not found or not provided, try partition_id
+        if (mod_key is None or mod_key not in self._modification_dict) and partition_id in self._modification_dict:
+            mod_key = partition_id
+
+        if mod_key is not None and mod_key in self._modification_dict:
+            try:
+                partition_df = partition.to_pandas()
+                if isinstance(partition_df, pd.DataFrame):
+                    partition_df = self._modify_data(partition_df, mod_key)
+                    return Dataset.from_pandas(partition_df)
+            except Exception as e:  # noqa: BLE001
+                warnings.warn(f"Could not apply modification to partition {partition_id} ({mod_key}): {e}", stacklevel=2)
+
+        return partition
+
     def save_dataset(self, dataset_path: PathLike) -> None:
         """
-        Save the dataset to disk as csv files with names by split and partition index.
+        Save the dataset to disk as csv files with names by split and partition index/name.
         """
         if not self._dataset_prepared:
             self._prepare_dataset()
 
+        self._warn_sensitive_attributes_saving()
+
+        for key, value in self._partitioners.items():
+            partitioner = value
+            if isinstance(partitioner, int):
+                continue
+
+            num_partitions = partitioner.num_partitions
+            for i in range(num_partitions):
+                self._save_partition(dataset_path, key, i)
+
+    def _warn_sensitive_attributes_saving(self) -> None:
+        """Warn user if sensitive attributes are present in the data being saved."""
         if self._sensitive_attributes is not None:
             warnings.warn(
                 "The data you are saving contains columns with sensitive attributes. "
@@ -214,36 +274,29 @@ class FairFederatedDataset(FederatedDataset):
                 stacklevel=2,
             )
 
-        for key, value in self._partitioners.items():
-            partitioner = value
-            # Ensure partitioner is valid
-            if isinstance(partitioner, int):
-                # This should have been converted to a Partitioner object by parent or us
-                # But if it's still int, we can't save.
-                continue
+    def _save_partition(self, dataset_path: PathLike, key: str, partition_id: int) -> None:
+        """Save a single partition to CSV."""
+        partition = self.load_partition(partition_id, split=key)
+        Path(str(dataset_path)).mkdir(parents=True, exist_ok=True)
 
-            num_partitions = partitioner.num_partitions
-            for i in range(num_partitions):
-                partition = partitioner.load_partition(partition_id=i)
-                # Ensure directory exists
-                Path(str(dataset_path)).mkdir(parents=True, exist_ok=True)
-                # Check if partition is image or tabular
-                # If tabular (pandas compatible), save as CSV
-                try:
-                    partition_df = partition.to_pandas()
-                    partition_df.to_csv(path_or_buf=f"{dataset_path}/{key}_{i}.csv", index=False)
-                except Exception:  # noqa: BLE001
-                    # Likely image dataset or complex structure.
-                    # Fallback to saving as HF dataset to disk or pickle?
-                    # For now, just warn
-                    warnings.warn(f"Partition {key}_{i} could not be saved to CSV (likely non-tabular).", stacklevel=2)
+        p_name = self._client_names[partition_id] if self._client_names and partition_id < len(self._client_names) else str(partition_id)
+        file_name = f"{key}_{p_name}.csv"
 
-    def evaluate(self, file: PathLike | None = None) -> None:  # noqa: ARG002
+        try:
+            partition_df = partition.to_pandas()
+            if isinstance(partition_df, pd.DataFrame):
+                partition_df.to_csv(path_or_buf=f"{dataset_path}/{file_name}", index=False)
+        except Exception:  # noqa: BLE001
+            warnings.warn(f"Partition {file_name} could not be saved to CSV (likely non-tabular).", stacklevel=2)
+
+    def evaluate(self, file: PathLike | None = None) -> None:
         """
         Evaluate fairness on all partitions.
         """
         if not self._dataset_prepared:
             self._prepare_dataset()
+        if self._dataset is None:
+            return
         titles = list(self._dataset.keys())
 
         # Determine sensitive columns to evaluate
@@ -261,7 +314,7 @@ class FairFederatedDataset(FederatedDataset):
             fairness_level=self._fairness_level,
             titles=titles,
             legend=True,
-            label_name=self._label,
+            label_name=self.label_column,
             sens_columns=sens_cols,
             intersectional_fairness=intersectional,
         )
@@ -274,6 +327,8 @@ class FairFederatedDataset(FederatedDataset):
         partitioners_dict = {}
 
         # Check if keys exist before trying to split
+        if self._dataset is None:
+            return
         keys_to_process = list(self._dataset.keys())
 
         for entry in keys_to_process:
@@ -293,7 +348,8 @@ class FairFederatedDataset(FederatedDataset):
                     partitioners_dict[f"{entry}_val"] = _clone_partitioner(original_partitioner)
                     partitioners_dict[f"{entry}_test"] = _clone_partitioner(original_partitioner)
 
-            self._dataset = divider(self._dataset)
+            if self._dataset is not None:
+                self._dataset = divider(self._dataset)
             self._partitioners = partitioners_dict
         elif self._fl_setting != "cross-device":
             # If it is None, we do nothing. If it is something else, error?
@@ -317,18 +373,19 @@ class FairFederatedDataset(FederatedDataset):
             self._prepare_generic_dataset()
 
         # Common post-processing
-        if self._shuffle:
+        if self._shuffle and self._dataset is not None:
             self._dataset = self._dataset.shuffle(seed=self._seed)
 
-        if self._preprocessor:
+        if self._preprocessor and self._dataset is not None:
             self._dataset = self._preprocessor(self._dataset)
 
         if self._fl_setting is not None:
             self._split_into_train_val_test()
 
         self._dataset_prepared = True
-        available_splits = list(self._dataset.keys())
-        self._event["load_split"] = dict.fromkeys(available_splits, False)
+        if self._dataset is not None:
+            available_splits = list(self._dataset.keys())
+            self._event["load_split"] = dict.fromkeys(available_splits, False)
 
         # Run initial evaluation if needed (and if tabular/compatible)
         try:
@@ -370,63 +427,69 @@ class FairFederatedDataset(FederatedDataset):
 
     def _prepare_acs_dataset(self) -> None:
         """Helper to prepare ACSIncome/ACSEmployment datasets."""
-        # Verify partitioners match states if we are in this mode
         self._check_partitioners_correctness()
-
-        # 1. Load Data (Use preloaded if available, otherwise load)
-        if self._preloaded_data is not None:
-            raw_data_dict = self._preloaded_data
-        else:
-            raw_data_dict = self.load_acs_raw_data(self._dataset_name, self._states, self._year, self._horizon)
-
-        # 2. Modify and Wrap
+        raw_data_dict = self._load_raw_data()
         self._dataset = DatasetDict()
 
         for state, state_data in raw_data_dict.items():
-            # Create a copy to avoid modifying the cached preloaded data in place
             data_to_use = state_data.copy()
+            data_to_use = self._apply_acs_modifications(state, data_to_use)
+            self._dataset[state] = self._create_and_cast_dataset(data_to_use)
 
-            if self._mapping is not None:
-                for key, value in self._mapping.items():
-                    if key in data_to_use.columns:
-                        data_to_use[key] = data_to_use[key].replace(value)
+    def _load_raw_data(self) -> dict[str, pd.DataFrame]:
+        """Load raw ACS data from preloaded data or by downloading."""
+        if self._preloaded_data is not None:
+            return self._preloaded_data
+        if self._states is not None and self._year is not None and self._horizon is not None:
+            return self.load_acs_raw_data(self._dataset_name, self._states, self._year, self._horizon)
+        return {}
 
-            if self._modification_dict is not None and state in self._modification_dict:
-                # Apply modifications locally
-                modifications = self._modification_dict[state]
-                for col_name, config in modifications.items():
-                    drop_rate = config.get("drop_rate", 0)
-                    flip_rate = config.get("flip_rate", 0)
-                    value1 = config.get("value")
-                    column2 = config.get("attribute")
-                    value2 = config.get("attribute_value")
+    def _apply_acs_modifications(self, state: str, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply mappings and modifications to ACS data."""
+        if self._mapping is not None:
+            for key, value in self._mapping.items():
+                if key in data.columns:
+                    data[key] = data[key].replace(value)
 
-                    if drop_rate > 0:
-                        data_to_use = drop_data(data_to_use, drop_rate, col_name, value1, self._label, column2, value2)
-                    if flip_rate > 0:
-                        data_to_use = flip_data(data_to_use, flip_rate, col_name, value1, self._label, column2, value2)
+        if self._modification_dict is not None and state in self._modification_dict:
+            modifications = self._modification_dict[state]
+            for col_name, config in modifications.items():
+                if config.get("mitigate", False):
+                    data, removed = balance_data(data, col_name, self.label_column)
+                    self._total_removed_samples += removed
+                else:
+                    data = self._apply_single_modification(data, col_name, config)
+        return data
 
-            # Create Dataset and cast label to ClassLabel to fix warnings
-            # We need to ensure labels are 0..N-1 for ClassLabel
-            try:
-                unique_labels = sorted(data_to_use[self._label].unique())
-                num_classes = len(unique_labels)
+    def _apply_single_modification(self, data: pd.DataFrame, col_name: str, config: dict) -> pd.DataFrame:
+        """Apply a single drop or flip modification."""
+        drop_rate = config.get("drop_rate", 0)
+        flip_rate = config.get("flip_rate", 0)
+        value1 = config.get("value")
+        column2 = config.get("attribute")
+        value2 = config.get("attribute_value")
 
-                # Map labels to 0..N-1
-                label_to_id = {label: i for i, label in enumerate(unique_labels)}
-                data_to_use[self._label] = data_to_use[self._label].map(label_to_id)
+        if drop_rate > 0:
+            data = drop_data(data, drop_rate, col_name, value1, self.label_column, column2, value2)
+        if flip_rate > 0:
+            data = flip_data(data, flip_rate, col_name, value1, self.label_column, column2, value2)
+        return data
 
-                ds = Dataset.from_pandas(data_to_use)
+    def _create_and_cast_dataset(self, data: pd.DataFrame) -> Dataset:
+        """Create a Dataset from pandas DataFrame and cast label to ClassLabel."""
+        try:
+            unique_labels = sorted(data[self._label].unique())
+            num_classes = len(unique_labels)
+            label_to_id = {label: i for i, label in enumerate(unique_labels)}
+            data[self._label] = data[self._label].map(label_to_id)
 
-                # Cast to ClassLabel using the original values as names
-                ds = ds.cast_column(
-                    self._label, ClassLabel(num_classes=num_classes, names=[str(l) for l in unique_labels])
-                )
-            except Exception:
-                # If casting fails (e.g. continuous label or other issue), fall back to raw dataset
-                ds = Dataset.from_pandas(data_to_use)
-
-            self._dataset[state] = ds
+            ds = Dataset.from_pandas(data)
+            return ds.cast_column(
+                self._label,
+                ClassLabel(num_classes=num_classes, names=[str(label_val) for label_val in unique_labels]),
+            )
+        except (ValueError, TypeError, KeyError):
+            return Dataset.from_pandas(data)
 
     def _prepare_generic_dataset(self) -> None:
         """Helper to prepare generic Hugging Face datasets."""
@@ -449,8 +512,9 @@ class FairFederatedDataset(FederatedDataset):
                 if split_name in self._modification_dict:
                     try:
                         split_df = self._dataset[split_name].to_pandas()
-                        split_df = self._modify_data(split_df, split_name)
-                        self._dataset[split_name] = Dataset.from_pandas(split_df)
+                        if isinstance(split_df, pd.DataFrame):
+                            split_df = self._modify_data(split_df, split_name)
+                            self._dataset[split_name] = Dataset.from_pandas(split_df)
                     except Exception as e:  # noqa: BLE001
                         warnings.warn(f"Could not apply modification to split {split_name}: {e}", stacklevel=2)
 
@@ -521,16 +585,20 @@ class FairFederatedDataset(FederatedDataset):
 
         # Correct logic based on original implementation:
         for col_name, config in modifications.items():
-            drop_rate = config.get("drop_rate", 0)
-            flip_rate = config.get("flip_rate", 0)
-            value1 = config.get("value")
-            column2 = config.get("attribute")
-            value2 = config.get("attribute_value")
+            if config.get("mitigate", False):
+                data, removed = balance_data(data, col_name, self.label_column)
+                self._total_removed_samples += removed
+            else:
+                drop_rate = config.get("drop_rate", 0)
+                flip_rate = config.get("flip_rate", 0)
+                value1 = config.get("value")
+                column2 = config.get("attribute")
+                value2 = config.get("attribute_value")
 
-            if drop_rate > 0:
-                data = drop_data(data, drop_rate, col_name, value1, self._label, column2, value2)
-            if flip_rate > 0:
-                data = flip_data(data, flip_rate, col_name, value1, self._label, column2, value2)
+                if drop_rate > 0:
+                    data = drop_data(data, drop_rate, col_name, value1, self.label_column, column2, value2)
+                if flip_rate > 0:
+                    data = flip_data(data, flip_rate, col_name, value1, self.label_column, column2, value2)
 
         return data
 

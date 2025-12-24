@@ -1,6 +1,48 @@
 # FeDa4Fair
 
-Federated Learning (FL) enables collaborative model training across multiple clients while preserving the privacy of their local data. However, fairness remains a critical concern, as inherent biases within individual clients' datasets may influence the entire federated system. In particular, the presence of various clients, each with different data distributions, brings with it the risk that the trained federated model may result fairer for some groups of clients than for others. Although several fairness-enhancing strategies have been proposed in the literature, most focus on mitigating bias for a single sensitive attribute, typically binary, without addressing the diverse and sometimes conflicting fairness needs of different clients. This limited perspective may result in fairness interventions that fail to produce meaningful improvements for all clients. We aim to improve the study of fairness mitigation and evaluation in FL by allowing reproducible and consistent benchmarking of fairness-aware FL methods, globally and at the client level. Therefore, we introduce FeDa4Fair, a library to generate tabular datasets specifically designed to evaluate fair FL methods, encompassing diverse heterogeneous client scenarios with respect to bias in sensitive attributes. Additionally, we release 4 benchmarking datasets. We also provide ready-to-use functions for evaluating fairness outcomes for these datasets.
+<p align="center">
+  <img src="img/logo_no_background.png" width="200" alt="FeDa4Fair Logo">
+</p>
+
+**FeDa4Fair** is a comprehensive library designed to facilitate the study of fairness in Federated Learning (FL). It allows researchers and practitioners to generate, manipulate, and benchmark tabular datasets with controlled bias distributions, enabling reproducible evaluation of fairness-aware FL algorithms.
+
+Unlike standard FL benchmarks that often focus solely on data heterogeneity (e.g., non-IID label distributions), FeDa4Fair specifically addresses **fairness heterogeneity**. It simulates realistic scenarios where different clients (silos or devices) exhibit varying levels of bias against sensitive groups (e.g., based on race or gender).
+
+## What This Library Does
+
+FeDa4Fair provides a unified interface to:
+
+1.  **Create Federated Datasets**: Easily partition tabular datasets into federated settings (Cross-Silo or Cross-Device).
+2.  **Inject Controlled Bias**: systematically introduce **Attribute Skew** (varying population demographics) or **Value Skew** (varying conditional label distributions).
+3.  **Group-Based Heterogeneity**: Partition clients into groups with distinct bias profiles sampled from **Truncated Normal Distributions**.
+4.  **Evaluate Fairness**: Built-in tools to measure common fairness metrics like **Demographic Parity (DP)** and **Equalized Odds (EO)** both globally and at the client level.
+4.  **Benchmark**: Access ready-to-use, pre-processed datasets with defined fairness characteristics.
+
+## Supported Dataset Types
+
+The library supports creating distinct types of federated datasets to model different real-world environments:
+
+*   **Cross-Silo**: Simulates a setting with a small number of large clients (e.g., hospitals, banks, or states). 
+    *   *Example*: Partitioning US Census data by State.
+*   **Cross-Device**: Simulates a setting with a large number of small clients (e.g., mobile phones).
+    *   *Example*: Partitioning a dataset into hundreds of small, non-overlapping subsets.
+*   **Skewed Datasets**:
+    *   **Attribute Skew**: The distribution of sensitive attributes varies across clients (e.g., some clients have mostly male users, others mostly female).
+    *   **Value Skew**: The relationship between the sensitive attribute and the label varies across clients (e.g., historical bias affecting hiring decisions differs by region).
+
+## Available Datasets
+
+We provide 4 pre-configured benchmarking datasets derived from the ACS (American Community Survey) data, ready for immediate use:
+
+1.  **Attribute-Silo**: A cross-silo dataset where the **attribute bias** (demographics) varies naturally across clients (States). ([Link](src/FeDa4Fair/data/cross_silo_attribute_final))
+2.  **Attribute-Device**: A cross-device version where clients simulate devices with varying attribute distributions. ([Link](src/FeDa4Fair/data/cross_device_attribute_final))
+3.  **Value-Silo**: A cross-silo dataset where **value bias** (correlation between race and outcome) varies across clients. ([Link](src/FeDa4Fair/data/cross_silo_value_final))
+4.  **Value-Device**: A cross-device version with varying value bias. ([Link](src/FeDa4Fair/data/cross_device_value_final))
+
+Additionally, FeDa4Fair has first-class support for:
+*   **ACSIncome** (Folktables)
+*   **ACSEmployment** (Folktables)
+*   **Any Hugging Face Dataset** (see below)
 
 ## Create the environment
 
@@ -26,12 +68,12 @@ mkdir src/FeDa4Fair/data_stats
 How to run code that creates an example dataset:
 
 ```bash
-uv run python src/FeDa4Fair/main.py
+uv run python examples/dutch.py
 ```
 
 ## Tutorial and Example 
 
-A detailed example/tutorial on how to use the library can be found in [example.ipynb](src/FeDa4Fair/example.ipynb).
+A detailed example/tutorial on how to use the library can be found in [examples/acs_income.ipynb](examples/acs_income.ipynb).
 
 
 ## Run Formatting 
@@ -39,14 +81,6 @@ A detailed example/tutorial on how to use the library can be found in [example.i
 ```bash
 uv run ruff format
 ```
-
-## Benchmarking Datasets
-
-We provide 4 benchmarking datasets and their corresponding datasheets:
-1. **Attribute-silo** dataset: a dataset which can be used in cross-silo settings where the attribute bias varies over clients ([attribute-silo](src/FeDa4Fair/data/cross_silo_attribute_final))
-2. **Attribute-device** dataset: a dataset which can be used in cross-device settings where the attribute bias varies over clients ([attribute-device](src/FeDa4Fair/data/cross_device_attribute_final))
-3. **Value-silo** dataset: a dataset which can be used in cross-silo settings where the value bias varies over clients for the RACE attribute ([value-silo](src/FeDa4Fair/data/cross_silo_value_final))
-4. **Value-device** dataset: a  dataset which can be used in cross-device settings where the value bias varies over clients for the RACE attribute ([value-device](src/FeDa4Fair/data/cross_device_value_final))
 
 ## Using Generic Datasets (Hugging Face & Local)
 
@@ -57,7 +91,7 @@ FeDa4Fair supports loading arbitrary datasets from Hugging Face Hub or local fil
 You can load any dataset available on Hugging Face Hub by specifying its name.
 
 ```python
-from FairFederatedDataset import FairFederatedDataset
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 
 fds = FairFederatedDataset(
     dataset="lucacorbucci/Dutch_Census",
@@ -66,16 +100,18 @@ fds = FairFederatedDataset(
     sensitive_attributes=["sex_binary"],
     fairness_metric="DP"
 )
-fds._prepare_dataset()
+fds.prepare()
 ```
 
-See `examples/dutch_census_example.py` for a complete example.
+See `examples/dutch.py` for a complete example.
 
 ### 2. Local Image Datasets
 
 To use a local dataset (e.g., images), organize your data in a folder structure supported by Hugging Face `imagefolder` or `folder` builders, or simply point to the directory if it contains metadata.
 
 ```python
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
+
 fds = FairFederatedDataset(
     dataset="imagefolder",
     data_dir="/path/to/local/data",

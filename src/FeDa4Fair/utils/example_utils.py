@@ -22,12 +22,13 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F  # noqa: N812
-from fairness_computation import _compute_fairness
 from flwr.common import Metrics
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import Dataset
 from torchvision import transforms
+
+from FeDa4Fair.metrics.fairness import _compute_fairness
 
 
 def pre_process_income(df: pd.DataFrame) -> pd.DataFrame:
@@ -112,11 +113,11 @@ class TabularDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
-    def __getitem__(self, idx):
-        x_sample = self.samples[idx]
-        z_sample = self.sensitive_features[idx]
-        w_sample = self.sensitive_features_2[idx]
-        y_sample = self.targets[idx]
+    def __getitem__(self, index):
+        x_sample = self.samples[index]
+        z_sample = self.sensitive_features[index]
+        w_sample = self.sensitive_features_2[index]
+        y_sample = self.targets[index]
 
         return x_sample, z_sample, w_sample, y_sample
 
@@ -307,7 +308,8 @@ def test(net, testloader, device):
 
 def weighted_average(metrics: list[tuple[int, Metrics]]) -> Metrics:
     """Aggregate custom metrics."""
-    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    # Scale metrics by number of examples and sum them up
+    accuracies = [num_examples * float(m["accuracy"]) for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
 
     # Aggregate and return custom metric (weighted average)
@@ -340,8 +342,8 @@ class ImageDataset(Dataset):
     def __len__(self):
         return len(self.dataset)
 
-    def __getitem__(self, idx):
-        item = self.dataset[idx]
+    def __getitem__(self, index):
+        item = self.dataset[index]
         image = item["image"]
         label = item[self.label_key]
 

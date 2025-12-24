@@ -22,15 +22,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from fairness_computation import _compute_fairness
 from flwr_datasets.partitioner import Partitioner
 from joblib import Parallel, delayed
-from plots import (
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+from FeDa4Fair.metrics.fairness import _compute_fairness
+from FeDa4Fair.visualization.plots import (
     plot_comparison_fairness_distribution,
     plot_comparison_label_distribution,
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
 
 # Try to import XGBoost, but make it optional
 try:
@@ -38,10 +39,10 @@ try:
 
     XGBOOST_AVAILABLE = True
 except ImportError:
-    XGBClassifier = None
+    XGBClassifier: Any = None
     XGBOOST_AVAILABLE = False
 except Exception:  # noqa: BLE001
-    XGBClassifier = None
+    XGBClassifier: Any = None
     XGBOOST_AVAILABLE = False
 
 
@@ -284,7 +285,7 @@ MODELS = {
 }
 
 if XGBOOST_AVAILABLE:
-    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")
+    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")  # type: ignore
 
 
 def evaluate_model(
@@ -304,13 +305,15 @@ def evaluate_model(
     acc = accuracy_score(y_test, preds)
     results = {"model": model_name, "accuracy": acc}
     for key, value in sf_data.items():
+        # Ensure value is treated as a DataFrame with the correct column name for fairlearn
+        sf_df = pd.DataFrame(value, columns=[key])
         if fairness_level == "value":
             results[f"value_{fairness_metric}_{key}"] = _compute_fairness(
-                y_test, preds, value, fairness_metric, key, fairness_level
+                y_test, preds, sf_df, fairness_metric, key, "value"
             ).to_numpy()[1]
 
         results[f"{fairness_metric}_{key}"] = _compute_fairness(
-            y_test, preds, value, fairness_metric, key, fairness_level
+            y_test, preds, sf_df, fairness_metric, key, "attribute"
         ).to_numpy()[0]
 
     return results

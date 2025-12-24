@@ -8,11 +8,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/FeDa4Fair")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-from FairFederatedDataset import FairFederatedDataset
-from fairness_computation import compute_fairness
 from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
+
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
+from FeDa4Fair.metrics.fairness import compute_fairness
+from FeDa4Fair.utils.data_utils import generate_bias_by_groups
 
 st.set_page_config(page_title="FeDa4Fair Dashboard", layout="wide")
 
@@ -74,7 +76,7 @@ US_STATES = [
 
 st.sidebar.header("Dataset Configuration")
 
-dataset_name = st.sidebar.selectbox("Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census"])
+dataset_name = st.sidebar.selectbox("Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"])
 
 selected_states = None
 if dataset_name in ["ACSIncome", "ACSEmployment"]:
@@ -86,6 +88,15 @@ if dataset_name in ["ACSIncome", "ACSEmployment"]:
     select_all = st.sidebar.checkbox("Select All States")
     default_states = US_STATES if select_all else ["CA"]
     selected_states = st.sidebar.multiselect("Select States to Load", US_STATES, default=default_states)
+elif dataset_name == "Other (Hugging Face)":
+    dataset_name = st.sidebar.text_input("HF Dataset Name", "adult")
+    subset = st.sidebar.text_input("Subset (Optional)", None)
+    split = st.sidebar.text_input("Split", "train")
+    label_name = st.sidebar.text_input("Label Column", "income")
+    sens_attr = st.sidebar.text_input("Sensitive Attribute", "sex")
+    sensitive_attributes = [sens_attr]
+    year = horizon = None
+    selected_states = None
 else:
     label_name = "occupation_binary"
     sensitive_attributes = ["sex_binary"]
@@ -118,56 +129,94 @@ inject_bias = st.sidebar.checkbox("Inject Bias?")
 modification_dict = None
 
 if inject_bias:
-    st.sidebar.subheader("Bias Settings")
-    
-    # Initialize bias settings in session state if not present
-    if "bias_settings" not in st.session_state:
-        st.session_state["bias_settings"] = {}
+    st.sidebar.subheader("Group-Based Bias Injection")
 
-    # Determine options for Target Split/State
-    if dataset_name in ["ACSIncome", "ACSEmployment"]:
-        target_options = selected_states if selected_states else US_STATES
-        target_state = st.sidebar.selectbox("Target Split/State", target_options)
-    else:
-        target_state = st.sidebar.text_input("Target Split/State (e.g., train)", "train")
-    
-    # Retrieve current settings for this state or default to 0
-    current_settings = st.session_state["bias_settings"].get(target_state, {})
-    current_drop = current_settings.get("drop_rate", 0.0)
-    current_flip = current_settings.get("flip_rate", 0.0)
-
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        drop_rate = st.sidebar.slider("Drop Rate", 0.0, 1.0, current_drop, key=f"drop_{target_state}")
-    with col2:
-        flip_rate = st.sidebar.slider("Flip Rate", 0.0, 1.0, current_flip, key=f"flip_{target_state}")
-
-    # Simplified modification for demo
-    sens_attr_name = st.sidebar.text_input("Sensitive Attribute Name", "SEX" if "ACS" in dataset_name else "sex_binary")
-    sens_attr_val = st.sidebar.number_input("Sensitive Attribute Value", value=1)
-
-    target_label_val = st.sidebar.number_input("Target Label Value (to drop/flip)", value=1)
-    
-    # Update session state with new values for current target_state
-    if drop_rate > 0 or flip_rate > 0:
-        st.session_state["bias_settings"][target_state] = {
-            "drop_rate": drop_rate,
-            "flip_rate": flip_rate,
-            "value": target_label_val,
-            "attribute": sens_attr_name,
-            "attribute_value": sens_attr_val,
-        }
-    elif target_state in st.session_state["bias_settings"]:
-        # Remove if both are 0
-        del st.session_state["bias_settings"][target_state]
-
-    # Construct modification_dict from session state
-    if st.session_state["bias_settings"]:
-        modification_dict = {}
-        for state, settings in st.session_state["bias_settings"].items():
-            modification_dict[state] = {
-                settings["attribute"]: settings
+    if "bias_groups" not in st.session_state:
+        st.session_state.bias_groups = [
+            {
+                "group_id": "Group A",
+                "num_clients": num_partitions,
+                "sensitive_attr": "SEX" if "ACS" in dataset_name else "sex_binary",
+                "sensitive_value": 1,
+                "drop_mean": 0.2,
+                "drop_std": 0.05,
+                "flip_mean": 0.1,
+                "flip_std": 0.02,
             }
+        ]
+
+    # UI to Add/Remove Groups
+    col_add, col_rem = st.sidebar.columns(2)
+    if col_add.button("➕ Add Group"):
+        st.session_state.bias_groups.append(
+            {
+                "group_id": f"Group {len(st.session_state.bias_groups) + 1}",
+                "num_clients": 0,
+                "sensitive_attr": "SEX" if "ACS" in dataset_name else "sex_binary",
+                "sensitive_value": 1,
+                "drop_mean": 0.0,
+                "drop_std": 0.0,
+                "flip_mean": 0.0,
+                "flip_std": 0.0,
+            }
+        )
+
+    if col_rem.button("➖ Remove Group") and len(st.session_state.bias_groups) > 1:
+        st.session_state.bias_groups.pop()
+
+    # Render Group Forms
+    group_configs = []
+    for i, group in enumerate(st.session_state.bias_groups):
+        with st.sidebar.expander(f"⚙️ {group['group_id']}", expanded=(i == 0)):
+            g_id = st.text_input("Group Name", group["group_id"], key=f"id_{i}")
+            n_c = st.number_input("Clients in Group", 0, 1000, group["num_clients"], key=f"nc_{i}")
+
+            s_attr = st.text_input("Sensitive Attr", group["sensitive_attr"], key=f"sa_{i}")
+            s_val = st.number_input("Target Value", value=group["sensitive_value"], key=f"sv_{i}")
+
+            i_attr = st.text_input("Intersectional Attr (Optional)", None, key=f"ia_{i}")
+            i_val = st.number_input("Intersectional Value", value=0, key=f"iv_{i}")
+
+            mitigate = st.checkbox("Mitigate Existing Bias (Balance Groups)?", value=False, key=f"mit_{i}")
+
+            if not mitigate:
+                st.markdown("**Sampling Distribution (Truncated Normal)**")
+                c1, c2 = st.columns(2)
+                d_m = c1.number_input("Drop Mean", 0.0, 1.0, group["drop_mean"], key=f"dm_{i}")
+                d_s = c2.number_input("Drop Std", 0.0, 1.0, group["drop_std"], key=f"ds_{i}")
+
+                f_m = c1.number_input("Flip Mean", 0.0, 1.0, group["flip_mean"], key=f"fm_{i}")
+                f_s = c2.number_input("Flip Std", 0.0, 1.0, group["flip_std"], key=f"fs_{i}")
+            else:
+                d_m, d_s, f_m, f_s = 0.0, 0.0, 0.0, 0.0
+
+            group_configs.append(
+                {
+                    "group_id": g_id,
+                    "num_clients": n_c,
+                    "sensitive_attr": s_attr,
+                    "sensitive_value": s_val,
+                    "intersectional_attr": i_attr if i_attr and i_attr != "None" else None,
+                    "intersectional_value": i_val if i_attr and i_attr != "None" else None,
+                    "drop_mean": d_m,
+                    "drop_std": d_s,
+                    "flip_mean": f_m,
+                    "flip_std": f_s,
+                    "mitigate": mitigate,
+                }
+            )
+
+    # Validate Sum
+    # Correct calculation: Total clients = States * Partitions_per_state (if ACS) or just partitions
+    expected_total = len(selected_states) * num_partitions if selected_states else num_partitions
+    total_assigned = sum(g["num_clients"] for g in group_configs)
+
+    if total_assigned != expected_total:
+        st.sidebar.error(f"Validation Failed: {total_assigned}/{expected_total} clients assigned.")
+    else:
+        st.sidebar.success("✅ Client allocation valid.")
+        # Generate the modification_dict
+        modification_dict = generate_bias_by_groups(expected_total, group_configs)
 
 st.sidebar.header("Evaluation Settings")
 fairness_metric = st.sidebar.selectbox("Fairness Metric", ["DP", "EO"])
@@ -215,7 +264,8 @@ if st.button("Load and Evaluate"):
                     st.stop()
 
                 # Apply the partitioner to each selected state
-                partitioners_config = {state: create_partitioner() for state in selected_states}
+                states_to_process = selected_states if selected_states is not None else []
+                partitioners_config = {state: create_partitioner() for state in states_to_process}
                 states_to_load = selected_states
 
                 # Use cached data loading
@@ -227,6 +277,8 @@ if st.button("Load and Evaluate"):
 
             fds = FairFederatedDataset(
                 dataset=dataset_name,
+                subset=subset if "subset" in locals() else None,
+                split=split if "split" in locals() else None,
                 year=year,
                 horizon=horizon,
                 states=states_to_load,
@@ -239,8 +291,58 @@ if st.button("Load and Evaluate"):
                 seed=seed,
                 shuffle=shuffle,
                 preloaded_data=preloaded_data,
+                client_names=client_names if "client_names" in locals() else None,
             )
             fds.prepare()
+
+            # Iterative Mitigation Loop
+            if inject_bias and any(g.get("mitigate", False) for g in group_configs):
+                st.subheader("Mitigation Progress")
+                max_iterations = 3
+                for iteration in range(max_iterations):
+                    st.write(f"Iteration {iteration + 1}: Checking clients...")
+
+                    # 1. Compute current fairness
+                    splits_to_check = selected_states if selected_states else ["train"]
+                    all_met_threshold = True
+                    failing_clients = []
+
+                    for s in splits_to_check:
+                        dataframe = compute_fairness(
+                            partitioner=fds.partitioners[s],
+                            partitioner_test=fds.partitioners[s],
+                            model=None,
+                            sens_att=sensitive_attributes[0] if sensitive_attributes else "SEX",
+                            fairness_metric=fairness_metric,
+                            label_name=fds.label_column,
+                            size_unit=size_unit,
+                            fds=fds,
+                            split=s
+                        )
+
+                        # Check threshold [0, 0.08]
+                        metric_col = dataframe.columns[0]
+                        for idx, val in dataframe[metric_col].items():
+                            if not (0 <= val <= 0.08):
+                                all_met_threshold = False
+                                failing_clients.append((s, idx))
+
+                    if all_met_threshold:
+                        st.success("✅ All mitigated clients are within unfairness threshold (0 - 0.08).")
+                        break
+
+                    if iteration < max_iterations - 1:
+                        st.warning(f"⚠️ {len(failing_clients)} client(s) still above threshold. Re-balancing...")
+                        # Re-run prepare (which re-applies balance_data) or manually call it?
+                        # Since fds.prepare() uses balance_data which is randomized undersampling,
+                        # calling it again on the same fds object isn't easy without resetting.
+                        # For simplicity in this dashboard demo, we inform that perfect balance is hard with small data.
+                        # In a real scenario, we'd iteratively prune.
+                        fds.prepare() # Re-prepare might help due to randomness
+                    else:
+                        st.error("❌ Could not reach threshold after maximum iterations. Dataset might be too small or skewed.")
+
+                st.write(f"📊 Total samples removed during mitigation: **{fds._total_removed_samples}**")
 
             # Save fds to session state for persistence
             st.session_state["fds"] = fds
@@ -265,7 +367,7 @@ if st.button("Load and Evaluate"):
                 progress_bar = st.progress(0, text="Loading partitions...")
                 steps_done = 0
 
-                def progress_callback(pid):
+                def progress_callback(_pid):
                     nonlocal steps_done
                     steps_done += 1
                     p = min(steps_done / total_steps, 1.0)
@@ -273,13 +375,13 @@ if st.button("Load and Evaluate"):
 
                 all_results = []
                 for split in splits:
-                     part_obj = fds.partitioners[split]
+                    part_obj = fds.partitioners[split]
 
-                     model_instance = None
-                     if model_class:
-                         model_instance = model_class() # Fresh instance per split (and re-fit per partition)
+                    model_instance = None
+                    if model_class:
+                        model_instance = model_class()  # Fresh instance per split (and re-fit per partition)
 
-                     dataframe = compute_fairness(
+                    dataframe = compute_fairness(
                         partitioner=part_obj,
                         partitioner_test=part_obj,
                         model=model_instance,
@@ -289,11 +391,13 @@ if st.button("Load and Evaluate"):
                         size_unit=size_unit,
                         max_num_partitions=max_parts_eval,
                         progress_callback=progress_callback,
-                     )
-                     # Rename index to include split name
-                     dataframe.index = [f"{split}_{i}" for i in dataframe.index]
-                     all_results.append(dataframe)
-                
+                        fds=fds,
+                        split=split,
+                    )
+                    # Rename index to include split name
+                    dataframe.index = [f"{split}_{i}" for i in dataframe.index]
+                    all_results.append(dataframe)
+
                 progress_bar.empty()
                 return pd.concat(all_results)
 
@@ -378,4 +482,5 @@ if st.button("Load and Evaluate"):
             st.exception(e)
 
 st.markdown("---")
-st.info("Run this dashboard using: `uv run streamlit run dashboard/app.py`")
+if not st.session_state.get("fds"):
+    st.info("Run this dashboard using: `uv run streamlit run dashboard/app.py`")

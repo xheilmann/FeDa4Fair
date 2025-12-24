@@ -77,3 +77,31 @@ def split_df(df: pd.DataFrame, split_number: int) -> list[pd.DataFrame]:
 ```
 
 Split a DataFrame into a specified number of approximately equal parts.
+
+---
+
+### `generate_bias_by_groups`
+
+```python
+def generate_bias_by_groups(
+    num_total_clients: int, 
+    group_configs: list[dict[str, Any]], 
+    client_names: list[str | int] | None = None
+) -> dict[Any, dict[str, Any]]:
+```
+
+Generates a `modification_dict` by partitioning clients into groups and sampling bias rates from **Truncated Normal Distributions** bounded between `[0, 1]`.
+
+**Parameters:**
+- `num_total_clients` (*int*): The total number of clients in the federation.
+- `group_configs` (*list[dict]*): List of group configurations. Each config should contain:
+    - `group_id`: Identifier for the group.
+    - `num_clients`: Number of clients in this group.
+    - `sensitive_attr`: The attribute to target.
+    - `sensitive_value`: The value to disadvantage.
+    - `drop_mean` / `drop_std`: Distribution parameters for dropping data.
+    - `flip_mean` / `flip_std`: Distribution parameters for flipping labels.
+- `client_names` (*Optional[list]*): Custom names for clients.
+
+**Returns:**
+- A dictionary mapping client IDs to their specific sampled data modifications.

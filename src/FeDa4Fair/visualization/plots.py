@@ -18,7 +18,6 @@ from typing import Any, Literal
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import pandas as pd
-from fairness_computation import compute_fairness
 from flwr_datasets.common import EventType, event
 from flwr_datasets.partitioner import Partitioner
 from flwr_datasets.visualization.comparison_label_distribution import (
@@ -31,6 +30,8 @@ from flwr_datasets.visualization.heatmap_plot import _plot_heatmap
 from flwr_datasets.visualization.label_distribution import plot_label_distributions
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+from FeDa4Fair.metrics.fairness import compute_fairness
 
 
 def plot_comparison_label_distribution(
@@ -69,7 +70,7 @@ def plot_comparison_label_distribution(
 
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
-    fig, axes = plt.subplots(
+    fig, axes = plt.subplots(  # type: ignore
         nrows=1,
         ncols=num_partitioners,
         figsize=figsize,
@@ -78,18 +79,12 @@ def plot_comparison_label_distribution(
     )
 
     # Ensure axes is iterable even if there is only one subplot
-    if num_partitioners == 1:
-        axes_list = [axes]
-    else:
-        axes_list = list(axes)
+    axes_list = [axes] if num_partitioners == 1 else list(axes)
 
     if titles is None:
         titles = ["" for _ in range(num_partitioners)]
 
-    if plot_kwargs_list is None:
-        effective_plot_kwargs_list = [None] * num_partitioners
-    else:
-        effective_plot_kwargs_list = plot_kwargs_list
+    effective_plot_kwargs_list = [None] * num_partitioners if plot_kwargs_list is None else plot_kwargs_list
 
     dataframe_list = []
     for idx, (partitioner, single_label_name, plot_kwargs) in enumerate(
@@ -145,7 +140,7 @@ def plot_fairness_distributions(
     partitioner: Partitioner,
     partitioner_test: Partitioner,
     label_name: str,
-    sens_att: str,
+    sens_att: str | list[str],
     size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
     max_num_partitions: int | None = None,
     partition_id_axis: str = "x",
@@ -233,113 +228,59 @@ def plot_comparison_fairness_distribution(
     intersectional_fairness: list[str] | None = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
     """Compare fairness metric distributions across multiple partitioners."""
-    if sens_cols is None:
-        effective_sens_cols = ["SEX", "MAR", "RAC1P"]
-    else:
-        effective_sens_cols = [sens_cols] if isinstance(sens_cols, str) else sens_cols
+    eff_sens_cols = [sens_cols] if isinstance(sens_cols, str) else (sens_cols or ["SEX", "MAR", "RAC1P"])
+    p_list, p_list_val = _prepare_fairness_partitioners(partitioner_dict, model)
+    num_p = len(p_list)
+    eff_sens_atts = [sens_att] * num_p if isinstance(sens_att, str) else sens_att
 
-    plot_type = "heatmap"
-    if model is None:
-        partitioner_list = list(partitioner_dict.values())
-        partitioner_list_val = partitioner_list
-    else:
-        partitioner_list = [value for key, value in partitioner_dict.items() if "train" in key]
-        partitioner_list_val = [value for key, value in partitioner_dict.items() if "val" in key]
+    figsize = _initialize_comparison_figsize(figsize, num_p)
+    axes_sharing = _initialize_axis_sharing("absolute", "heatmap", partition_id_axis)
+    fig, axes = plt.subplots(nrows=1, ncols=num_p, figsize=figsize, layout="constrained", **axes_sharing) # type: ignore
+    axes_list = [axes] if num_p == 1 else list(axes)
+    titles = titles or ["" for _ in range(num_p)]
+    p_kwargs_list = plot_kwargs_list or [None] * num_p
 
-    num_partitioners = len(partitioner_list)
-    if isinstance(sens_att, str):
-        effective_sens_atts = [sens_att] * num_partitioners
-    elif isinstance(sens_att, list):
-        effective_sens_atts = sens_att
-    else:
-        msg = f"Label name has to be of type List[str] or str but given {type(sens_att)}"
-        raise TypeError(msg)
-
-    figsize = _initialize_comparison_figsize(figsize, num_partitioners)
-    axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
-
-    fig, axes = plt.subplots(
-        nrows=1,
-        ncols=num_partitioners,
-        figsize=figsize,
-        layout="constrained",
-        **axes_sharing,
+    df_list = _plot_all_fairness_distributions(
+        p_list, p_list_val, eff_sens_atts, intersectional_fairness, size_unit, 
+        partition_id_axis, axes_list, max_num_partitions, cmap, legend, 
+        p_kwargs_list, legend_kwargs, fairness_metric, model, eff_sens_cols, label_name
     )
 
-    if num_partitioners == 1:
-        axes_list = [axes]
-    else:
-        axes_list = list(axes)
-
-    if titles is None:
-        titles = ["" for _ in range(num_partitioners)]
-
-    if plot_kwargs_list is None:
-        effective_plot_kwargs_list = [None] * num_partitioners
-    else:
-        effective_plot_kwargs_list = plot_kwargs_list
-
-    dataframe_list = []
-
-    for idx, (partitioner, single_sens_att, plot_kwargs) in enumerate(
-        zip(partitioner_list, effective_sens_atts, effective_plot_kwargs_list, strict=False)
-    ):
-        if intersectional_fairness is not None:
-            # Note: PLW2901 warning might trigger if we reassign loop var, but we use it only locally
-            target_sens_att = intersectional_fairness
-        else:
-            target_sens_att = single_sens_att
-
-        if idx == (num_partitioners - 1):
-            *_, dataframe = plot_fairness_distributions(
-                partitioner=partitioner,
-                partitioner_test=partitioner_list_val[idx],
-                sens_att=target_sens_att,
-                size_unit=size_unit,
-                partition_id_axis=partition_id_axis,
-                axis=axes_list[idx],
-                max_num_partitions=max_num_partitions,
-                cmap=cmap,
-                legend=legend,
-                plot_kwargs=plot_kwargs,
-                legend_kwargs=legend_kwargs,
-                fairness_metric=fairness_metric,
-                model=model,
-                sens_cols=effective_sens_cols,
-                label_name=label_name,
-            )
-            dataframe_list.append(dataframe)
-        else:
-            *_, dataframe = plot_fairness_distributions(
-                partitioner=partitioner,
-                partitioner_test=partitioner_list_val[idx],
-                sens_att=target_sens_att,
-                size_unit=size_unit,
-                partition_id_axis=partition_id_axis,
-                axis=axes_list[idx],
-                max_num_partitions=max_num_partitions,
-                cmap=cmap,
-                legend=False,
-                plot_kwargs=plot_kwargs,
-                fairness_metric=fairness_metric,
-                model=model,
-                sens_cols=effective_sens_cols,
-                label_name=label_name,
-            )
-            dataframe_list.append(dataframe)
-
     for idx, axis in enumerate(axes_list):
-        axis.set_xlabel("")
-        axis.set_ylabel("")
-        axis.set_title(titles[idx])
-    _set_tick_on_value_axes(axes_list, partition_id_axis, size_unit)
+        axis.set_xlabel(""), axis.set_ylabel(""), axis.set_title(titles[idx])
+    _set_tick_on_value_axes(axes_list, partition_id_axis, "absolute")
 
-    xlabel, ylabel = _initialize_comparison_xy_labels(plot_type, size_unit, partition_id_axis, effective_sens_atts)
-    fig.supxlabel(xlabel)
-    fig.supylabel(ylabel)
-    fig.suptitle(subtitle)
+    xlabel, ylabel = _initialize_comparison_xy_labels("heatmap", "absolute", partition_id_axis, eff_sens_atts)
+    fig.supxlabel(xlabel), fig.supylabel(ylabel), fig.suptitle(subtitle)
+    return fig, axes_list, df_list
 
-    return fig, axes_list, dataframe_list
+
+def _prepare_fairness_partitioners(partitioner_dict, model):
+    if model is None:
+        p_list = list(partitioner_dict.values())
+        return p_list, p_list
+    p_list = [v for k, v in partitioner_dict.items() if "train" in k]
+    p_list_val = [v for k, v in partitioner_dict.items() if "val" in k]
+    return p_list, p_list_val
+
+
+def _plot_all_fairness_distributions(
+    p_list, p_list_val, eff_sens_atts, intersectional, size_unit, p_id_axis, 
+    axes_list, max_parts, cmap, legend, p_kwargs_list, l_kwargs, f_metric, model, eff_cols, label_name
+):
+    df_list = []
+    for idx, (p, s_att, p_kw, ax) in enumerate(zip(p_list, eff_sens_atts, p_kwargs_list, axes_list, strict=False)):
+        target_s_att = intersectional or s_att
+        is_last = idx == (len(p_list) - 1)
+        
+        _, _, df = plot_fairness_distributions(
+            partitioner=p, partitioner_test=p_list_val[idx], label_name=label_name, 
+            sens_att=target_s_att, size_unit=size_unit, max_num_partitions=max_parts, 
+            partition_id_axis=p_id_axis, axis=ax, cmap=cmap, legend=legend if is_last else False, 
+            plot_kwargs=p_kw, legend_kwargs=l_kwargs, fairness_metric=f_metric, model=model, sens_cols=eff_cols
+        )
+        df_list.append(df)
+    return df_list
 
 
 def _initialize_comparison_xy_labels(

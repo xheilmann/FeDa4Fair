@@ -13,15 +13,15 @@ function HomepageHeader() {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
-        <Heading as="h1" className="hero__title">
-          {siteConfig.title}
-        </Heading>
+        
+        <img src="img/logo_white.png" alt="FeDa4Fair Logo" style={{ width: '300px', margin: '-40px 0' }} />
+        
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/intro">
-            Docusaurus Tutorial - 5min ⏱️
+            Get Started
           </Link>
         </div>
       </div>

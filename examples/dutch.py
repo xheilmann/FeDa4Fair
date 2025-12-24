@@ -1,11 +1,12 @@
 import os
 import sys
+from pathlib import Path
 
-# Add src to path to import FeDa4Fair
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/FeDa4Fair")))
+# Add src to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-from FairFederatedDataset import FairFederatedDataset
-from fairness_computation import compute_fairness
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
+from FeDa4Fair.metrics.fairness import compute_fairness
 
 
 def main():
@@ -22,7 +23,7 @@ def main():
         label_name="occupation_binary",
         sensitive_attributes=["sex_binary"],
         fairness_metric="DP",
-        path=output_path,
+        path=Path(output_path),
     )
 
     print(f"Dataset initialized. Preparing and saving to {output_path}...")
@@ -53,10 +54,6 @@ def main():
     print(metrics_df)
 
     print("\nExample finished successfully.")
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":

@@ -5,10 +5,10 @@ import torch
 from torch.utils.data import DataLoader
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/FeDa4Fair")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-from example_utils import ImageDataset, SimpleCNN, get_default_image_transform, test_image, train
-from FairFederatedDataset import FairFederatedDataset
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
+from FeDa4Fair.utils.example_utils import ImageDataset, SimpleCNN, get_default_image_transform, test_image, train
 
 
 def main():

@@ -190,6 +190,45 @@ def balance_data(
     return new_df, removed_count
 
 
+def cap_samples(
+    df: pd.DataFrame,
+    cap: int,
+    label_column: str,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """
+    Randomly samples up to `cap` rows from the DataFrame while maintaining the
+    distribution of the `label_column`.
+    """
+    if len(df) <= cap:
+        return df
+
+    # Calculate proportions of each label
+    fractions = df[label_column].value_counts(normalize=True)
+    
+    rows_to_keep = []
+    for label, fraction in fractions.items():
+        label_indices = df[df[label_column] == label].index.tolist()
+        # Number of samples to keep for this label to maintain distribution
+        n_to_keep = int(round(fraction * cap))
+        # Ensure we don't try to keep more than we have (rounding safety)
+        n_to_keep = min(n_to_keep, len(label_indices))
+        
+        if n_to_keep > 0:
+            kept = np.random.RandomState(seed).choice(label_indices, size=n_to_keep, replace=False)
+            rows_to_keep.extend(kept)
+
+    # If rounding caused us to have fewer than cap, add some random remaining ones
+    if len(rows_to_keep) < cap:
+        remaining_indices = list(set(df.index) - set(rows_to_keep))
+        n_extra = cap - len(rows_to_keep)
+        if remaining_indices and n_extra > 0:
+            extra = np.random.RandomState(seed).choice(remaining_indices, size=min(n_extra, len(remaining_indices)), replace=False)
+            rows_to_keep.extend(extra)
+
+    return df.loc[rows_to_keep].copy()
+
+
 def generate_modification_dict(
     client_ids: int | list[int | str],
     attribute: str,

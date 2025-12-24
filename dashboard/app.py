@@ -106,6 +106,7 @@ else:
 
 seed = st.sidebar.number_input("Random Seed", value=42)
 shuffle = st.sidebar.checkbox("Shuffle Data?", value=True)
+sample_cap = st.sidebar.number_input("Sample Cap per Client (Optional)", min_value=0, value=0, help="0 means no cap. Caps total samples per client maintaining distribution.")
 
 st.sidebar.header("Partitioning")
 num_partitions = st.sidebar.slider("Number of Clients (per State/Split)", min_value=1, max_value=50, value=5)
@@ -130,6 +131,8 @@ modification_dict = None
 
 if inject_bias:
     st.sidebar.subheader("Group-Based Bias Injection")
+    
+    mitigation_threshold = st.sidebar.slider("Mitigation Threshold", 0.0, 0.2, 0.08, 0.01, help="Target unfairness threshold for mitigation.")
 
     if "bias_groups" not in st.session_state:
         st.session_state.bias_groups = [
@@ -172,10 +175,12 @@ if inject_bias:
             n_c = st.number_input("Clients in Group", 0, 1000, group["num_clients"], key=f"nc_{i}")
 
             s_attr = st.text_input("Sensitive Attr", group["sensitive_attr"], key=f"sa_{i}")
-            s_val = st.number_input("Target Value", value=group["sensitive_value"], key=f"sv_{i}")
+            s_val = st.number_input("Underrepresented group", value=group["sensitive_value"], key=f"sv_{i}")
 
-            i_attr = st.text_input("Intersectional Attr (Optional)", None, key=f"ia_{i}")
-            i_val = st.number_input("Intersectional Value", value=0, key=f"iv_{i}")
+            i_attr = st.text_input("Intersectional Attr (Optional)", key=f"ia_{i}")
+            i_val = None
+            if i_attr and i_attr.strip() != "" and i_attr != "None":
+                i_val = st.number_input("Intersectional Value", value=0, key=f"iv_{i}")
 
             mitigate = st.checkbox("Mitigate Existing Bias (Balance Groups)?", value=False, key=f"mit_{i}")
 
@@ -196,8 +201,8 @@ if inject_bias:
                     "num_clients": n_c,
                     "sensitive_attr": s_attr,
                     "sensitive_value": s_val,
-                    "intersectional_attr": i_attr if i_attr and i_attr != "None" else None,
-                    "intersectional_value": i_val if i_attr and i_attr != "None" else None,
+                    "intersectional_attr": i_attr if i_attr and i_attr.strip() != "" and i_attr != "None" else None,
+                    "intersectional_value": i_val,
                     "drop_mean": d_m,
                     "drop_std": d_s,
                     "flip_mean": f_m,
@@ -292,6 +297,7 @@ if st.button("Load and Evaluate"):
                 shuffle=shuffle,
                 preloaded_data=preloaded_data,
                 client_names=client_names if "client_names" in locals() else None,
+                sample_cap=sample_cap if sample_cap > 0 else None,
             )
             fds.prepare()
 
@@ -320,17 +326,17 @@ if st.button("Load and Evaluate"):
                             split=s
                         )
 
-                        # Check threshold [0, 0.08]
+                        # Check threshold
                         metric_col = dataframe.columns[0]
                         for idx, val in dataframe[metric_col].items():
-                            if not (0 <= val <= 0.08):
+                            if not (0 <= val <= mitigation_threshold):
                                 all_met_threshold = False
                                 failing_clients.append((s, idx))
-
+                    
                     if all_met_threshold:
-                        st.success("✅ All mitigated clients are within unfairness threshold (0 - 0.08).")
+                        st.success(f"✅ All mitigated clients are within unfairness threshold (0 - {mitigation_threshold}).")
                         break
-
+                    
                     if iteration < max_iterations - 1:
                         st.warning(f"⚠️ {len(failing_clients)} client(s) still above threshold. Re-balancing...")
                         # Re-run prepare (which re-applies balance_data) or manually call it?
@@ -401,25 +407,22 @@ if st.button("Load and Evaluate"):
                 progress_bar.empty()
                 return pd.concat(all_results)
 
-            # Helper for display logic
             def get_display_df(df, unit):
-                acc_col = None
-                if "Accuracy" in df.columns:
-                    acc_col = df[["Accuracy"]]
-                    df_vals = df.drop(columns=["Accuracy"])
-                else:
-                    df_vals = df
-
+                cols_to_keep = []
                 if unit == "attribute":
-                    d_df = df_vals.iloc[:, :1]
+                    cols_to_keep = [df.columns[0]]
                 elif unit == "value":
-                    d_df = df_vals.iloc[:, :2]
+                    cols_to_keep = [df.columns[0], df.columns[1]]
                 else:
-                    d_df = df_vals
+                    # For attribute-value, keep all fairness columns (those before Accuracy/Sample Count)
+                    cols_to_keep = [c for c in df.columns if c not in ["Accuracy", "Sample Count"]]
 
-                if acc_col is not None:
-                    d_df = pd.concat([d_df, acc_col], axis=1)
-                return d_df
+                if "Accuracy" in df.columns:
+                    cols_to_keep.append("Accuracy")
+                if "Sample Count" in df.columns:
+                    cols_to_keep.append("Sample Count")
+                
+                return df[cols_to_keep]
 
             # 1. Dataset Fairness (DP only)
             if fairness_metric == "DP":

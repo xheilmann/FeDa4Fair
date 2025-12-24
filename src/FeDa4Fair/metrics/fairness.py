@@ -166,6 +166,7 @@ def compute_fairness(
             )
 
         partition_id_to_fairness[partition_id] = fairness_series
+        partition_id_to_fairness[partition_id]["Sample Count"] = len(partition)
 
     dataframe = pd.DataFrame.from_dict(partition_id_to_fairness, orient="index")
     dataframe.index.name = "Partition ID"

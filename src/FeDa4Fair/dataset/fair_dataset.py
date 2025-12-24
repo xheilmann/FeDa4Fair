@@ -31,7 +31,7 @@ from joblib import Parallel, delayed
 
 from datasets import ClassLabel, Dataset, DatasetDict, load_dataset
 from FeDa4Fair.metrics.evaluation import evaluate_fairness
-from FeDa4Fair.utils.data_utils import balance_data, drop_data, flip_data
+from FeDa4Fair.utils.data_utils import balance_data, cap_samples, drop_data, flip_data
 
 
 def _clone_partitioner(obj: Any) -> Any:
@@ -155,6 +155,7 @@ class FairFederatedDataset(FederatedDataset):
         label_name: str | None = None,
         preloaded_data: dict[str, pd.DataFrame] | None = None,
         client_names: list[str] | None = None,
+        sample_cap: int | None = None,
         **load_dataset_kwargs: Any,
     ) -> None:
         # Initialize states only if using ACS datasets or if states are explicitly provided
@@ -190,6 +191,7 @@ class FairFederatedDataset(FederatedDataset):
         self._preloaded_data = preloaded_data
         self._client_names = client_names
         self._total_removed_samples = 0
+        self._sample_cap = sample_cap
 
         # Infer label for known datasets if not provided
         if self._label is None:
@@ -218,6 +220,14 @@ class FairFederatedDataset(FederatedDataset):
             split = list(self.partitioners.keys())[0]
 
         partition = super().load_partition(partition_id, split)
+        
+        # Apply sample cap if specified
+        if self._sample_cap is not None:
+            partition_df = partition.to_pandas()
+            if isinstance(partition_df, pd.DataFrame):
+                partition_df = cap_samples(partition_df, self._sample_cap, self.label_column, seed=self._seed or 42)
+                partition = Dataset.from_pandas(partition_df)
+
         return self._apply_modification_to_partition(partition, partition_id, split)
 
     def _apply_modification_to_partition(self, partition: Dataset, partition_id: int, split: str) -> Dataset:

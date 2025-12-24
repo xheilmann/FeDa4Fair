@@ -75,6 +75,7 @@ class TestFairDatasetExtended(unittest.TestCase):
             states=["CA"],
             partitioners={"CA": 1},
             fl_setting="cross-silo",
+            label_name="label",
             sensitive_attributes=["SEX"]
         )
         fds.prepare()
@@ -82,6 +83,25 @@ class TestFairDatasetExtended(unittest.TestCase):
         self.assertIn("CA_train", fds._dataset)
         self.assertIn("CA_val", fds._dataset)
         self.assertIn("CA_test", fds._dataset)
+
+    @patch("FeDa4Fair.dataset.fair_dataset.FairFederatedDataset.load_acs_raw_data")
+    def test_prepare_acs_dataset(self, mock_load_acs):
+        # Mock ACS data loading
+        mock_load_acs.return_value = {"CA": self.df}
+        
+        fds = FairFederatedDataset(
+            dataset="ACSIncome",
+            states=["CA"],
+            partitioners={"CA": 1},
+            label_name="label",
+            sensitive_attributes=["SEX"]
+        )
+        fds.prepare()
+        
+        self.assertIsNotNone(fds._dataset)
+        if fds._dataset is not None:
+            self.assertIn("CA", fds._dataset)
+            self.assertEqual(len(fds._dataset["CA"]), 4)
 
 if __name__ == "__main__":
     unittest.main()

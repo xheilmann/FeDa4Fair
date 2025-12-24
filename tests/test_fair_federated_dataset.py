@@ -6,14 +6,14 @@ from unittest.mock import MagicMock, patch
 from datasets import Dataset, DatasetDict
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/FeDa4Fair")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Mock evaluation module BEFORE importing FairFederatedDataset
 # This is necessary because evaluation imports xgboost which fails if libomp is missing
 mock_evaluation = MagicMock()
-sys.modules["evaluation"] = mock_evaluation
+sys.modules["FeDa4Fair.metrics.evaluation"] = mock_evaluation
 
-from FairFederatedDataset import FairFederatedDataset
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 
 
 class TestFairFederatedDataset(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestFairFederatedDataset(unittest.TestCase):
         )
         self.mock_dataset_dict = DatasetDict({"train": self.mock_dataset, "test": self.mock_dataset})
 
-    @patch("FairFederatedDataset.load_dataset")
+    @patch("FeDa4Fair.dataset.fair_dataset.load_dataset")
     def test_generic_dataset_loading(self, mock_load_dataset):
         # Setup mock return
         mock_load_dataset.return_value = self.mock_dataset_dict
@@ -37,12 +37,14 @@ class TestFairFederatedDataset(unittest.TestCase):
         # Assertions
         mock_load_dataset.assert_called_once()
         # Compare keys and structure instead of direct object equality
-        self.assertEqual(list(fds._dataset.keys()), ["train", "test"])
-        self.assertEqual(fds._dataset["train"].column_names, self.mock_dataset.column_names)
-        self.assertEqual(fds._dataset["train"].num_rows, self.mock_dataset.num_rows)
+        self.assertIsNotNone(fds._dataset)
+        if fds._dataset is not None:
+            self.assertEqual(list(fds._dataset.keys()), ["train", "test"])
+            self.assertEqual(fds._dataset["train"].column_names, self.mock_dataset.column_names)
+            self.assertEqual(fds._dataset["train"].num_rows, self.mock_dataset.num_rows)
         self.assertEqual(fds.label_column, "label")
 
-    @patch("FairFederatedDataset.load_dataset")
+    @patch("FeDa4Fair.dataset.fair_dataset.load_dataset")
     def test_single_split_loading(self, mock_load_dataset):
         # Setup mock return (single dataset, not dict)
         mock_load_dataset.return_value = self.mock_dataset
@@ -58,9 +60,11 @@ class TestFairFederatedDataset(unittest.TestCase):
         # Assertions
         # Should wrap in DatasetDict with key "train" (from split kwarg)
         self.assertIsInstance(fds._dataset, DatasetDict)
-        self.assertIn("train", fds._dataset)
-        self.assertEqual(fds._dataset["train"].column_names, self.mock_dataset.column_names)
-        self.assertEqual(fds._dataset["train"].num_rows, self.mock_dataset.num_rows)
+        self.assertIsNotNone(fds._dataset)
+        if fds._dataset is not None:
+            self.assertIn("train", fds._dataset)
+            self.assertEqual(fds._dataset["train"].column_names, self.mock_dataset.column_names)
+            self.assertEqual(fds._dataset["train"].num_rows, self.mock_dataset.num_rows)
 
     def test_acs_dataset_initialization(self):
         # Just testing init logic, not full loading which requires folktables
@@ -68,8 +72,9 @@ class TestFairFederatedDataset(unittest.TestCase):
         fds = FairFederatedDataset(dataset="ACSIncome", partitioners={"train": 1})
         self.assertEqual(fds.label_column, "PINCP")
         self.assertIsNotNone(fds._states)
-        num_states = 51
-        self.assertEqual(len(fds._states), num_states)  # 50 states + PR
+        if fds._states is not None:
+            num_states = 51
+            self.assertEqual(len(fds._states), num_states)  # 50 states + PR
 
 
 if __name__ == "__main__":

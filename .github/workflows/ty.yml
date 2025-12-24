@@ -1,0 +1,20 @@
+name: Type Check
+
+on:
+  push:
+    branches: [ "main", "facct_submission" ]
+  pull_request:
+    branches: [ "main", "facct_submission" ]
+
+jobs:
+  ty:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Run ty check
+        run: uv run ty check

@@ -94,13 +94,13 @@ if dataset_name in ["ACSIncome", "ACSEmployment"]:
 elif dataset_name == "Other (Hugging Face)":
     dataset_name = st.sidebar.text_input("HF Dataset Name", "adult")
     subset = st.sidebar.text_input("Subset (Optional)", None)
-    
+
     split_mode = st.sidebar.radio("Split Selection", ["Specific Split(s)", "Merge All Splits"])
     if split_mode == "Merge All Splits":
         split = "all"
     else:
         split = st.sidebar.text_input("Split (e.g., 'train', 'train+test')", "train")
-        
+
     label_name = st.sidebar.text_input("Label Column", "income")
     sens_attr = st.sidebar.text_input("Sensitive Attribute", "sex")
     sensitive_attributes = [sens_attr]
@@ -441,6 +441,13 @@ if st.button("Load and Evaluate"):
             splits_to_eval = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
 
             sens_att_to_use = sensitive_attributes[0] if sensitive_attributes else "SEX"
+            
+            # Determine sensitive columns to drop during evaluation
+            sens_cols_to_drop = []
+            if dataset_name in ["ACSIncome", "ACSEmployment"]:
+                sens_cols_to_drop = ["SEX", "MAR", "RAC1P"]
+            elif sensitive_attributes:
+                sens_cols_to_drop = sensitive_attributes
 
             # Helper to run compute_fairness over multiple splits
             def compute_all_fairness(splits, model_class=None):
@@ -479,6 +486,7 @@ if st.button("Load and Evaluate"):
                         progress_callback=progress_callback,
                         fds=fds,
                         split=split,
+                        sens_cols=sens_cols_to_drop,
                     )
                     # Rename index to include split name
                     dataframe.index = [f"{split}_{i}" for i in dataframe.index]
@@ -503,6 +511,45 @@ if st.button("Load and Evaluate"):
                     cols_to_keep.append("Sample Count")
 
                 return df[cols_to_keep]
+            
+            # Plotting Helper
+            import matplotlib.patches as mpatches
+
+            def plot_with_colors(df, col_name, ax, ylabel):
+                group_ids = []
+                for idx in df.index:
+                    parts = idx.rsplit("_", 1)
+                    if len(parts) == 2:
+                        split, pid_str = parts
+                        pid = int(pid_str)
+                        # Determine Group ID
+                        mod_key = None
+                        if fds._client_names and pid < len(fds._client_names):
+                            mod_key = fds._client_names[pid]
+                        if (mod_key is None or mod_key not in fds._modification_dict) and pid in fds._modification_dict:
+                            mod_key = pid
+                        
+                        g_id = "Default"
+                        if mod_key is not None and mod_key in fds._modification_dict:
+                            inner = next(iter(fds._modification_dict[mod_key].values()))
+                            g_id = inner.get("group_id", "Default")
+                        group_ids.append(g_id)
+                    else:
+                        group_ids.append("Default")
+
+                unique_groups = sorted(list(set(group_ids)))
+                palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+                group_color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
+                
+                bar_colors = [group_color_map[g] for g in group_ids]
+                
+                df[col_name].plot(kind="bar", ax=ax, color=bar_colors)
+                ax.set_ylabel(ylabel)
+                ax.set_xlabel("Partition ID (State_ID)")
+                plt.xticks(rotation=45, ha="right")
+                
+                handles = [mpatches.Patch(color=group_color_map[g], label=g) for g in unique_groups]
+                ax.legend(handles=handles, title="Groups")
 
             # 1. Dataset Fairness (DP only)
             if fairness_metric == "DP":
@@ -516,10 +563,7 @@ if st.button("Load and Evaluate"):
                 fig_d, ax_d = plt.subplots(figsize=(10, 5))
                 metric_col = disp_data_df.columns[0]
                 if metric_col in disp_data_df.columns:
-                    disp_data_df[metric_col].plot(kind="bar", ax=ax_d)
-                    ax_d.set_ylabel("Demographic Parity Difference")
-                    ax_d.set_xlabel("Partition ID (State_ID)")
-                    plt.xticks(rotation=45, ha="right")
+                    plot_with_colors(disp_data_df, metric_col, ax_d, "Demographic Parity Difference")
                     st.pyplot(fig_d)
             elif not train_model_opt:
                 st.warning(f"Metric '{fairness_metric}' requires a model. Please select 'Train Model for Fairness?'.")
@@ -545,19 +589,13 @@ if st.button("Load and Evaluate"):
                 fig_m, ax_m = plt.subplots(figsize=(10, 5))
                 metric_col_m = disp_model_df.columns[0]
                 if metric_col_m in disp_model_df.columns:
-                    disp_model_df[metric_col_m].plot(kind="bar", ax=ax_m, color="green")
-                    ax_m.set_ylabel(f"{fairness_metric} Difference")
-                    ax_m.set_xlabel("Partition ID (State_ID)")
-                    plt.xticks(rotation=45, ha="right")
+                    plot_with_colors(disp_model_df, metric_col_m, ax_m, f"{fairness_metric} Difference")
                     st.pyplot(fig_m)
 
                 if "Accuracy" in disp_model_df.columns:
                     st.subheader("Model Accuracy")
                     fig_a, ax_a = plt.subplots(figsize=(10, 5))
-                    disp_model_df["Accuracy"].plot(kind="bar", ax=ax_a, color="orange")
-                    ax_a.set_ylabel("Accuracy")
-                    ax_a.set_xlabel("Partition ID (State_ID)")
-                    plt.xticks(rotation=45, ha="right")
+                    plot_with_colors(disp_model_df, "Accuracy", ax_a, "Accuracy")
                     st.pyplot(fig_a)
 
         except Exception as e:  # noqa: BLE001

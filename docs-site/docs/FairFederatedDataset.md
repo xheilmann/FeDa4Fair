@@ -23,6 +23,7 @@ Supports downloading, loading, preprocessing, modifying, evaluating, mapping, an
 
 - **`dataset`** (*str*, default="ACSIncome"): The name of the dataset to load. Supports "ACSIncome", "ACSEmployment" (via folktables), or any Hugging Face dataset name.
 - **`subset`** (*Optional[str]*, default=None): Optional dataset subset to load.
+- **`split`** (*Optional[str]*): The split to load (e.g., "train", "test"). Set to **"all"** to load and concatenate all available splits into a single dataset.
 - **`preprocessor`** (*Optional[Union[Preprocessor, dict]]*, default=None): Transformations to apply on the dataset.
 - **`partitioners`** (*dict[str, Union[Partitioner, int]]*): Dictionary mapping splits to partitioning strategies.
 - **`shuffle`** (*bool*, default=True): Whether to shuffle the dataset.

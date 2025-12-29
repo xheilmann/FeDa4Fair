@@ -15,8 +15,9 @@ FeDa4Fair provides a unified interface to:
 1.  **Create Federated Datasets**: Easily partition tabular datasets into federated settings (Cross-Silo or Cross-Device).
 2.  **Inject Controlled Bias**: systematically introduce **Attribute Skew** (varying population demographics) or **Value Skew** (varying conditional label distributions).
 3.  **Group-Based Heterogeneity**: Partition clients into groups with distinct bias profiles sampled from **Truncated Normal Distributions**.
-4.  **Evaluate Fairness**: Built-in tools to measure common fairness metrics like **Demographic Parity (DP)** and **Equalized Odds (EO)** both globally and at the client level.
-4.  **Benchmark**: Access ready-to-use, pre-processed datasets with defined fairness characteristics.
+4.  **Flexible Data Loading**: Support for merging multiple dataset splits (e.g., train+validation+test) into a single dataset before partitioning.
+5.  **Evaluate Fairness**: Built-in tools to measure common fairness metrics like **Demographic Parity (DP)** and **Equalized Odds (EO)** both globally and at the client level.
+6.  **Benchmark**: Access ready-to-use, pre-processed datasets with defined fairness characteristics.
 
 ## Supported Dataset Types
 

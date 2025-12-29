@@ -337,7 +337,7 @@ class FairFederatedDataset(FederatedDataset):
 
     def _split_into_train_val_test(self) -> None:
         """
-        If cross-silo setting is chosen, splits the dataset into train, test and validation sets.
+        If cross-silo setting is chosen, splits the dataset into train, test and optionally validation sets.
         """
         divider_dict = {}
         partitioners_dict = {}
@@ -347,12 +347,20 @@ class FairFederatedDataset(FederatedDataset):
             return
         keys_to_process = list(self._dataset.keys())
 
+        has_validation = len(self._perc_train_test_split) == 3
+
         for entry in keys_to_process:
-            divider_dict[entry] = {
-                f"{entry}_train": self._perc_train_test_split[0],
-                f"{entry}_val": self._perc_train_test_split[1],
-                f"{entry}_test": self._perc_train_test_split[2],
-            }
+            if has_validation:
+                divider_dict[entry] = {
+                    f"{entry}_train": self._perc_train_test_split[0],
+                    f"{entry}_val": self._perc_train_test_split[1],
+                    f"{entry}_test": self._perc_train_test_split[2],
+                }
+            else:
+                divider_dict[entry] = {
+                    f"{entry}_train": self._perc_train_test_split[0],
+                    f"{entry}_test": self._perc_train_test_split[1],
+                }
 
         divider = Divider(divide_config=divider_dict)
         if self._fl_setting == "cross-silo":
@@ -361,7 +369,8 @@ class FairFederatedDataset(FederatedDataset):
                 original_partitioner = self._partitioners.get(entry)
                 if original_partitioner:
                     partitioners_dict[f"{entry}_train"] = original_partitioner
-                    partitioners_dict[f"{entry}_val"] = _clone_partitioner(original_partitioner)
+                    if has_validation:
+                        partitioners_dict[f"{entry}_val"] = _clone_partitioner(original_partitioner)
                     partitioners_dict[f"{entry}_test"] = _clone_partitioner(original_partitioner)
 
             if self._dataset is not None:

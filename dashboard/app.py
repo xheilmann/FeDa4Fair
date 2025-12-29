@@ -128,6 +128,17 @@ partition_strategy = st.sidebar.selectbox(
     "Partition Strategy", ["IID", "Dirichlet (Non-IID)", "Representative diversity"]
 )
 
+# FL Setting Selection
+fl_setting = st.sidebar.selectbox("FL Setting", ["cross-device", "cross-silo"], index=0, help="In cross-silo, each client has a train and test set. In cross-device, each client only has a train set.")
+
+perc_train_test = None
+if fl_setting == "cross-silo":
+    st.sidebar.markdown("**Cross-Silo Split Percentages**")
+    train_perc = st.sidebar.slider("Train %", 10, 95, 80, 5)
+    test_perc = 100 - train_perc
+    st.sidebar.info(f"Test set: {test_perc}%")
+    perc_train_test = [train_perc / 100.0, test_perc / 100.0]
+
 # Handle Representative Diversity UI
 rep_div_sens_1 = None
 rep_div_sens_2 = None
@@ -356,6 +367,8 @@ if st.button("Load and Evaluate"):
                 preloaded_data=preloaded_data,
                 client_names=client_names if "client_names" in locals() else None,
                 sample_cap=sample_cap if sample_cap > 0 else None,
+                fl_setting=fl_setting,
+                perc_train_val_test=perc_train_test,
             )
             fds.prepare()
 
@@ -367,7 +380,11 @@ if st.button("Load and Evaluate"):
                     st.write(f"Iteration {iteration + 1}: Checking clients...")
 
                     # 1. Compute current fairness
-                    splits_to_check = selected_states if selected_states else ["train"]
+                    if fl_setting == "cross-silo":
+                        splits_to_check = [f"{s}_train" for s in (selected_states if selected_states else ["train"])]
+                    else:
+                        splits_to_check = selected_states if selected_states else ["train"]
+
                     all_met_threshold = True
                     failing_clients = []
 
@@ -435,7 +452,7 @@ if st.button("Load and Evaluate"):
             # Evaluate Fairness
 
             # Determine which splits to evaluate
-            splits_to_eval = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
+            base_splits = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
 
             sens_att_to_use = sensitive_attributes[0] if sensitive_attributes else "SEX"
 
@@ -450,7 +467,8 @@ if st.button("Load and Evaluate"):
             def compute_all_fairness(splits, model_class=None):
                 total_steps = 0
                 for split in splits:
-                    part_obj = fds.partitioners[split]
+                    actual_split = f"{split}_train" if fl_setting == "cross-silo" else split
+                    part_obj = fds.partitioners[actual_split]
                     num_parts = min(max_parts_eval, part_obj.num_partitions)
                     total_steps += num_parts
 
@@ -465,7 +483,14 @@ if st.button("Load and Evaluate"):
 
                 all_results = []
                 for split in splits:
-                    part_obj = fds.partitioners[split]
+                    if fl_setting == "cross-silo":
+                        train_split = f"{split}_train"
+                        test_split = f"{split}_test"
+                    else:
+                        train_split = split
+                        test_split = split
+
+                    part_obj = fds.partitioners[train_split]
 
                     model_instance = None
                     if model_class:
@@ -482,7 +507,8 @@ if st.button("Load and Evaluate"):
                         max_num_partitions=max_parts_eval,
                         progress_callback=progress_callback,
                         fds=fds,
-                        split=split,
+                        split=train_split,
+                        test_split=test_split,
                         sens_cols=sens_cols_to_drop,
                     )
                     # Rename index to include split name

@@ -135,6 +135,7 @@ def compute_fairness(
     progress_callback: Callable[[int], None] | None = None,
     fds: Any | None = None,
     split: str | None = None,
+    test_split: str | None = None,
 ) -> pd.DataFrame:
     """
     Computes fairness metrics across dataset partitions.
@@ -152,7 +153,9 @@ def compute_fairness(
         # If fds and split are provided, use fds.load_partition to include bias injection
         if fds is not None and split is not None:
             partition = fds.load_partition(partition_id, split=split)
-            partition_test_data = fds.load_partition(partition_id, split=split)
+            # Use test_split if provided, otherwise fallback to split
+            actual_test_split = test_split if test_split is not None else split
+            partition_test_data = fds.load_partition(partition_id, split=actual_test_split)
         else:
             partition = partitioner.load_partition(partition_id)
             partition_test_data = partitioner_test.load_partition(partition_id)

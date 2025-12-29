@@ -441,7 +441,7 @@ if st.button("Load and Evaluate"):
             splits_to_eval = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
 
             sens_att_to_use = sensitive_attributes[0] if sensitive_attributes else "SEX"
-            
+
             # Determine sensitive columns to drop during evaluation
             sens_cols_to_drop = []
             if dataset_name in ["ACSIncome", "ACSEmployment"]:
@@ -511,7 +511,7 @@ if st.button("Load and Evaluate"):
                     cols_to_keep.append("Sample Count")
 
                 return df[cols_to_keep]
-            
+
             # Plotting Helper
             import matplotlib.patches as mpatches
 
@@ -528,7 +528,7 @@ if st.button("Load and Evaluate"):
                             mod_key = fds._client_names[pid]
                         if (mod_key is None or mod_key not in fds._modification_dict) and pid in fds._modification_dict:
                             mod_key = pid
-                        
+
                         g_id = "Default"
                         if mod_key is not None and mod_key in fds._modification_dict:
                             inner = next(iter(fds._modification_dict[mod_key].values()))
@@ -540,14 +540,14 @@ if st.button("Load and Evaluate"):
                 unique_groups = sorted(list(set(group_ids)))
                 palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
                 group_color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
-                
+
                 bar_colors = [group_color_map[g] for g in group_ids]
-                
+
                 df[col_name].plot(kind="bar", ax=ax, color=bar_colors)
                 ax.set_ylabel(ylabel)
                 ax.set_xlabel("Partition ID (State_ID)")
                 plt.xticks(rotation=45, ha="right")
-                
+
                 handles = [mpatches.Patch(color=group_color_map[g], label=g) for g in unique_groups]
                 ax.legend(handles=handles, title="Groups")
 

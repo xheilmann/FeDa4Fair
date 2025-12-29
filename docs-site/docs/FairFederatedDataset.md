@@ -41,6 +41,8 @@ Supports downloading, loading, preprocessing, modifying, evaluating, mapping, an
 - **`mapping`** (*Optional[dict]*, default=None): Remapping dictionary for features/labels.
 - **`label_name`** (*Optional[str]*, default=None): Target label column name.
 - **`preloaded_data`** (*Optional[dict]*, default=None): Dictionary of pre-loaded DataFrames.
+- **`client_names`** (*Optional[list[str]]*, default=None): Optional list of names for partitions.
+- **`sample_cap`** (*Optional[int]*, default=None): Maximum number of samples per client (distribution preserving).
 
 #### Methods
 
@@ -52,7 +54,7 @@ Supports downloading, loading, preprocessing, modifying, evaluating, mapping, an
 ## Usage Example
 
 ```python
-from FairFederatedDataset import FairFederatedDataset
+from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 
 ffds = FairFederatedDataset(
     dataset="ACSIncome",

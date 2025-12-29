@@ -355,12 +355,9 @@ class ImageDataset(Dataset):
 
         return image, sensitive, sensitive, label
 
-import os
 
-import numpy as np
 import pandas as pd
 import torchvision
-from PIL import Image
 from torch.utils.data import Dataset
 
 
@@ -374,7 +371,8 @@ class CelebaDataset(Dataset):
         sensitive_attributes: list,
         transform: torchvision.transforms = None,
     ) -> None:
-        """Initialization of the dataset.
+        """
+        Initialization of the dataset.
 
         Args:
         ----
@@ -383,9 +381,8 @@ class CelebaDataset(Dataset):
             image_path (str): path of the images
             transform (torchvision.transforms, optional): Transformation to apply
             to the images. Defaults to None.
+
         """
-
-
         smiling_dict = {False: 0, True: 1}
         targets = [smiling_dict[item] for item in labels]
         self.targets = targets
@@ -397,12 +394,13 @@ class CelebaDataset(Dataset):
 
 
     def __getitem__(self, index: int):
-        """Returns a sample from the dataset.
+        """
+        Returns a sample from the dataset.
 
         Args:
             idx (_type_): index of the sample we want to retrieve
 
-        Returns
+        Returns:
         -------
             _type_: sample we want to retrieve
 
@@ -419,11 +417,13 @@ class CelebaDataset(Dataset):
         )
 
     def __len__(self) -> int:
-        """This function returns the size of the dataset.
+        """
+        This function returns the size of the dataset.
 
         Returns
         -------
             int: size of the dataset
+
         """
         return self.n_samples
 
@@ -566,7 +566,7 @@ def test_celeba(net, testloader, device):
         sens_att="SEX",
         size_unit="value",
     )
- 
+
     unfairness_dict["SEX_EO"] = _compute_fairness(
         y_true=true_y,
         y_pred=predictions,

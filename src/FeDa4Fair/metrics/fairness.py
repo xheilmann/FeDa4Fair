@@ -184,15 +184,15 @@ def _evaluate_model_on_partition(
 
     cols_to_drop = [*sens_cols, label_name]
     x_train, y_train = train_df.drop(columns=cols_to_drop, errors="ignore"), train_df[label_name].to_numpy().flatten()
-    
+
     # Ensure features are numeric (drop unexpected columns like dicts)
     x_train = x_train.select_dtypes(include=["number", "bool"])
-    
+
     model.fit(x_train, y_train)
 
     x_test = test_df.drop(columns=cols_to_drop, errors="ignore")
     x_test = x_test.select_dtypes(include=["number", "bool"])
-    
+
     y_pred, y_true = model.predict(x_test), test_df[label_name].to_numpy()
     sf_data = test_df[sens_att] if isinstance(sens_att, list) else test_df[[sens_att]]
 

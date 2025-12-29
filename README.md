@@ -31,10 +31,10 @@ The library supports creating distinct types of federated datasets to model diff
 
 We provide 4 pre-configured benchmarking datasets derived from the ACS (American Community Survey) data, ready for immediate use:
 
-1.  **Attribute-Silo**: A cross-silo dataset where the **attribute bias** (demographics) varies naturally across clients (States). ([Link](src/FeDa4Fair/data/cross_silo_attribute_final))
-2.  **Attribute-Device**: A cross-device version where clients simulate devices with varying attribute distributions. ([Link](src/FeDa4Fair/data/cross_device_attribute_final))
-3.  **Value-Silo**: A cross-silo dataset where **value bias** (correlation between race and outcome) varies across clients. ([Link](src/FeDa4Fair/data/cross_silo_value_final))
-4.  **Value-Device**: A cross-device version with varying value bias. ([Link](src/FeDa4Fair/data/cross_device_value_final))
+1.  **Attribute-Silo**: A cross-silo dataset where the **attribute bias** (demographics) varies naturally across clients (States). ([Link](https://huggingface.co/datasets/lucacorbucci/silo-attribute))
+2.  **Attribute-Device**: A cross-device version where clients simulate devices with varying attribute distributions. ([Link](https://huggingface.co/datasets/lucacorbucci/device-attribute))
+3.  **Value-Silo**: A cross-silo dataset where **value bias** (correlation between race and outcome) varies across clients. ([Link](https://huggingface.co/datasets/lucacorbucci/silo-value))
+4.  **Value-Device**: A cross-device version with varying value bias. ([Link](https://huggingface.co/datasets/lucacorbucci/device-value))
 
 Additionally, FeDa4Fair has first-class support for:
 *   **ACSIncome** (Folktables)

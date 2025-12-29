@@ -15,6 +15,7 @@
 
 import json
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -357,7 +358,6 @@ class ImageDataset(Dataset):
 
 
 import pandas as pd
-import torchvision
 from torch.utils.data import Dataset
 
 
@@ -369,18 +369,17 @@ class CelebaDataset(Dataset):
         images: list,
         labels: list,
         sensitive_attributes: list,
-        transform: torchvision.transforms = None,
+        transform: Callable | None = None,
     ) -> None:
         """
         Initialization of the dataset.
 
         Args:
         ----
-            csv_path (str): path of the csv file with all the information
-             about the dataset
-            image_path (str): path of the images
-            transform (torchvision.transforms, optional): Transformation to apply
-            to the images. Defaults to None.
+            images (list): List of images.
+            labels (list): List of labels.
+            sensitive_attributes (list): List of sensitive attributes.
+            transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
 
         """
         smiling_dict = {False: 0, True: 1}
@@ -398,7 +397,7 @@ class CelebaDataset(Dataset):
         Returns a sample from the dataset.
 
         Args:
-            idx (_type_): index of the sample we want to retrieve
+            index (int): index of the sample we want to retrieve
 
         Returns:
         -------

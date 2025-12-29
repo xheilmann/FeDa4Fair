@@ -519,25 +519,29 @@ if st.button("Load and Evaluate"):
                 group_ids = []
                 for idx in df.index:
                     parts = idx.rsplit("_", 1)
-                    if len(parts) == 2:
+                    if len(parts) == 2:  # noqa: PLR2004
                         split, pid_str = parts
                         pid = int(pid_str)
                         # Determine Group ID
                         mod_key = None
                         if fds._client_names and pid < len(fds._client_names):
                             mod_key = fds._client_names[pid]
-                        if (mod_key is None or mod_key not in fds._modification_dict) and pid in fds._modification_dict:
+
+                        # Type check for modification_dict
+                        mod_dict = fds._modification_dict
+
+                        if mod_dict is not None and (mod_key is None or mod_key not in mod_dict) and pid in mod_dict:
                             mod_key = pid
 
                         g_id = "Default"
-                        if mod_key is not None and mod_key in fds._modification_dict:
-                            inner = next(iter(fds._modification_dict[mod_key].values()))
+                        if mod_dict is not None and mod_key is not None and mod_key in mod_dict:
+                            inner = next(iter(mod_dict[mod_key].values()))
                             g_id = inner.get("group_id", "Default")
                         group_ids.append(g_id)
                     else:
                         group_ids.append("Default")
 
-                unique_groups = sorted(list(set(group_ids)))
+                unique_groups = sorted(set(group_ids))
                 palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
                 group_color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
 

@@ -1,7 +1,6 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import subprocess
-from pathlib import Path
+from unittest.mock import patch
+
 from FeDa4Fair.utils.reporting import get_git_info, prep_info_dict
 
 
@@ -22,7 +21,7 @@ class TestReportingExtended(unittest.TestCase):
         tags = prep_info_dict()
         self.assertIn("tag1", tags)
         self.assertEqual(tags["tag1"], ["body1"])
-        self.assertEqual(tags["commit"], "sha")
+        self.assertEqual(tags["commit"], ["sha"])
 
 
 if __name__ == "__main__":

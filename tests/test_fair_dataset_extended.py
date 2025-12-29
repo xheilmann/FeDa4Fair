@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
+
 from datasets import Dataset, DatasetDict
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 
@@ -30,6 +32,9 @@ class TestFairDatasetExtended(unittest.TestCase):
         fds.prepare()
 
         # Check if modifications were applied to fds._dataset
+        self.assertIsNotNone(fds._dataset)
+        if fds._dataset is None:
+            return
         train_ds = fds._dataset["train"]
         # Originally 2 rows with SEX=1 and label=True. Both should be dropped.
         # Remaining rows should be the ones with SEX=2.
@@ -62,6 +67,9 @@ class TestFairDatasetExtended(unittest.TestCase):
         )
         fds.prepare()
 
+        self.assertIsNotNone(fds._dataset)
+        if fds._dataset is None:
+            return
         self.assertIn("CA_train", fds._dataset)
         self.assertIn("CA_val", fds._dataset)
         self.assertIn("CA_test", fds._dataset)

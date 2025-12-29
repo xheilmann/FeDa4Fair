@@ -1,8 +1,9 @@
+import json
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
-import json
-from pathlib import Path
+
 from FeDa4Fair.utils.reporting import compute_sensitive_attr_proportions, create_new_datasheet
 
 
@@ -54,18 +55,17 @@ class TestReporting(unittest.TestCase):
         )
 
         # Run creation
-        with patch("pathlib.Path.write_text") as mock_write:
-            with patch("pathlib.Path.mkdir"):
-                create_new_datasheet("dummy_path", self.mock_fds)
+        with patch("pathlib.Path.write_text") as mock_write, patch("pathlib.Path.mkdir"):
+            create_new_datasheet("dummy_path", self.mock_fds)
 
-                # Check if write_text was called
-                mock_write.assert_called_once()
-                # Content should contain replaced tags
-                # name replacement: ACSIncomeFeDa4Fair...
-                # income replacement: "Income Info" (since it was "KEEP")
-                written_content = mock_write.call_args[0][0]
-                self.assertIn("ACSIncomeFeDa4Fair", written_content)
-                self.assertIn("Income Info", written_content)
+            # Check if write_text was called
+            mock_write.assert_called_once()
+            # Content should contain replaced tags
+            # name replacement: ACSIncomeFeDa4Fair...
+            # income replacement: "Income Info" (since it was "KEEP")
+            written_content = mock_write.call_args[0][0]
+            self.assertIn("ACSIncomeFeDa4Fair", written_content)
+            self.assertIn("Income Info", written_content)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import pandas as pd
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-from FeDa4Fair.metrics.fairness import compute_fairness, _compute_fairness
+from FeDa4Fair.metrics.fairness import _compute_fairness, compute_fairness
 from FeDa4Fair.utils.data_utils import drop_data, flip_data
 
 

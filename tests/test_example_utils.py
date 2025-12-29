@@ -1,18 +1,20 @@
 import unittest
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
+
 from FeDa4Fair.utils.example_utils import (
-    pre_process_income,
-    pre_process_single_datasets,
-    TabularDataset,
-    weighted_average,
-    set_params,
-    get_params,
     ImageDataset,
     SimpleCNN,
+    TabularDataset,
     get_default_image_transform,
+    get_params,
+    pre_process_income,
+    pre_process_single_datasets,
+    set_params,
+    weighted_average,
 )
 
 
@@ -64,7 +66,7 @@ class TestExampleUtils(unittest.TestCase):
         metrics = [(10, {"accuracy": 0.8}), (20, {"accuracy": 0.9})]
         result = weighted_average(metrics)
         # (10*0.8 + 20*0.9) / 30 = (8 + 18) / 30 = 26 / 30 = 0.8666...
-        self.assertAlmostEqual(result["accuracy"], 0.8666666, places=5)
+        self.assertAlmostEqual(float(result["accuracy"]), 0.8666666, places=5)
 
     def test_params_utils(self):
         model = nn.Linear(2, 2)

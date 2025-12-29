@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import pandas as pd
+
 from FeDa4Fair.visualization.plots import plot_fairness_distributions
 
 

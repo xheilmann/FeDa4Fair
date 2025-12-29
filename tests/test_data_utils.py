@@ -1,6 +1,8 @@
 import unittest
+
 import pandas as pd
-import numpy as np
+import pytest
+
 from FeDa4Fair.utils.data_utils import balance_data, generate_bias_by_groups, generate_modification_dict
 
 
@@ -92,7 +94,7 @@ class TestDataUtils(unittest.TestCase):
 
     def test_generate_bias_by_groups_validation(self):
         group_configs = [{"num_clients": 1}]
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="Sum of group clients"):
             generate_bias_by_groups(num_total_clients=10, group_configs=group_configs)
 
 

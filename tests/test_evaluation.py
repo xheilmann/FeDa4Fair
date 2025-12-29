@@ -1,10 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import pandas as pd
-import numpy as np
-from FeDa4Fair.metrics.evaluation import evaluate_model, merge_dataframes_with_names
 
-import FeDa4Fair.metrics.evaluation as evaluation
+import numpy as np
+import pandas as pd
+
+from FeDa4Fair.metrics import evaluation
+from FeDa4Fair.metrics.evaluation import evaluate_model, merge_dataframes_with_names
 
 
 class TestEvaluation(unittest.TestCase):

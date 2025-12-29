@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from FeDa4Fair.visualization.plots import plot_comparison_label_distribution, plot_comparison_fairness_distribution
+
+from FeDa4Fair.visualization.plots import plot_comparison_fairness_distribution, plot_comparison_label_distribution
 
 
 class TestPlotsExtended(unittest.TestCase):

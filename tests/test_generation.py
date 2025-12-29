@@ -1,7 +1,8 @@
 import unittest
+
 import pandas as pd
-import numpy as np
-from FeDa4Fair.dataset.generation import split_df, _filter_states_by_fairness, preprocess_data_cross_silo
+
+from FeDa4Fair.dataset.generation import _filter_states_by_fairness, preprocess_data_cross_silo, split_df
 
 
 class TestGeneration(unittest.TestCase):

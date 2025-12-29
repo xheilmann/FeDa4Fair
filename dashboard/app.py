@@ -94,7 +94,13 @@ if dataset_name in ["ACSIncome", "ACSEmployment"]:
 elif dataset_name == "Other (Hugging Face)":
     dataset_name = st.sidebar.text_input("HF Dataset Name", "adult")
     subset = st.sidebar.text_input("Subset (Optional)", None)
-    split = st.sidebar.text_input("Split", "train")
+    
+    split_mode = st.sidebar.radio("Split Selection", ["Specific Split(s)", "Merge All Splits"])
+    if split_mode == "Merge All Splits":
+        split = "all"
+    else:
+        split = st.sidebar.text_input("Split (e.g., 'train', 'train+test')", "train")
+        
     label_name = st.sidebar.text_input("Label Column", "income")
     sens_attr = st.sidebar.text_input("Sensitive Attribute", "sex")
     sensitive_attributes = [sens_attr]
@@ -117,7 +123,7 @@ sample_cap = st.sidebar.number_input(
 )
 
 st.sidebar.header("Partitioning")
-num_partitions = st.sidebar.slider("Number of Clients (per State/Split)", min_value=1, max_value=50, value=5)
+num_partitions = st.sidebar.number_input("Number of Clients (per State/Split)", min_value=1, value=5)
 partition_strategy = st.sidebar.selectbox(
     "Partition Strategy", ["IID", "Dirichlet (Non-IID)", "Representative diversity"]
 )
@@ -153,11 +159,15 @@ def create_partitioner():
         if dataset_name in ["ACSIncome", "ACSEmployment"]:
             return IidPartitioner(num_partitions=num_partitions)  # Fallback or error handled upstream
 
-        partition_cols = [rep_div_sens_1]
-        if rep_div_sens_2 and rep_div_sens_2.strip():
-            partition_cols.append(rep_div_sens_2)
+        partition_cols: list[str] = [str(rep_div_sens_1)]
+        if rep_div_sens_2 and str(rep_div_sens_2).strip():
+            partition_cols.append(str(rep_div_sens_2))
 
-        return RepresentativeDiversityPartitioner(num_partitions=num_partitions, partition_by=partition_cols, seed=seed)
+        return RepresentativeDiversityPartitioner(
+            num_partitions=num_partitions,
+            partition_by=partition_cols,
+            seed=seed
+        )
     return IidPartitioner(num_partitions=num_partitions)
 
 
@@ -188,10 +198,22 @@ if inject_bias:
 
     # UI to Add/Remove Groups
     col_add, col_rem = st.sidebar.columns(2)
-    if col_add.button("➕ Add Group"):
+    if col_add.button("+ Add Group"):
+        # Generate Group Name (A, B, C, ...)
+        current_len = len(st.session_state.bias_groups)
+        # Handle cases > 26 (Z) -> AA, AB etc if needed, but for simplicity A-Z is likely sufficient for dashboard
+        # Simple A-Z mapping
+        import string
+        letters = string.ascii_uppercase
+        if current_len < len(letters):
+            next_char = letters[current_len]
+            new_name = f"Group {next_char}"
+        else:
+            new_name = f"Group {current_len + 1}"
+
         st.session_state.bias_groups.append(
             {
-                "group_id": f"Group {len(st.session_state.bias_groups) + 1}",
+                "group_id": new_name,
                 "num_clients": 0,
                 "sensitive_attr": "SEX" if "ACS" in dataset_name else "sex_binary",
                 "sensitive_value": 1,
@@ -202,7 +224,7 @@ if inject_bias:
             }
         )
 
-    if col_rem.button("➖ Remove Group") and len(st.session_state.bias_groups) > 1:
+    if col_rem.button("- Remove Group") and len(st.session_state.bias_groups) > 1:
         st.session_state.bias_groups.pop()
 
     # Render Group Forms
@@ -318,6 +340,7 @@ if st.button("Load and Evaluate"):
                 partitioners_config = {"train": create_partitioner()}
                 states_to_load = None
 
+            client_names = None
             fds = FairFederatedDataset(
                 dataset=dataset_name,
                 subset=subset if "subset" in locals() else None,

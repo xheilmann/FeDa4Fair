@@ -14,10 +14,9 @@ class TestGenericLoading(unittest.TestCase):
         df_train = pd.DataFrame({"feature": [1, 2], "label": [0, 1], "sex": [0, 1]})
         df_test = pd.DataFrame({"feature": [3, 4], "label": [1, 0], "sex": [1, 0]})
 
-        mock_load_dataset.return_value = DatasetDict({
-            "train": Dataset.from_pandas(df_train),
-            "test": Dataset.from_pandas(df_test)
-        })
+        mock_load_dataset.return_value = DatasetDict(
+            {"train": Dataset.from_pandas(df_train), "test": Dataset.from_pandas(df_test)}
+        )
 
         # Initialize FairFederatedDataset with split="all"
         fds = FairFederatedDataset(
@@ -25,7 +24,7 @@ class TestGenericLoading(unittest.TestCase):
             split="all",
             partitioners={"train": 1},
             label_name="label",
-            sensitive_attributes=["sex"]
+            sensitive_attributes=["sex"],
         )
 
         fds.prepare()
@@ -49,6 +48,7 @@ class TestGenericLoading(unittest.TestCase):
         # Verify size (2+2 = 4)
         merged_ds = fds._dataset["train"]
         self.assertEqual(len(merged_ds), 4)
+
 
 if __name__ == "__main__":
     unittest.main()

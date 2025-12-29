@@ -221,7 +221,6 @@ class LinearClassificationNet(nn.Module):
         return self.layer1(x.float())
 
 
-
 def train(net, trainloader, optimizer, device="cpu"):
     """Train the network on the training set."""
     criterion = torch.nn.CrossEntropyLoss()
@@ -391,7 +390,6 @@ class CelebaDataset(Dataset):
         self.transform = transform
         self.indexes = range(len(self.samples))
 
-
     def __getitem__(self, index: int):
         """
         Returns a sample from the dataset.
@@ -425,6 +423,7 @@ class CelebaDataset(Dataset):
 
         """
         return self.n_samples
+
 
 class SimpleCNN(nn.Module):
     """
@@ -526,6 +525,7 @@ def train_celeba(net, trainloader, optimizer, device="cpu"):
         loss = criterion(net(images), labels)
         loss.backward()
         optimizer.step()
+
 
 def test_celeba(net, testloader, device):
     """Validate the network on the entire test set."""

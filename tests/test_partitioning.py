@@ -14,18 +14,14 @@ class TestRepresentativeDiversityPartitioner(unittest.TestCase):
             "feature": range(100),
             "sensitive_1": ["A"] * 50 + ["B"] * 50,
             "sensitive_2": ["X", "Y"] * 50,
-            "label": [0, 1] * 50
+            "label": [0, 1] * 50,
         }
         self.df = pd.DataFrame(data)
         self.dataset = Dataset.from_pandas(self.df)
 
     def test_partitioning_single_attribute(self):
         # Test partitioning based on one sensitive attribute
-        partitioner = RepresentativeDiversityPartitioner(
-            num_partitions=2,
-            partition_by="sensitive_1",
-            seed=42
-        )
+        partitioner = RepresentativeDiversityPartitioner(num_partitions=2, partition_by="sensitive_1", seed=42)
         partitioner.dataset = self.dataset
 
         part_0 = partitioner.load_partition(0).to_pandas()
@@ -33,8 +29,8 @@ class TestRepresentativeDiversityPartitioner(unittest.TestCase):
 
         # Ensure correct types for checking
         if not isinstance(part_0, pd.DataFrame) or not isinstance(part_1, pd.DataFrame):
-             msg = "Partition data is not a pandas DataFrame"
-             raise TypeError(msg)
+            msg = "Partition data is not a pandas DataFrame"
+            raise TypeError(msg)
 
         # Check size balance (approximate)
         self.assertEqual(len(part_0), 50)
@@ -48,9 +44,7 @@ class TestRepresentativeDiversityPartitioner(unittest.TestCase):
     def test_partitioning_intersectional(self):
         # Test partitioning based on two sensitive attributes
         partitioner = RepresentativeDiversityPartitioner(
-            num_partitions=2,
-            partition_by=["sensitive_1", "sensitive_2"],
-            seed=42
+            num_partitions=2, partition_by=["sensitive_1", "sensitive_2"], seed=42
         )
         partitioner.dataset = self.dataset
 
@@ -71,10 +65,7 @@ class TestRepresentativeDiversityPartitioner(unittest.TestCase):
             self.assertAlmostEqual(part_groups[group], groups[group] // 2, delta=1)
 
     def test_missing_column(self):
-        partitioner = RepresentativeDiversityPartitioner(
-            num_partitions=2,
-            partition_by="non_existent_column"
-        )
+        partitioner = RepresentativeDiversityPartitioner(num_partitions=2, partition_by="non_existent_column")
         partitioner.dataset = self.dataset
         with pytest.raises(ValueError, match="Column .* not found"):
             partitioner.load_partition(0)

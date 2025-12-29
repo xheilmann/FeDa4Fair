@@ -163,11 +163,7 @@ def create_partitioner():
         if rep_div_sens_2 and str(rep_div_sens_2).strip():
             partition_cols.append(str(rep_div_sens_2))
 
-        return RepresentativeDiversityPartitioner(
-            num_partitions=num_partitions,
-            partition_by=partition_cols,
-            seed=seed
-        )
+        return RepresentativeDiversityPartitioner(num_partitions=num_partitions, partition_by=partition_cols, seed=seed)
     return IidPartitioner(num_partitions=num_partitions)
 
 
@@ -204,6 +200,7 @@ if inject_bias:
         # Handle cases > 26 (Z) -> AA, AB etc if needed, but for simplicity A-Z is likely sufficient for dashboard
         # Simple A-Z mapping
         import string
+
         letters = string.ascii_uppercase
         if current_len < len(letters):
             next_char = letters[current_len]
@@ -542,7 +539,18 @@ if st.button("Load and Evaluate"):
                         group_ids.append("Default")
 
                 unique_groups = sorted(set(group_ids))
-                palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+                palette = [
+                    "#1f77b4",
+                    "#ff7f0e",
+                    "#2ca02c",
+                    "#d62728",
+                    "#9467bd",
+                    "#8c564b",
+                    "#e377c2",
+                    "#7f7f7f",
+                    "#bcbd22",
+                    "#17becf",
+                ]
                 group_color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
 
                 bar_colors = [group_color_map[g] for g in group_ids]

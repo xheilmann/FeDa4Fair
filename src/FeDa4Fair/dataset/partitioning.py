@@ -85,8 +85,8 @@ class RepresentativeDiversityPartitioner(Partitioner):
 
         # Check again to satisfy type checker
         if self._indices_map is None:
-             msg = "Indices map could not be created."
-             raise ValueError(msg)
+            msg = "Indices map could not be created."
+            raise ValueError(msg)
 
         if partition_id not in self._indices_map:
             msg = f"Partition ID {partition_id} is out of range."

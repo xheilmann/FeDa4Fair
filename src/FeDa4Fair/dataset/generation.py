@@ -1,10 +1,9 @@
 from os import PathLike
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
@@ -74,7 +73,7 @@ def create_cross_silo_data(
         df, fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
         df.to_csv(f"{path_str}data_stats/crosssilo_{fairness_level}_{dr}.csv", index=False)
 
-    all_modifications_df = pd.DataFrame(all_modifications, columns=list(["state", "drop_rate", "attribute", "value"]))  # type: ignore
+    all_modifications_df = pd.DataFrame(all_modifications, columns=["state", "drop_rate", "attribute", "value"])  # type: ignore[arg-type]
     all_modifications_df.to_csv(Path(f"{path_str}data_stats/crosssilo_{fairness_level}_modifications.csv"), index=False)
 
 
@@ -89,7 +88,9 @@ def _get_initial_datasets(fairness_level, path_str):
         path=Path(f"{path_str}data/cross_silo_{fairness_level}_final"),
     )
     datasets = []
-    assert ffds._states is not None
+    if ffds._states is None:
+        msg = "States must be defined for ACS dataset."
+        raise ValueError(msg)
     for state in ffds._states:
         data = ffds.load_partition(0, state).to_pandas()
         if isinstance(data, pd.DataFrame):
@@ -164,7 +165,9 @@ def _apply_silo_modifications(states, modification_dict, fairness_level, path_st
         path=Path(f"{path_str}data/cross_silo_{fairness_level}_final"),
     )
     datasets = []
-    assert ffds._states is not None
+    if ffds._states is None:
+        msg = "States must be defined for ACS dataset."
+        raise ValueError(msg)
     for state in ffds._states:
         data = ffds.load_partition(0, state).to_pandas()
         if isinstance(data, pd.DataFrame):
@@ -261,9 +264,8 @@ def _filter_attribute_fairness(df):
         if count == 2:
             if np.min(sex_dp) > 0.09:
                 states.append(entry)
-        elif count == 0:
-            if 0.175 > np.min(race_dp) > 0.12:
-                states.append(entry)
+        elif count == 0 and 0.175 > np.min(race_dp) > 0.12:
+            states.append(entry)
     return states
 
 
@@ -271,9 +273,11 @@ def _filter_value_fairness(df):
     states = []
     for entry in df["dataset"].unique():
         df_entry = df[(df["dataset"] == entry) & df["model"].isin(["XGBoost", "LogisticRegression"])]
-        if df_entry["value_DP_RACE"].values[0][-3:-2] == df_entry["value_DP_RACE"].values[1][-3:-2]:
-            if np.min(df_entry["DP_RACE"].values) > 0.09:
-                states.append(entry)
+        if (
+            df_entry["value_DP_RACE"].values[0][-3:-2] == df_entry["value_DP_RACE"].values[1][-3:-2]
+            and np.min(df_entry["DP_RACE"].values) > 0.09
+        ):
+            states.append(entry)
     return states
 
 

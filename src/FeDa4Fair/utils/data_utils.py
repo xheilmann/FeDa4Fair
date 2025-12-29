@@ -157,6 +157,7 @@ def balance_data(
 
     Returns:
         tuple[pd.DataFrame, int]: The balanced DataFrame and the total number of samples removed.
+
     """
     groups = df[column1].unique()
     if len(groups) <= 1:
@@ -180,8 +181,9 @@ def balance_data(
         group_indices_neg = df[(df[column1] == group) & (~df[label_column])].index.tolist()
 
         # Randomly sample to match target counts
-        kept_pos = np.random.choice(group_indices_pos, size=target_pos, replace=False)
-        kept_neg = np.random.choice(group_indices_neg, size=target_neg, replace=False)
+        rng = np.random.default_rng(42)
+        kept_pos = rng.choice(group_indices_pos, size=target_pos, replace=False)
+        kept_neg = rng.choice(group_indices_neg, size=target_neg, replace=False)
         rows_to_keep.extend(kept_pos)
         rows_to_keep.extend(kept_neg)
 
@@ -210,7 +212,7 @@ def cap_samples(
     for label, fraction in fractions.items():
         label_indices = df[df[label_column] == label].index.tolist()
         # Number of samples to keep for this label to maintain distribution
-        n_to_keep = int(round(fraction * cap))
+        n_to_keep = round(fraction * cap)
         # Ensure we don't try to keep more than we have (rounding safety)
         n_to_keep = min(n_to_keep, len(label_indices))
 
@@ -268,10 +270,7 @@ def generate_modification_dict(
         A dictionary mapping client IDs to modification configs.
 
     """
-    if isinstance(client_ids, int):
-        clients = list(range(client_ids))
-    else:
-        clients = client_ids
+    clients = list(range(client_ids)) if isinstance(client_ids, int) else client_ids
 
     num_clients = len(clients)
     mod_dict = {}

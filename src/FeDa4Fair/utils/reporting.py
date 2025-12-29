@@ -112,8 +112,11 @@ def prep_info_dict(debug: bool = False) -> dict[str, Any]:
         _print_debug_tags(tags)
 
     commit, remote = get_git_info()
-    tags["commit"] = commit
-    tags["remote"] = remote
+    tags["commit"] = [commit]
+    if remote:
+        tags["remote"] = [remote]
+    else:
+        tags["remote"] = []
     return tags
 
 

@@ -1,9 +1,8 @@
-from typing import List, Optional, Union
-
 import numpy as np
 import pandas as pd
-from datasets import Dataset
 from flwr_datasets.partitioner import Partitioner
+
+from datasets import Dataset
 
 
 class RepresentativeDiversityPartitioner(Partitioner):
@@ -18,14 +17,14 @@ class RepresentativeDiversityPartitioner(Partitioner):
     def __init__(
         self,
         num_partitions: int,
-        partition_by: Union[str, List[str]],
-        seed: Optional[int] = 42,
+        partition_by: str | list[str],
+        seed: int | None = 42,
     ) -> None:
         super().__init__()
         self._num_partitions = num_partitions
         self._partition_by = partition_by if isinstance(partition_by, list) else [partition_by]
         self._seed = seed
-        self._indices_map: Optional[dict[int, List[int]]] = None
+        self._indices_map: dict[int, list[int]] | None = None
 
     @property
     def num_partitions(self) -> int:
@@ -36,21 +35,26 @@ class RepresentativeDiversityPartitioner(Partitioner):
         Identify subgroups and assign indices to partitions.
         """
         if self._dataset is None:
-            raise ValueError("Dataset is not assigned to the partitioner.")
+            msg = "Dataset is not assigned to the partitioner."
+            raise ValueError(msg)
 
         # Convert to pandas for easier grouping
         df = self._dataset.to_pandas()
+        if not isinstance(df, pd.DataFrame):
+            msg = "Dataset must be convertible to a pandas DataFrame."
+            raise TypeError(msg)
 
         # Ensure partition_by columns exist
         for col in self._partition_by:
             if col not in df.columns:
-                raise ValueError(f"Column '{col}' not found in dataset.")
+                msg = f"Column '{col}' not found in dataset."
+                raise ValueError(msg)
 
         # Group by the sensitive attributes
         # We use a placeholder column to count or just iterate over groups
         groups = df.groupby(self._partition_by)
 
-        partition_indices: dict[int, List[int]] = {i: [] for i in range(self._num_partitions)}
+        partition_indices: dict[int, list[int]] = {i: [] for i in range(self._num_partitions)}
 
         rng = np.random.default_rng(self._seed)
 
@@ -66,8 +70,6 @@ class RepresentativeDiversityPartitioner(Partitioner):
             chunks = np.array_split(indices, self._num_partitions)
 
             for i, chunk in enumerate(chunks):
-                # If there are fewer chunks than partitions (very small group), loop around or handle?
-                # array_split returns num_partitions arrays, some might be empty if len < num_partitions
                 if i < self._num_partitions:
                     partition_indices[i].extend(chunk.tolist())
 
@@ -75,13 +77,20 @@ class RepresentativeDiversityPartitioner(Partitioner):
 
     def load_partition(self, partition_id: int) -> Dataset:
         if self._dataset is None:
-            raise ValueError("Dataset is not assigned to the partitioner.")
+            msg = "Dataset is not assigned to the partitioner."
+            raise ValueError(msg)
 
         if self._indices_map is None:
             self._determine_strata()
 
+        # Check again to satisfy type checker
+        if self._indices_map is None:
+             msg = "Indices map could not be created."
+             raise ValueError(msg)
+
         if partition_id not in self._indices_map:
-            raise ValueError(f"Partition ID {partition_id} is out of range.")
+            msg = f"Partition ID {partition_id} is out of range."
+            raise ValueError(msg)
 
         indices = self._indices_map[partition_id]
         return self._dataset.select(indices)

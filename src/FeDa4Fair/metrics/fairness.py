@@ -179,7 +179,8 @@ def _evaluate_model_on_partition(
 ):
     train_df, test_df = partition.to_pandas(), partition_test_data.to_pandas()
     if not (isinstance(train_df, pd.DataFrame) and isinstance(test_df, pd.DataFrame)):
-        raise TypeError("Partition data is not a pandas DataFrame")
+        msg = "Partition data is not a pandas DataFrame"
+        raise TypeError(msg)
 
     cols_to_drop = [*sens_cols, label_name]
     x_train, y_train = train_df.drop(columns=cols_to_drop, errors="ignore"), train_df[label_name].to_numpy().flatten()
@@ -197,7 +198,8 @@ def _evaluate_model_on_partition(
 def _evaluate_data_bias_on_partition(partition, sens_att, fairness_metric, label_name, size_unit):
     raw_df = partition.to_pandas()
     if not isinstance(raw_df, pd.DataFrame):
-        raise TypeError("Partition data is not a pandas DataFrame")
+        msg = "Partition data is not a pandas DataFrame"
+        raise TypeError(msg)
 
     y_true = raw_df[[label_name]]
     sf_data = raw_df[sens_att] if isinstance(sens_att, list) else raw_df[[sens_att]]

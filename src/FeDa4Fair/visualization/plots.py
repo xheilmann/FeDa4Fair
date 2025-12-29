@@ -70,7 +70,7 @@ def plot_comparison_label_distribution(
 
     figsize = _initialize_comparison_figsize(figsize, num_partitioners)
     axes_sharing = _initialize_axis_sharing(size_unit, plot_type, partition_id_axis)
-    fig, axes = plt.subplots(  # type: ignore
+    fig, axes = plt.subplots(  # type: ignore[assignment]
         nrows=1,
         ncols=num_partitioners,
         figsize=figsize,
@@ -235,7 +235,7 @@ def plot_comparison_fairness_distribution(
 
     figsize = _initialize_comparison_figsize(figsize, num_p)
     axes_sharing = _initialize_axis_sharing("absolute", "heatmap", partition_id_axis)
-    fig, axes = plt.subplots(nrows=1, ncols=num_p, figsize=figsize, layout="constrained", **axes_sharing)  # type: ignore
+    fig, axes = plt.subplots(nrows=1, ncols=num_p, figsize=figsize, layout="constrained", **axes_sharing)  # type: ignore[assignment]
     axes_list = [axes] if num_p == 1 else list(axes)
     titles = titles or ["" for _ in range(num_p)]
     p_kwargs_list = plot_kwargs_list or [None] * num_p

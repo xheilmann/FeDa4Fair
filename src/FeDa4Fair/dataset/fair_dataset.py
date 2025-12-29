@@ -29,7 +29,7 @@ from flwr_datasets.preprocessor import Divider, Preprocessor
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 from joblib import Parallel, delayed
 
-from datasets import ClassLabel, Dataset, DatasetDict, load_dataset
+from datasets import ClassLabel, Dataset, DatasetDict, load_dataset, concatenate_datasets
 from FeDa4Fair.metrics.evaluation import evaluate_fairness
 from FeDa4Fair.utils.data_utils import balance_data, cap_samples, drop_data, flip_data
 
@@ -217,7 +217,7 @@ class FairFederatedDataset(FederatedDataset):
         Load a partition and apply modifications if specified.
         """
         if split is None:
-            split = list(self.partitioners.keys())[0]
+            split = next(iter(self.partitioners.keys()))
 
         partition = super().load_partition(partition_id, split)
 
@@ -510,17 +510,41 @@ class FairFederatedDataset(FederatedDataset):
     def _prepare_generic_dataset(self) -> None:
         """Helper to prepare generic Hugging Face datasets."""
         # Load dataset using Hugging Face datasets library
-        loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
-
-        if isinstance(loaded_data, Dataset):
-            # If a single split is returned, wrap it in a DatasetDict
-            split_name = self._load_dataset_kwargs.get("split", "train")
-            self._dataset = DatasetDict({str(split_name): loaded_data})
-        elif isinstance(loaded_data, DatasetDict):
-            self._dataset = loaded_data
+        
+        # Check if we need to load all splits and merge them
+        split_arg = self._load_dataset_kwargs.get("split")
+        
+        if split_arg == "all":
+            # Remove "split" from kwargs to let load_dataset load all splits as a DatasetDict
+            load_kwargs = self._load_dataset_kwargs.copy()
+            load_kwargs.pop("split", None)
+            
+            loaded_data = load_dataset(self._dataset_name, **load_kwargs)
+            
+            if isinstance(loaded_data, DatasetDict):
+                # Concatenate all splits
+                merged_dataset = concatenate_datasets(list(loaded_data.values()))
+                # Assign to a default key "train" as we are working on a single merged dataset
+                self._dataset = DatasetDict({"train": merged_dataset})
+            elif isinstance(loaded_data, Dataset):
+                 # Should not happen if split is removed, but handle just in case
+                self._dataset = DatasetDict({"train": loaded_data})
+            else:
+                 msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
+                 raise TypeError(msg)
+                 
         else:
-            msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
-            raise TypeError(msg)
+            loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
+
+            if isinstance(loaded_data, Dataset):
+                # If a single split is returned, wrap it in a DatasetDict
+                split_name = self._load_dataset_kwargs.get("split", "train")
+                self._dataset = DatasetDict({str(split_name): loaded_data})
+            elif isinstance(loaded_data, DatasetDict):
+                self._dataset = loaded_data
+            else:
+                msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
+                raise TypeError(msg)
 
         # Apply modifications if specified (assuming tabular/pandas compatible for now)
         if self._modification_dict:

@@ -285,7 +285,7 @@ MODELS = {
 }
 
 if XGBOOST_AVAILABLE:
-    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")  # type: ignore
+    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")  # type: ignore[no-redef]
 
 
 def evaluate_model(
@@ -306,7 +306,7 @@ def evaluate_model(
     results = {"model": model_name, "accuracy": acc}
     for key, value in sf_data.items():
         # Ensure value is treated as a DataFrame with the correct column name for fairlearn
-        sf_df = pd.DataFrame(value, columns=[key])
+        sf_df = pd.DataFrame(value, columns=[key])  # type: ignore[arg-type]
         if fairness_level == "value":
             results[f"value_{fairness_metric}_{key}"] = _compute_fairness(
                 y_test, preds, sf_df, fairness_metric, key, "value"

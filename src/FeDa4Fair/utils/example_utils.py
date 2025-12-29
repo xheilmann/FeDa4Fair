@@ -220,6 +220,7 @@ class LinearClassificationNet(nn.Module):
         return self.layer1(x.float())
 
 
+
 def train(net, trainloader, optimizer, device="cpu"):
     """Train the network on the training set."""
     criterion = torch.nn.CrossEntropyLoss()
@@ -354,6 +355,77 @@ class ImageDataset(Dataset):
 
         return image, sensitive, sensitive, label
 
+import os
+
+import numpy as np
+import pandas as pd
+import torchvision
+from PIL import Image
+from torch.utils.data import Dataset
+
+
+class CelebaDataset(Dataset):
+    """Definition of the dataset used for the Celeba Dataset."""
+
+    def __init__(
+        self,
+        images: list,
+        labels: list,
+        sensitive_attributes: list,
+        transform: torchvision.transforms = None,
+    ) -> None:
+        """Initialization of the dataset.
+
+        Args:
+        ----
+            csv_path (str): path of the csv file with all the information
+             about the dataset
+            image_path (str): path of the images
+            transform (torchvision.transforms, optional): Transformation to apply
+            to the images. Defaults to None.
+        """
+
+
+        smiling_dict = {False: 0, True: 1}
+        targets = [smiling_dict[item] for item in labels]
+        self.targets = targets
+        self.sensitive_attributes = [smiling_dict[item] for item in sensitive_attributes]
+        self.samples = images
+        self.n_samples = len(images)
+        self.transform = transform
+        self.indexes = range(len(self.samples))
+
+
+    def __getitem__(self, index: int):
+        """Returns a sample from the dataset.
+
+        Args:
+            idx (_type_): index of the sample we want to retrieve
+
+        Returns
+        -------
+            _type_: sample we want to retrieve
+
+        """
+        img = self.samples[index]
+
+        if self.transform:
+            img = self.transform(img)
+
+        return (
+            img,
+            self.sensitive_attributes[index],
+            self.targets[index],
+        )
+
+    def __len__(self) -> int:
+        """This function returns the size of the dataset.
+
+        Returns
+        -------
+            int: size of the dataset
+        """
+        return self.n_samples
 
 class SimpleCNN(nn.Module):
     """
@@ -388,7 +460,7 @@ def test_image(net, testloader, device, sensitive_attribute_name="sensitive"):
     predictions = []
     with torch.no_grad():
         for batch in testloader:
-            images, sens1, _sens2, labels = batch
+            images, sens1, labels = batch
             images = images.to(device)
             labels = labels.to(device)
             outputs = net(images)
@@ -440,3 +512,70 @@ def get_default_image_transform(image_size=(64, 64)):
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
+
+
+def train_celeba(net, trainloader, optimizer, device="cpu"):
+    """Train the network on the training set."""
+    criterion = torch.nn.CrossEntropyLoss()
+    net.to(device)
+    net.train()
+    for batch in trainloader:
+        images, _, labels = batch
+        images = images.to(device)
+        labels = labels.to(device)
+        optimizer.zero_grad()
+        loss = criterion(net(images), labels)
+        loss.backward()
+        optimizer.step()
+
+def test_celeba(net, testloader, device):
+    """Validate the network on the entire test set."""
+    criterion = torch.nn.CrossEntropyLoss()
+    correct, loss = 0, 0.0
+    net.to(device)
+    net.eval()
+    sex_list = []
+    true_y = []
+    predictions = []
+    with torch.no_grad():
+        for batch in testloader:
+            images, sex, labels = batch
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = net(images)
+            loss += criterion(outputs, labels).item()
+            _, predicted = torch.max(outputs.data, 1)
+            correct += (predicted == labels).sum().item()
+            sex_list.extend(sex)
+            true_y.extend(labels.cpu())
+            predictions.extend(predicted.cpu())
+
+    sf_data = pd.DataFrame(
+        {
+            "SEX": [int(item) for item in sex_list],
+        }
+    )
+
+    unfairness_dict = {}
+
+    unfairness_dict["SEX_DP"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="DP",
+        sens_att="SEX",
+        size_unit="value",
+    )
+ 
+    unfairness_dict["SEX_EO"] = _compute_fairness(
+        y_true=true_y,
+        y_pred=predictions,
+        sf_data=sf_data,
+        fairness_metric="EO",
+        sens_att="SEX",
+        size_unit="value",
+    )
+
+    accuracy = correct / len(testloader.dataset)
+
+    return loss, accuracy, unfairness_dict

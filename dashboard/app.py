@@ -14,8 +14,9 @@ from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
 
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 from FeDa4Fair.dataset.partitioning import RepresentativeDiversityPartitioner
-from FeDa4Fair.metrics.fairness import compute_fairness
-from FeDa4Fair.utils.data_utils import generate_bias_by_groups
+from FeDa4Fair.metrics.fairness import compute_fairness, compute_multi_fairness
+from FeDa4Fair.utils.data_utils import generate_bias_by_groups, generate_multiobjective_bias
+from FeDa4Fair.visualization import plot_multi_attribute_fairness
 
 st.set_page_config(page_title="FeDa4Fair Dashboard", layout="wide")
 
@@ -183,7 +184,7 @@ inject_bias = st.sidebar.checkbox("Inject Bias?")
 modification_dict = None
 
 if inject_bias:
-    st.sidebar.subheader("Group-Based Bias Injection")
+    st.sidebar.subheader("Group-Based Multi-Objective Bias")
 
     mitigation_threshold = st.sidebar.slider(
         "Mitigation Threshold", 0.0, 0.2, 0.08, 0.01, help="Target unfairness threshold for mitigation."
@@ -194,93 +195,83 @@ if inject_bias:
             {
                 "group_id": "Group A",
                 "num_clients": num_partitions,
-                "sensitive_attr": "SEX" if "ACS" in dataset_name else "sex_binary",
-                "sensitive_value": 1,
-                "drop_mean": 0.2,
-                "drop_std": 0.05,
-                "flip_mean": 0.1,
-                "flip_std": 0.02,
+                "configs": [
+                    {
+                        "attribute": "SEX" if "ACS" in dataset_name else "sex_binary",
+                        "value": 1,
+                        "drop_mean": 0.2,
+                        "drop_std": 0.05,
+                        "flip_mean": 0.1,
+                        "flip_std": 0.02,
+                        "mitigate": False,
+                    }
+                ]
             }
         ]
 
     # UI to Add/Remove Groups
     col_add, col_rem = st.sidebar.columns(2)
     if col_add.button("+ Add Group"):
-        # Generate Group Name (A, B, C, ...)
-        current_len = len(st.session_state.bias_groups)
-        # Handle cases > 26 (Z) -> AA, AB etc if needed, but for simplicity A-Z is likely sufficient for dashboard
-        # Simple A-Z mapping
         import string
-
         letters = string.ascii_uppercase
-        if current_len < len(letters):
-            next_char = letters[current_len]
-            new_name = f"Group {next_char}"
-        else:
-            new_name = f"Group {current_len + 1}"
-
-        st.session_state.bias_groups.append(
-            {
-                "group_id": new_name,
-                "num_clients": 0,
-                "sensitive_attr": "SEX" if "ACS" in dataset_name else "sex_binary",
-                "sensitive_value": 1,
-                "drop_mean": 0.0,
-                "drop_std": 0.0,
-                "flip_mean": 0.0,
-                "flip_std": 0.0,
-            }
-        )
+        current_len = len(st.session_state.bias_groups)
+        new_name = f"Group {letters[current_len]}" if current_len < 26 else f"Group {current_len + 1}"
+        st.session_state.bias_groups.append({
+            "group_id": new_name,
+            "num_clients": 0,
+            "configs": [{"attribute": "sex_binary", "value": 1, "drop_mean": 0.0, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0, "mitigate": False}]
+        })
 
     if col_rem.button("- Remove Group") and len(st.session_state.bias_groups) > 1:
         st.session_state.bias_groups.pop()
 
     # Render Group Forms
     group_configs = []
-    for i, group in enumerate(st.session_state.bias_groups):
-        with st.sidebar.expander(f"⚙️ {group['group_id']}", expanded=(i == 0)):
-            g_id = st.text_input("Group Name", group["group_id"], key=f"id_{i}")
-            n_c = st.number_input("Clients in Group", 0, 1000, group["num_clients"], key=f"nc_{i}")
-
-            s_attr = st.text_input("Sensitive Attr", group["sensitive_attr"], key=f"sa_{i}")
-            s_val = st.number_input("Underrepresented group", value=group["sensitive_value"], key=f"sv_{i}")
-
-            i_attr = st.text_input("Intersectional Attr (Optional)", key=f"ia_{i}")
-            i_val = None
-            if i_attr and i_attr.strip() != "" and i_attr != "None":
-                i_val = st.number_input("Intersectional Value", value=0, key=f"iv_{i}")
-
-            mitigate = st.checkbox("Mitigate Existing Bias (Balance Groups)?", value=False, key=f"mit_{i}")
-
-            if not mitigate:
-                st.markdown("**Sampling Distribution (Truncated Normal)**")
-                c1, c2 = st.columns(2)
-                d_m = c1.number_input("Drop Mean", 0.0, 1.0, group["drop_mean"], key=f"dm_{i}")
-                d_s = c2.number_input("Drop Std", 0.0, 1.0, group["drop_std"], key=f"ds_{i}")
-
-                f_m = c1.number_input("Flip Mean", 0.0, 1.0, group["flip_mean"], key=f"fm_{i}")
-                f_s = c2.number_input("Flip Std", 0.0, 1.0, group["flip_std"], key=f"fs_{i}")
-            else:
-                d_m, d_s, f_m, f_s = 0.0, 0.0, 0.0, 0.0
-
-            group_configs.append(
-                {
-                    "group_id": g_id,
-                    "num_clients": n_c,
-                    "sensitive_attr": s_attr,
-                    "sensitive_value": s_val,
-                    "intersectional_attr": i_attr if i_attr and i_attr.strip() != "" and i_attr != "None" else None,
-                    "intersectional_value": i_val,
-                    "drop_mean": d_m,
-                    "drop_std": d_s,
-                    "flip_mean": f_m,
-                    "flip_std": f_s,
-                    "mitigate": mitigate,
-                }
-            )
+    for g_idx, group in enumerate(st.session_state.bias_groups):
+        with st.sidebar.expander(f"⚙️ {group['group_id']}", expanded=(g_idx == 0)):
+            g_id = st.text_input("Group Name", group["group_id"], key=f"id_{g_idx}")
+            n_c = st.number_input("Clients in Group", 0, 1000, group["num_clients"], key=f"nc_{g_idx}")
+            
+            st.markdown("---")
+            st.markdown("**Attribute Tasks**")
+            
+            # Sub-UI for configs within group
+            current_configs = group.get("configs", [])
+            
+            c_add, c_rem = st.columns(2)
+            if c_add.button(f"Add Task to {g_id}", key=f"add_c_{g_idx}"):
+                current_configs.append({"attribute": "sex_binary", "value": 1, "drop_mean": 0.0, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0, "mitigate": False})
+            if c_rem.button(f"Remove Task from {g_id}", key=f"rem_c_{g_idx}") and len(current_configs) > 1:
+                current_configs.pop()
+            
+            final_group_configs = []
+            for c_idx, conf in enumerate(current_configs):
+                st.markdown(f"**Task {c_idx + 1}**")
+                attr = st.text_input("Attribute", conf["attribute"], key=f"attr_{g_idx}_{c_idx}")
+                mitigate = st.checkbox("Mitigate Bias?", conf["mitigate"], key=f"mit_{g_idx}_{c_idx}")
+                
+                if not mitigate:
+                    val = st.number_input("Target Value", value=conf.get("value", 1), key=f"val_{g_idx}_{c_idx}")
+                    c1, c2 = st.columns(2)
+                    d_m = c1.number_input("Drop Mean", 0.0, 1.0, conf["drop_mean"], key=f"dm_{g_idx}_{c_idx}")
+                    d_s = c2.number_input("Drop Std", 0.0, 1.0, conf["drop_std"], key=f"ds_{g_idx}_{c_idx}")
+                    f_m = c1.number_input("Flip Mean", 0.0, 1.0, conf["flip_mean"], key=f"fm_{g_idx}_{c_idx}")
+                    f_s = c2.number_input("Flip Std", 0.0, 1.0, conf["flip_std"], key=f"fs_{g_idx}_{c_idx}")
+                    
+                    final_group_configs.append({
+                        "attribute": attr, "value": val, "mitigate": False,
+                        "drop_mean": d_m, "drop_std": d_s, "flip_mean": f_m, "flip_std": f_s
+                    })
+                else:
+                    final_group_configs.append({"attribute": attr, "mitigate": True})
+            
+            group_configs.append({
+                "group_id": g_id,
+                "num_clients": n_c,
+                "configs": final_group_configs
+            })
 
     # Validate Sum
-    # Correct calculation: Total clients = States * Partitions_per_state (if ACS) or just partitions
     expected_total = len(selected_states) * num_partitions if selected_states else num_partitions
     total_assigned = sum(g["num_clients"] for g in group_configs)
 
@@ -288,8 +279,7 @@ if inject_bias:
         st.sidebar.error(f"Validation Failed: {total_assigned}/{expected_total} clients assigned.")
     else:
         st.sidebar.success("✅ Client allocation valid.")
-        # Generate the modification_dict
-        modification_dict = generate_bias_by_groups(expected_total, group_configs)
+        modification_dict = generate_multiobjective_bias(expected_total, group_configs)
 
 st.sidebar.header("Evaluation Settings")
 fairness_metric = st.sidebar.selectbox("Fairness Metric", ["DP", "EO"])
@@ -450,38 +440,39 @@ if st.button("Load and Evaluate"):
             col2.metric("Total Samples Removed (Balancing)", fds._total_removed_samples)
 
             # Evaluate Fairness
+            st.sidebar.subheader("Multi-Attribute Evaluation")
+            
+            # Dynamically determine attributes to evaluate
+            # 1. Start with attributes from Dataset Configuration
+            initial_atts = sensitive_attributes if sensitive_attributes else []
+            if dataset_name in ["ACSIncome", "ACSEmployment"] and not initial_atts:
+                initial_atts = ["SEX", "MAR", "RAC1P"]
+            
+            # 2. Add attributes used in Bias Injection groups
+            bias_atts = []
+            if inject_bias:
+                for group in group_configs: # group_configs is already built from st.session_state.bias_groups
+                    for conf in group.get("configs", []):
+                        bias_atts.append(conf["attribute"])
+            
+            all_possible_atts = list(set(initial_atts + bias_atts))
+            if not all_possible_atts:
+                all_possible_atts = ["sex_binary"] # Fallback
+            
+            selected_eval_atts = st.sidebar.multiselect(
+                "Attributes to Evaluate", 
+                sorted(all_possible_atts), 
+                default=sorted(all_possible_atts)
+            )
 
             # Determine which splits to evaluate
-            base_splits = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
+            splits_to_eval = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
 
-            sens_att_to_use = sensitive_attributes[0] if sensitive_attributes else "SEX"
+            # Determination of sensitive columns to drop during model training
+            sens_cols_to_drop = selected_eval_atts
 
-            # Determine sensitive columns to drop during evaluation
-            sens_cols_to_drop = []
-            if dataset_name in ["ACSIncome", "ACSEmployment"]:
-                sens_cols_to_drop = ["SEX", "MAR", "RAC1P"]
-            elif sensitive_attributes:
-                sens_cols_to_drop = sensitive_attributes
-
-            # Helper to run compute_fairness over multiple splits
-            def compute_all_fairness(splits, model_class=None):
-                total_steps = 0
-                for split in splits:
-                    actual_split = f"{split}_train" if fl_setting == "cross-silo" else split
-                    part_obj = fds.partitioners[actual_split]
-                    num_parts = min(max_parts_eval, part_obj.num_partitions)
-                    total_steps += num_parts
-
-                progress_bar = st.progress(0, text="Loading partitions...")
-                steps_done = 0
-
-                def progress_callback(_pid):
-                    nonlocal steps_done
-                    steps_done += 1
-                    p = min(steps_done / total_steps, 1.0)
-                    progress_bar.progress(p, text=f"Loading partitions... ({steps_done}/{total_steps})")
-
-                all_results = []
+            def run_multi_evaluation(splits, model_class=None, metric="DP"):
+                all_combined_dfs = []
                 for split in splits:
                     if fl_setting == "cross-silo":
                         train_split = f"{split}_train"
@@ -491,118 +482,39 @@ if st.button("Load and Evaluate"):
                         test_split = split
 
                     part_obj = fds.partitioners[train_split]
+                    model_instance = model_class() if model_class else None
 
-                    model_instance = None
-                    if model_class:
-                        model_instance = model_class()  # Fresh instance per split (and re-fit per partition)
-
-                    dataframe = compute_fairness(
+                    # Use the library's plotting/computation function
+                    fig, ax, combined_df = plot_multi_attribute_fairness(
                         partitioner=part_obj,
-                        partitioner_test=part_obj,
-                        model=model_instance,
-                        sens_att=sens_att_to_use,
-                        fairness_metric=fairness_metric,
+                        partitioner_test=part_obj, # compute_multi_fairness handles the model/data bias
                         label_name=fds.label_column,
-                        size_unit=size_unit,
+                        sens_atts=selected_eval_atts,
+                        fairness_metric=metric,
                         max_num_partitions=max_parts_eval,
-                        progress_callback=progress_callback,
+                        model=model_instance,
                         fds=fds,
                         split=train_split,
                         test_split=test_split,
-                        sens_cols=sens_cols_to_drop,
+                        figsize=(12, 6),
+                        title=f"{metric} Comparison - {split}"
                     )
-                    # Rename index to include split name
-                    dataframe.index = [f"{split}_{i}" for i in dataframe.index]
-                    all_results.append(dataframe)
-
-                progress_bar.empty()
-                return pd.concat(all_results)
-
-            def get_display_df(df, unit):
-                cols_to_keep = []
-                if unit == "attribute":
-                    cols_to_keep = [df.columns[0]]
-                elif unit == "value":
-                    cols_to_keep = [df.columns[0], df.columns[1]]
-                else:
-                    # For attribute-value, keep all fairness columns (those before Accuracy/Sample Count)
-                    cols_to_keep = [c for c in df.columns if c not in ["Accuracy", "Sample Count"]]
-
-                if "Accuracy" in df.columns:
-                    cols_to_keep.append("Accuracy")
-                if "Sample Count" in df.columns:
-                    cols_to_keep.append("Sample Count")
-
-                return df[cols_to_keep]
-
-            # Plotting Helper
-            import matplotlib.patches as mpatches
-
-            def plot_with_colors(df, col_name, ax, ylabel):
-                group_ids = []
-                for idx in df.index:
-                    parts = idx.rsplit("_", 1)
-                    if len(parts) == 2:  # noqa: PLR2004
-                        split, pid_str = parts
-                        pid = int(pid_str)
-                        # Determine Group ID
-                        mod_key = None
-                        if fds._client_names and pid < len(fds._client_names):
-                            mod_key = fds._client_names[pid]
-
-                        # Type check for modification_dict
-                        mod_dict = fds._modification_dict
-
-                        if mod_dict is not None and (mod_key is None or mod_key not in mod_dict) and pid in mod_dict:
-                            mod_key = pid
-
-                        g_id = "Default"
-                        if mod_dict is not None and mod_key is not None and mod_key in mod_dict:
-                            inner = next(iter(mod_dict[mod_key].values()))
-                            g_id = inner.get("group_id", "Default")
-                        group_ids.append(g_id)
-                    else:
-                        group_ids.append("Default")
-
-                unique_groups = sorted(set(group_ids))
-                palette = [
-                    "#1f77b4",
-                    "#ff7f0e",
-                    "#2ca02c",
-                    "#d62728",
-                    "#9467bd",
-                    "#8c564b",
-                    "#e377c2",
-                    "#7f7f7f",
-                    "#bcbd22",
-                    "#17becf",
-                ]
-                group_color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
-
-                bar_colors = [group_color_map[g] for g in group_ids]
-
-                df[col_name].plot(kind="bar", ax=ax, color=bar_colors)
-                ax.set_ylabel(ylabel)
-                ax.set_xlabel("Partition ID (State_ID)")
-                plt.xticks(rotation=45, ha="right")
-
-                handles = [mpatches.Patch(color=group_color_map[g], label=g) for g in unique_groups]
-                ax.legend(handles=handles, title="Groups")
+                    
+                    # Prefix index with split name if multiple splits
+                    if len(splits) > 1:
+                        combined_df.index = [f"{split}_{i}" for i in combined_df.index]
+                    
+                    all_combined_dfs.append(combined_df)
+                    st.pyplot(fig)
+                
+                return pd.concat(all_combined_dfs)
 
             # 1. Dataset Fairness (DP only)
             if fairness_metric == "DP":
                 st.subheader("Dataset Fairness (Bias)")
                 with st.spinner("Computing Dataset Bias..."):
-                    df_data_fairness = compute_all_fairness(splits_to_eval, model_class=None)
-
-                disp_data_df = get_display_df(df_data_fairness, size_unit)
-                st.dataframe(disp_data_df)
-
-                fig_d, ax_d = plt.subplots(figsize=(10, 5))
-                metric_col = disp_data_df.columns[0]
-                if metric_col in disp_data_df.columns:
-                    plot_with_colors(disp_data_df, metric_col, ax_d, "Demographic Parity Difference")
-                    st.pyplot(fig_d)
+                    df_data_fairness = run_multi_evaluation(splits_to_eval, model_class=None, metric="DP")
+                st.dataframe(df_data_fairness)
             elif not train_model_opt:
                 st.warning(f"Metric '{fairness_metric}' requires a model. Please select 'Train Model for Fairness?'.")
 
@@ -611,30 +523,18 @@ if st.button("Load and Evaluate"):
                 st.markdown("---")
                 st.subheader(f"Model Fairness ({fairness_metric})")
 
-                # Choose class
-                m_class = None
-                if model_choice == "LogisticRegression":
-                    m_class = LogisticRegression
-                elif model_choice == "DecisionTree":
-                    m_class = DecisionTreeClassifier
+                m_class = LogisticRegression if model_choice == "LogisticRegression" else DecisionTreeClassifier
 
                 with st.spinner("Training Model & Computing Fairness..."):
-                    df_model_fairness = compute_all_fairness(splits_to_eval, model_class=m_class)
+                    df_model_fairness = run_multi_evaluation(splits_to_eval, model_class=m_class, metric=fairness_metric)
+                
+                st.dataframe(df_model_fairness)
 
-                disp_model_df = get_display_df(df_model_fairness, size_unit)
-                st.dataframe(disp_model_df)
-
-                fig_m, ax_m = plt.subplots(figsize=(10, 5))
-                metric_col_m = disp_model_df.columns[0]
-                if metric_col_m in disp_model_df.columns:
-                    plot_with_colors(disp_model_df, metric_col_m, ax_m, f"{fairness_metric} Difference")
-                    st.pyplot(fig_m)
-
-                if "Accuracy" in disp_model_df.columns:
+                if "Accuracy" in df_model_fairness.columns:
                     st.subheader("Model Accuracy")
-                    fig_a, ax_a = plt.subplots(figsize=(10, 5))
-                    plot_with_colors(disp_model_df, "Accuracy", ax_a, "Accuracy")
-                    st.pyplot(fig_a)
+                    # Simple plot for accuracy
+                    acc_df = df_model_fairness[["Accuracy"]]
+                    st.bar_chart(acc_df)
 
         except Exception as e:  # noqa: BLE001
             st.error(f"An error occurred: {e}")

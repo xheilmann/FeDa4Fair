@@ -141,7 +141,7 @@ def flip_data(
         return df
 
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index
-    df.loc[rows_to_flip, label_column] = False
+    df.loc[rows_to_flip, label_column] = 0
 
     return df
 
@@ -369,6 +369,103 @@ def generate_bias_by_groups(
                     "mitigate": config.get("mitigate", False),
                 }
             }
+            current_client_idx += 1
+
+    return mod_dict
+
+
+def generate_multiobjective_bias(
+    num_total_clients: int,
+    group_configs: list[dict[str, Any]],
+    client_names: list[str | int] | None = None,
+) -> dict[Any, dict[str, Any]]:
+    """
+    Generates a modification dictionary for multi-objective fairness scenarios.
+    Allows defining multiple attribute modifications per group (mitigation or bias injection).
+
+    Parameters
+    ----------
+    num_total_clients : int
+        Total number of clients.
+    group_configs : list[dict]
+        List of group configurations. Each dict must contain:
+        - "group_id": str
+        - "num_clients": int
+        - "configs": list[dict]
+            Each config in the list targets an attribute:
+            - "attribute": str (Sensitive attribute name)
+            - "mitigate": bool (Optional, defaults to False)
+            - "value": Any (Target value for bias injection)
+            - "drop_mean", "drop_std": float (For bias injection)
+            - "flip_mean", "flip_std": float (For bias injection)
+            - "secondary_attribute", "secondary_value": (Optional)
+    client_names : list, optional
+        List of client names/IDs.
+
+    Returns
+    -------
+    dict
+        Modification dictionary compatible with FairFederatedDataset.
+    """
+    sum_clients = sum(g["num_clients"] for g in group_configs)
+    if sum_clients != num_total_clients:
+        msg = f"Sum of group clients ({sum_clients}) must equal total clients ({num_total_clients})"
+        raise ValueError(msg)
+
+    mod_dict = {}
+    client_ids = client_names if client_names else list(range(num_total_clients))
+    current_client_idx = 0
+
+    def get_tn_samples(mean, std, n):
+        if std <= 0:
+            return [mean] * n
+        # Bounds for [0, 1]
+        a, b = (0 - mean) / std, (1 - mean) / std
+        return truncnorm.rvs(a, b, loc=mean, scale=std, size=n)
+
+    for group in group_configs:
+        num_g = group["num_clients"]
+        group_id = group.get("group_id", "Unknown")
+        configs = group.get("configs", [])
+
+        # Pre-calculate samples for each config for this group
+        # This structure: samples_by_config[config_idx] = {"drop": [...], "flip": [...]}
+        samples_by_config = []
+        for conf in configs:
+            if conf.get("mitigate", False):
+                samples_by_config.append(None) # No sampling needed
+            else:
+                d_mean = conf.get("drop_mean", 0.0)
+                d_std = conf.get("drop_std", 0.0)
+                f_mean = conf.get("flip_mean", 0.0)
+                f_std = conf.get("flip_std", 0.0)
+                
+                samples_by_config.append({
+                    "drop": get_tn_samples(d_mean, d_std, num_g),
+                    "flip": get_tn_samples(f_mean, f_std, num_g)
+                })
+
+        # Assign to clients
+        for i in range(num_g):
+            c_id = client_ids[current_client_idx]
+            mod_dict[c_id] = {}
+            
+            for idx, conf in enumerate(configs):
+                attr = conf["attribute"]
+                
+                if conf.get("mitigate", False):
+                    mod_dict[c_id][attr] = {"mitigate": True}
+                else:
+                    samples = samples_by_config[idx]
+                    mod_dict[c_id][attr] = {
+                        "drop_rate": float(samples["drop"][i]),
+                        "flip_rate": float(samples["flip"][i]),
+                        "value": conf.get("value"),
+                        "attribute": conf.get("secondary_attribute"),
+                        "attribute_value": conf.get("secondary_value"),
+                        "group_id": group_id
+                    }
+            
             current_client_idx += 1
 
     return mod_dict

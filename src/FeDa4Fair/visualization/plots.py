@@ -277,6 +277,83 @@ def _prepare_fairness_partitioners(partitioner_dict, model):
     return p_list, p_list_val
 
 
+def plot_multi_attribute_fairness(
+    partitioner: Partitioner,
+    partitioner_test: Partitioner,
+    label_name: str,
+    sens_atts: list[str],
+    fairness_metric: Literal["DP", "EO"] = "DP",
+    max_num_partitions: int | None = None,
+    model: Any | None = None,
+    size_unit: Literal["value", "attribute"] = "attribute",
+    fds: Any | None = None,
+    split: str | None = None,
+    test_split: str | None = None,
+    figsize: tuple[float, float] | None = None,
+    title: str | None = None,
+    cmap: str | list[str] | None = None,
+    legend: bool = True,
+    **plot_kwargs: Any,
+) -> tuple[Figure, Axes, pd.DataFrame]:
+    """
+    Plot fairness metrics for multiple sensitive attributes side-by-side for each partition.
+    """
+    from FeDa4Fair.metrics.fairness import compute_multi_fairness
+
+    combined_df = compute_multi_fairness(
+        partitioner=partitioner,
+        partitioner_test=partitioner_test,
+        model=model,
+        sens_atts=sens_atts,
+        fairness_metric=fairness_metric,
+        label_name=label_name,
+        max_num_partitions=max_num_partitions,
+        size_unit=size_unit,
+        fds=fds,
+        split=split,
+        test_split=test_split
+    )
+
+    # Extract only the metric columns for plotting
+    metric_cols = [f"{attr}_{fairness_metric}" for attr in sens_atts]
+    plot_df = combined_df[metric_cols].copy()
+    # Rename columns for cleaner legend
+    plot_df.columns = sens_atts
+
+    # Plotting
+    if figsize is None:
+        num_partitions = len(plot_df)
+        figsize = (max(8.0, num_partitions * 0.5), 6.0)
+
+    fig, ax = plt.subplots(figsize=figsize, layout="constrained")
+    
+    if title is None:
+        title = f"{fairness_metric} by Attribute per Partition"
+
+    plot_df.plot(
+        kind="bar",
+        ax=ax,
+        color=cmap,
+        width=0.8,
+        **plot_kwargs
+    )
+
+    ax.set_title(title)
+    ax.set_ylabel(f"{fairness_metric} Difference")
+    ax.set_xlabel("Partition ID")
+    
+    if legend:
+        ax.legend(title="Sensitive Attribute")
+        
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    if len(plot_df) * len(sens_atts) < 50:
+        for container in ax.containers:
+            ax.bar_label(container, fmt='%.2f', padding=3)
+
+    return fig, ax, combined_df
+
+
 def _plot_all_fairness_distributions(
     p_list,
     p_list_val,

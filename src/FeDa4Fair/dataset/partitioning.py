@@ -28,7 +28,18 @@ class RepresentativeDiversityPartitioner(Partitioner):
 
     @property
     def num_partitions(self) -> int:
+        """Return the number of partitions."""
         return self._num_partitions
+
+    @property
+    def partition_by(self) -> list[str]:
+        """Return the columns used for partitioning."""
+        return self._partition_by
+
+    @property
+    def seed(self) -> int | None:
+        """Return the random seed."""
+        return self._seed
 
     def _determine_strata(self) -> None:
         """

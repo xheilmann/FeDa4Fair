@@ -520,21 +520,26 @@ class FairFederatedDataset(FederatedDataset):
         """Helper to prepare generic Hugging Face datasets."""
         # Load dataset using Hugging Face datasets library
 
-        # Check if we need to load all splits and merge them
-        if self._load_dataset_kwargs.get("split") == "all":
-            loaded_data = self._load_and_merge_all_splits()
+        if self._preloaded_data is not None:
+            self._dataset = DatasetDict()
+            for split_name, split_df in self._preloaded_data.items():
+                self._dataset[split_name] = Dataset.from_pandas(split_df)
         else:
-            loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
+            # Check if we need to load all splits and merge them
+            if self._load_dataset_kwargs.get("split") == "all":
+                loaded_data = self._load_and_merge_all_splits()
+            else:
+                loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
 
-        if isinstance(loaded_data, Dataset):
-            # If a single split is returned, wrap it in a DatasetDict
-            split_name = self._load_dataset_kwargs.get("split", "train")
-            self._dataset = DatasetDict({str(split_name): loaded_data})
-        elif isinstance(loaded_data, DatasetDict):
-            self._dataset = loaded_data
-        else:
-            msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
-            raise TypeError(msg)
+            if isinstance(loaded_data, Dataset):
+                # If a single split is returned, wrap it in a DatasetDict
+                split_name = self._load_dataset_kwargs.get("split", "train")
+                self._dataset = DatasetDict({str(split_name): loaded_data})
+            elif isinstance(loaded_data, DatasetDict):
+                self._dataset = loaded_data
+            else:
+                msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
+                raise TypeError(msg)
 
         # Apply modifications if specified (assuming tabular/pandas compatible for now)
         if self._modification_dict:

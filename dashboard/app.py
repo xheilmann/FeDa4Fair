@@ -333,18 +333,15 @@ bias_atts = []
 if inject_bias and "bias_groups" in st.session_state:
     for group in st.session_state.bias_groups:
         configs = group.get("configs", [])
-        for conf in configs:
-            if isinstance(conf, dict) and "attribute" in conf:
-                bias_atts.append(conf["attribute"])
+        bias_atts.extend(conf["attribute"] for conf in configs if isinstance(conf, dict) and "attribute" in conf)
 
 # 3. Support custom attributes via text input
 if "custom_eval_atts" not in st.session_state:
     st.session_state.custom_eval_atts = []
 
 new_att = st.sidebar.text_input("Add Custom Attribute to Evaluate", help="Type attribute name and press Enter.")
-if new_att and new_att.strip():
-    if new_att not in st.session_state.custom_eval_atts:
-        st.session_state.custom_eval_atts.append(new_att.strip())
+if new_att and new_att.strip() and new_att not in st.session_state.custom_eval_atts:
+    st.session_state.custom_eval_atts.append(new_att.strip())
 
 all_possible_atts = list(set(initial_atts + bias_atts + st.session_state.custom_eval_atts))
 if "ACS" in dataset_name:

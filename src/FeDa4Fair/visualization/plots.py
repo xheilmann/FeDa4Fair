@@ -56,7 +56,48 @@ def plot_comparison_label_distribution(
     plot_kwargs_list: list[dict[str, Any] | None] | None = None,
     legend_kwargs: dict[Any, Any] | None = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
-    """Compare the label_name distribution across multiple partitioners."""
+    """
+    Compare the label_name distribution across multiple partitioners.
+
+    Parameters
+    ----------
+    partitioner_list : list[Partitioner]
+        List of partitioners to compare.
+    label_name : str | list[str]
+        Name of the label column or list of names matching the partitioners.
+    plot_type : Literal["bar", "heatmap"], default="bar"
+        The type of plot to generate.
+    size_unit : Literal["percent", "absolute"], default="percent"
+        Whether to show percentages or absolute counts.
+    max_num_partitions : int, optional
+        Maximum number of partitions to display.
+    partition_id_axis : Literal["x", "y"], default="y"
+        The axis on which to display the partition IDs.
+    figsize : tuple[float, float], optional
+        Figure size.
+    subtitle : str, default="Comparison of Per Partition Label Distribution"
+        Subtitle for the entire figure.
+    titles : list[str], optional
+        List of titles for each subplot.
+    cmap : str | mcolors.Colormap, optional
+        Colormap for the plot.
+    legend : bool, default=False
+        Whether to display a legend.
+    legend_title : str, optional
+        Title for the legend.
+    verbose_labels : bool, default=False
+        Whether to use verbose labels from ClassLabel.
+    plot_kwargs_list : list[dict[str, Any]], optional
+        List of keyword arguments for each plot.
+    legend_kwargs : dict[Any, Any], optional
+        Keyword arguments for the legend.
+
+    Returns
+    -------
+    tuple[Figure, list[Axes], list[pd.DataFrame]]
+        The figure, axes, and DataFrames used for plotting.
+
+    """
     event(
         EventType.PLOT_COMPARISON_LABEL_DISTRIBUTION_CALLED,
         {
@@ -160,7 +201,52 @@ def plot_fairness_distributions(
     model: Any | None = None,
     sens_cols: list[str] | None = None,
 ) -> tuple[Figure, Axes, pd.DataFrame]:
-    """Plot fairness metric distributions across dataset partitions."""
+    """
+    Plot fairness metric distributions across dataset partitions.
+
+    Parameters
+    ----------
+    partitioner : Partitioner
+        The partitioner for training/reference data.
+    partitioner_test : Partitioner
+        The partitioner for testing data.
+    label_name : str
+        Name of the label column.
+    sens_att : str | list[str]
+        Sensitive attribute(s) to evaluate.
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+        The level of detail for the metric.
+    max_num_partitions : int, optional
+        Maximum number of partitions to evaluate.
+    partition_id_axis : str, default="x"
+        Axis for partition IDs.
+    axis : Axes, optional
+        Matplotlib axis to plot on.
+    figsize : tuple[float, float], optional
+        Figure size.
+    title : str, default="Per Partition Fairness Distribution"
+        Title for the plot.
+    cmap : str | mcolors.Colormap, optional
+        Colormap for the heatmap.
+    legend : bool, default=False
+        Whether to show the legend.
+    plot_kwargs : dict[str, Any], optional
+        Arguments for the heatmap plot.
+    legend_kwargs : dict[Any, Any], optional
+        Arguments for the legend.
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        The fairness metric to compute.
+    model : Any, optional
+        Model to evaluate. If None, evaluates data bias.
+    sens_cols : list[str], optional
+        Sensitive columns to drop during model training.
+
+    Returns
+    -------
+    tuple[Figure, Axes, pd.DataFrame]
+        The figure, axis, and DataFrame with results.
+
+    """
     dataframe = compute_fairness(
         partitioner=partitioner,
         partitioner_test=partitioner_test,
@@ -232,7 +318,52 @@ def plot_comparison_fairness_distribution(
     model: Any | None = None,
     intersectional_fairness: list[str] | None = None,
 ) -> tuple[Figure, list[Axes], list[pd.DataFrame]]:
-    """Compare fairness metric distributions across multiple partitioners."""
+    """
+    Compare fairness metric distributions across multiple partitioners.
+
+    Parameters
+    ----------
+    partitioner_dict : dict[str, Partitioner]
+        Dictionary mapping split names to partitioners.
+    max_num_partitions : int, default=30
+        Maximum number of partitions to display.
+    label_name : str, default="ECP"
+        Name of the label column.
+    sens_att : str, default="SEX"
+        Sensitive attribute to evaluate.
+    sens_cols : str | list[str], optional
+        Columns to drop from features during model training.
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        The fairness metric to compute.
+    size_unit : Literal["value", "attribute", "attribute-value"], default="attribute"
+        The level of detail for the metric.
+    partition_id_axis : Literal["x", "y"], default="y"
+        Axis for partition IDs.
+    figsize : tuple[float, float], optional
+        Figure size.
+    subtitle : str, default="Fairness Distribution Per Partition"
+        Subtitle for the entire figure.
+    titles : list[str], optional
+        Titles for individual subplots.
+    cmap : str | mcolors.Colormap, optional
+        Colormap for the heatmaps.
+    legend : bool, default=False
+        Whether to show the legend.
+    plot_kwargs_list : list[dict[str, Any]], optional
+        Arguments for each heatmap.
+    legend_kwargs : dict[Any, Any], optional
+        Arguments for the legend.
+    model : Any, optional
+        Model to evaluate. If None, evaluates data bias.
+    intersectional_fairness : list[str], optional
+        Attributes for intersectional evaluation.
+
+    Returns
+    -------
+    tuple[Figure, list[Axes], list[pd.DataFrame]]
+        The figure, list of axes, and DataFrames with results.
+
+    """
     eff_sens_cols = [sens_cols] if isinstance(sens_cols, str) else (sens_cols or ["SEX", "MAR", "RAC1P"])
     p_list, p_list_val = _prepare_fairness_partitioners(partitioner_dict, model)
     num_p = len(p_list)
@@ -303,7 +434,51 @@ def plot_multi_attribute_fairness(
 ) -> tuple[Figure, Axes, pd.DataFrame]:
     """
     Plot fairness metrics for multiple sensitive attributes side-by-side for each partition.
-    When size_unit='value', it shows two bars per attribute representing the bias toward each group.
+
+    When `size_unit='value'`, it shows two bars per attribute representing the bias toward each group.
+
+    Parameters
+    ----------
+    partitioner : Partitioner
+        The partitioner for training/reference data.
+    partitioner_test : Partitioner
+        The partitioner for testing data.
+    label_name : str
+        Name of the label column.
+    sens_atts : list[str]
+        List of sensitive attributes to evaluate independently.
+    fairness_metric : Literal["DP", "EO"], default="DP"
+        The fairness metric to compute.
+    max_num_partitions : int, optional
+        Maximum number of partitions to evaluate.
+    model : Any, optional
+        The model to evaluate. If None, evaluates data bias.
+    size_unit : Literal["value", "attribute"], default="attribute"
+        The level of detail for the metric. 'value' enables dual bars and colored bias direction.
+    fds : Any, optional
+        FairFederatedDataset instance to use for partition loading.
+    split : str, optional
+        Split name for the training data.
+    test_split : str, optional
+        Split name for the testing data.
+    figsize : tuple[float, float], optional
+        Figure size.
+    title : str, optional
+        Plot title.
+    cmap : str | list[str], optional
+        Colors for the bars.
+    legend : bool, default=True
+        Whether to show the legend.
+    value_colors : dict[Any, str], optional
+        Mapping of attribute values to colors (e.g., {0: 'red', 1: 'blue'}) for 'value' level.
+    **plot_kwargs
+        Additional arguments passed to the plotting function.
+
+    Returns
+    -------
+    tuple[Figure, Axes, pd.DataFrame]
+        The figure, axis, and combined DataFrame with results.
+
     """
     from FeDa4Fair.metrics.fairness import compute_multi_fairness
 
@@ -341,7 +516,25 @@ def plot_multi_attribute_fairness(
 
 
 def _configure_multi_attribute_axis(ax, plot_df, title, metric, bar_colors, **plot_kwargs):
-    """Configure axis labels and titles for multi-attribute plot."""
+    """
+    Configure axis labels and titles for multi-attribute plot.
+
+    Parameters
+    ----------
+    ax : Axes
+        The matplotlib axis to configure.
+    plot_df : pd.DataFrame
+        DataFrame containing metrics to plot.
+    title : str, optional
+        The title for the plot.
+    metric : str
+        The name of the metric (DP or EO).
+    bar_colors : list[str] | list[list[str]]
+        Colors for the individual bars.
+    **plot_kwargs
+        Keyword arguments for the bar plot.
+
+    """
     ax.set_title(title or f"{metric} by Attribute per Partition")
     x = np.arange(len(plot_df))
     width = 0.8 / len(plot_df.columns)
@@ -356,7 +549,19 @@ def _configure_multi_attribute_axis(ax, plot_df, title, metric, bar_colors, **pl
 
 
 def _add_multi_attribute_legend(ax, size_unit, value_colors):
-    """Add appropriate legend to multi-attribute plot."""
+    """
+    Add appropriate legend to multi-attribute plot.
+
+    Parameters
+    ----------
+    ax : Axes
+        The matplotlib axis.
+    size_unit : str
+        The level of detail.
+    value_colors : dict[Any, str], optional
+        Custom color mapping for values.
+
+    """
     if size_unit == "value" and value_colors:
         val_handles = [mpatches.Patch(color=color, label=f"Bias toward {val}") for val, color in value_colors.items()]
         ax.legend(handles=val_handles, title="Legend")

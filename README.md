@@ -296,6 +296,12 @@ You can find a complete example in the [Dutch value notebook](examples/dutch_val
 ## How to use the dashboard
 
 FeDa4Fair includes a dashboard for easily split dataset into clients and visualize fairness metrics.
+
+| :warning: WARNING           |
+|:----------------------------|
+| The dashboard is still in an early development stage, and some features may not work as expected. |
+
+
 To launch the dashboard, run the following command from the dashboard folder:
 
 ```

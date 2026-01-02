@@ -433,26 +433,25 @@ def generate_multiobjective_bias(
         samples_by_config = []
         for conf in configs:
             if conf.get("mitigate", False):
-                samples_by_config.append(None) # No sampling needed
+                samples_by_config.append(None)  # No sampling needed
             else:
                 d_mean = conf.get("drop_mean", 0.0)
                 d_std = conf.get("drop_std", 0.0)
                 f_mean = conf.get("flip_mean", 0.0)
                 f_std = conf.get("flip_std", 0.0)
-                
-                samples_by_config.append({
-                    "drop": get_tn_samples(d_mean, d_std, num_g),
-                    "flip": get_tn_samples(f_mean, f_std, num_g)
-                })
+
+                samples_by_config.append(
+                    {"drop": get_tn_samples(d_mean, d_std, num_g), "flip": get_tn_samples(f_mean, f_std, num_g)}
+                )
 
         # Assign to clients
         for i in range(num_g):
             c_id = client_ids[current_client_idx]
             mod_dict[c_id] = {}
-            
+
             for idx, conf in enumerate(configs):
                 attr = conf["attribute"]
-                
+
                 if conf.get("mitigate", False):
                     mod_dict[c_id][attr] = {"mitigate": True}
                 else:
@@ -463,9 +462,9 @@ def generate_multiobjective_bias(
                         "value": conf.get("value"),
                         "attribute": conf.get("secondary_attribute"),
                         "attribute_value": conf.get("secondary_value"),
-                        "group_id": group_id
+                        "group_id": group_id,
                     }
-            
+
             current_client_idx += 1
 
     return mod_dict

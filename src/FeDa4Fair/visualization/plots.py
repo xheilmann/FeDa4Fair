@@ -317,7 +317,7 @@ def plot_multi_attribute_fairness(
             size_unit="attribute-value",
             fds=fds,
             split=split,
-            test_split=test_split
+            test_split=test_split,
         )
 
         plot_data = {}
@@ -326,11 +326,12 @@ def plot_multi_attribute_fairness(
         for attr in sens_atts:
             pattern = f"{attr}_"
             attr_cols = [c for c in combined_df.columns if c.startswith(pattern)]
-            
+
             # The magnitude is the max disparity
             plot_data[attr] = combined_df[attr_cols].max(axis=1)
 
             if value_colors:
+
                 def get_row_color(row):
                     if row.max() <= 0:
                         return "gray"
@@ -346,7 +347,7 @@ def plot_multi_attribute_fairness(
 
                 attr_colors = [get_row_color(r) for _, r in combined_df[attr_cols].iterrows()]
                 all_bar_colors.append(attr_colors)
-        
+
         plot_df = pd.DataFrame(plot_data)
         bar_colors = all_bar_colors
     else:
@@ -361,7 +362,7 @@ def plot_multi_attribute_fairness(
             size_unit=size_unit,
             fds=fds,
             split=split,
-            test_split=test_split
+            test_split=test_split,
         )
         metric_cols = [f"{attr}_{fairness_metric}" for attr in sens_atts]
         plot_df = combined_df[metric_cols].copy()
@@ -373,33 +374,36 @@ def plot_multi_attribute_fairness(
         figsize = (max(8.0, num_partitions * 0.5), 6.0)
 
     fig, ax = plt.subplots(figsize=figsize, layout="constrained")
-    
+
     if title is None:
         title = f"{fairness_metric} by Attribute per Partition"
 
     x = np.arange(len(plot_df))
     width = 0.8 / len(sens_atts)
-    
+
     for i, attr in enumerate(sens_atts):
         pos = x - 0.4 + (i + 0.5) * width
         color = bar_colors[i] if isinstance(bar_colors, list) and i < len(bar_colors) else None
         bars = ax.bar(pos, plot_df[attr], width, label=attr, color=color, **plot_kwargs)
         if len(plot_df) * len(sens_atts) < 50:
-            ax.bar_label(bars, fmt='%.2f', padding=3)
+            ax.bar_label(bars, fmt="%.2f", padding=3)
 
     ax.set_title(title)
     ax.set_ylabel(f"{fairness_metric} Difference")
     ax.set_xlabel("Partition ID")
-    
+
     if legend:
         if size_unit == "value" and value_colors:
             import matplotlib.patches as mpatches
-            val_handles = [mpatches.Patch(color=color, label=f"Bias toward {val}") for val, color in value_colors.items()]
+
+            val_handles = [
+                mpatches.Patch(color=color, label=f"Bias toward {val}") for val, color in value_colors.items()
+            ]
             ax.legend(handles=val_handles, title="Legend")
         else:
             ax.legend(title="Sensitive Attribute")
-        
-    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    ax.grid(axis="y", linestyle="--", alpha=0.7)
 
     return fig, ax, combined_df
 

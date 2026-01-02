@@ -130,7 +130,12 @@ partition_strategy = st.sidebar.selectbox(
 )
 
 # FL Setting Selection
-fl_setting = st.sidebar.selectbox("FL Setting", ["cross-device", "cross-silo"], index=0, help="In cross-silo, each client has a train and test set. In cross-device, each client only has a train set.")
+fl_setting = st.sidebar.selectbox(
+    "FL Setting",
+    ["cross-device", "cross-silo"],
+    index=0,
+    help="In cross-silo, each client has a train and test set. In cross-device, each client only has a train set.",
+)
 
 perc_train_test = None
 if fl_setting == "cross-silo":
@@ -205,7 +210,7 @@ if inject_bias:
                         "flip_std": 0.02,
                         "mitigate": False,
                     }
-                ]
+                ],
             }
         ]
 
@@ -213,14 +218,27 @@ if inject_bias:
     col_add, col_rem = st.sidebar.columns(2)
     if col_add.button("+ Add Group"):
         import string
+
         letters = string.ascii_uppercase
         current_len = len(st.session_state.bias_groups)
         new_name = f"Group {letters[current_len]}" if current_len < 26 else f"Group {current_len + 1}"
-        st.session_state.bias_groups.append({
-            "group_id": new_name,
-            "num_clients": 0,
-            "configs": [{"attribute": "sex_binary", "value": 1, "drop_mean": 0.0, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0, "mitigate": False}]
-        })
+        st.session_state.bias_groups.append(
+            {
+                "group_id": new_name,
+                "num_clients": 0,
+                "configs": [
+                    {
+                        "attribute": "sex_binary",
+                        "value": 1,
+                        "drop_mean": 0.0,
+                        "drop_std": 0.0,
+                        "flip_mean": 0.0,
+                        "flip_std": 0.0,
+                        "mitigate": False,
+                    }
+                ],
+            }
+        )
 
     if col_rem.button("- Remove Group") and len(st.session_state.bias_groups) > 1:
         st.session_state.bias_groups.pop()
@@ -231,25 +249,35 @@ if inject_bias:
         with st.sidebar.expander(f"⚙️ {group['group_id']}", expanded=(g_idx == 0)):
             g_id = st.text_input("Group Name", group["group_id"], key=f"id_{g_idx}")
             n_c = st.number_input("Clients in Group", 0, 1000, group["num_clients"], key=f"nc_{g_idx}")
-            
+
             st.markdown("---")
             st.markdown("**Attribute Tasks**")
-            
+
             # Sub-UI for configs within group
             current_configs = group.get("configs", [])
-            
+
             c_add, c_rem = st.columns(2)
             if c_add.button(f"Add Task to {g_id}", key=f"add_c_{g_idx}"):
-                current_configs.append({"attribute": "sex_binary", "value": 1, "drop_mean": 0.0, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0, "mitigate": False})
+                current_configs.append(
+                    {
+                        "attribute": "sex_binary",
+                        "value": 1,
+                        "drop_mean": 0.0,
+                        "drop_std": 0.0,
+                        "flip_mean": 0.0,
+                        "flip_std": 0.0,
+                        "mitigate": False,
+                    }
+                )
             if c_rem.button(f"Remove Task from {g_id}", key=f"rem_c_{g_idx}") and len(current_configs) > 1:
                 current_configs.pop()
-            
+
             final_group_configs = []
             for c_idx, conf in enumerate(current_configs):
                 st.markdown(f"**Task {c_idx + 1}**")
                 attr = st.text_input("Attribute", conf["attribute"], key=f"attr_{g_idx}_{c_idx}")
                 mitigate = st.checkbox("Mitigate Bias?", conf["mitigate"], key=f"mit_{g_idx}_{c_idx}")
-                
+
                 if not mitigate:
                     val = st.number_input("Target Value", value=conf.get("value", 1), key=f"val_{g_idx}_{c_idx}")
                     c1, c2 = st.columns(2)
@@ -257,19 +285,22 @@ if inject_bias:
                     d_s = c2.number_input("Drop Std", 0.0, 1.0, conf["drop_std"], key=f"ds_{g_idx}_{c_idx}")
                     f_m = c1.number_input("Flip Mean", 0.0, 1.0, conf["flip_mean"], key=f"fm_{g_idx}_{c_idx}")
                     f_s = c2.number_input("Flip Std", 0.0, 1.0, conf["flip_std"], key=f"fs_{g_idx}_{c_idx}")
-                    
-                    final_group_configs.append({
-                        "attribute": attr, "value": val, "mitigate": False,
-                        "drop_mean": d_m, "drop_std": d_s, "flip_mean": f_m, "flip_std": f_s
-                    })
+
+                    final_group_configs.append(
+                        {
+                            "attribute": attr,
+                            "value": val,
+                            "mitigate": False,
+                            "drop_mean": d_m,
+                            "drop_std": d_s,
+                            "flip_mean": f_m,
+                            "flip_std": f_s,
+                        }
+                    )
                 else:
                     final_group_configs.append({"attribute": attr, "mitigate": True})
-            
-            group_configs.append({
-                "group_id": g_id,
-                "num_clients": n_c,
-                "configs": final_group_configs
-            })
+
+            group_configs.append({"group_id": g_id, "num_clients": n_c, "configs": final_group_configs})
 
     # Validate Sum
     expected_total = len(selected_states) * num_partitions if selected_states else num_partitions
@@ -441,28 +472,26 @@ if st.button("Load and Evaluate"):
 
             # Evaluate Fairness
             st.sidebar.subheader("Multi-Attribute Evaluation")
-            
+
             # Dynamically determine attributes to evaluate
             # 1. Start with attributes from Dataset Configuration
             initial_atts = sensitive_attributes if sensitive_attributes else []
             if dataset_name in ["ACSIncome", "ACSEmployment"] and not initial_atts:
                 initial_atts = ["SEX", "MAR", "RAC1P"]
-            
+
             # 2. Add attributes used in Bias Injection groups
             bias_atts = []
             if inject_bias:
-                for group in group_configs: # group_configs is already built from st.session_state.bias_groups
+                for group in group_configs:  # group_configs is already built from st.session_state.bias_groups
                     for conf in group.get("configs", []):
                         bias_atts.append(conf["attribute"])
-            
+
             all_possible_atts = list(set(initial_atts + bias_atts))
             if not all_possible_atts:
-                all_possible_atts = ["sex_binary"] # Fallback
-            
+                all_possible_atts = ["sex_binary"]  # Fallback
+
             selected_eval_atts = st.sidebar.multiselect(
-                "Attributes to Evaluate", 
-                sorted(all_possible_atts), 
-                default=sorted(all_possible_atts)
+                "Attributes to Evaluate", sorted(all_possible_atts), default=sorted(all_possible_atts)
             )
 
             # Determine which splits to evaluate
@@ -504,15 +533,15 @@ if st.button("Load and Evaluate"):
                         figsize=(12, 6),
                         title=f"{metric} Comparison - {split}",
                         size_unit=size_unit,
-                        value_colors=val_colors
+                        value_colors=val_colors,
                     )
-                    
+
                     if len(splits) > 1:
                         combined_df.index = [f"{split}_{i}" for i in combined_df.index]
-                    
+
                     all_combined_dfs.append(combined_df)
                     st.pyplot(fig)
-                
+
                 return pd.concat(all_combined_dfs)
 
             # 1. Dataset Fairness (DP only)
@@ -532,8 +561,10 @@ if st.button("Load and Evaluate"):
                 m_class = LogisticRegression if model_choice == "LogisticRegression" else DecisionTreeClassifier
 
                 with st.spinner("Training Model & Computing Fairness..."):
-                    df_model_fairness = run_multi_evaluation(splits_to_eval, model_class=m_class, metric=fairness_metric)
-                
+                    df_model_fairness = run_multi_evaluation(
+                        splits_to_eval, model_class=m_class, metric=fairness_metric
+                    )
+
                 st.dataframe(df_model_fairness)
 
                 if "Accuracy" in df_model_fairness.columns:

@@ -205,44 +205,18 @@ def _evaluate_model_on_partition(
 
 
 def compute_multi_fairness(
-
-
     partitioner: Partitioner,
-
-
     partitioner_test: Partitioner,
-
-
     model: Any,
-
-
     sens_atts: list[str],
-
-
     max_num_partitions: int | None = None,
-
-
     fairness_metric: Literal["DP", "EO"] = "DP",
-
-
     label_name: str = "label",
-
-
     size_unit: Literal["value", "attribute"] = "attribute",
-
-
     fds: Any | None = None,
-
-
     split: str | None = None,
-
-
     test_split: str | None = None,
-
-
 ) -> pd.DataFrame:
-
-
     """
 
 
@@ -254,314 +228,143 @@ def compute_multi_fairness(
 
     """
 
-
     num_parts = min(max_num_partitions or float("inf"), partitioner.num_partitions)
-
 
     partition_id_to_results = {}
 
-
-
-
-
     for partition_id in range(int(num_parts)):
-
-
         if fds is not None and split is not None:
-
-
             partition = fds.load_partition(partition_id, split=split)
-
 
             actual_test_split = test_split or split
 
-
             partition_test_data = fds.load_partition(partition_id, split=actual_test_split)
 
-
         else:
-
-
             partition = partitioner.load_partition(partition_id)
-
 
             partition_test_data = partitioner_test.load_partition(partition_id)
 
-
-
-
-
         train_df = partition.to_pandas()
-
 
         test_df = partition_test_data.to_pandas()
 
-
-
-
-
         if not (isinstance(train_df, pd.DataFrame) and isinstance(test_df, pd.DataFrame)):
-
-
             continue
-
-
-
-
 
         # Cleanup index if present
 
-
         for df in [train_df, test_df]:
-
-
             if "__index_level_0__" in df.columns:
-
-
                 df.drop(columns=["__index_level_0__"], inplace=True)
-
-
-
-
 
         res = {"Sample Count": len(train_df)}
 
-
-
-
-
         if model is not None:
-
-
             # Train model once
-
 
             cols_to_drop = [*sens_atts, label_name]
 
-
             x_train = train_df.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include=["number", "bool"])
-
 
             y_train = train_df[label_name].to_numpy().flatten()
 
-
-
-
-
             x_test = test_df.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include=["number", "bool"])
-
 
             y_test = test_df[label_name].to_numpy().flatten()
 
-
-
-
-
             model.fit(x_train, y_train)
-
 
             y_pred = model.predict(x_test)
 
-
             res["Accuracy"] = accuracy_score(y_test, y_pred)
-
-
-
-
 
             # Evaluate for each attribute
 
-
             for attr in sens_atts:
-
-
                 sf_data = test_df[[attr]]
-
 
                 fair_res = _compute_fairness(y_test, y_pred, sf_data, fairness_metric, attr, size_unit)
 
-
                 res.update(fair_res.to_dict())
 
-
         else:
-
-
             # Data bias
-
 
             y_true = train_df[[label_name]]
 
-
             for attr in sens_atts:
-
-
                 sf_data = train_df[[attr]]
-
 
                 fair_res = _compute_fairness(y_true, y_true, sf_data, fairness_metric, attr, size_unit)
 
-
                 res.update(fair_res.to_dict())
-
-
-
-
 
         partition_id_to_results[partition_id] = res
 
-
-
-
-
     dataframe = pd.DataFrame.from_dict(partition_id_to_results, orient="index")
 
-
     dataframe.index.name = "Partition ID"
-
 
     return dataframe
 
 
-
-
-
-
-
-
 def _evaluate_model_on_partition(
-
-
     model, partition, partition_test_data, sens_att, fairness_metric, label_name, sens_cols, size_unit
-
-
 ):
-
-
     train_df, test_df = partition.to_pandas(), partition_test_data.to_pandas()
 
-
     if not (isinstance(train_df, pd.DataFrame) and isinstance(test_df, pd.DataFrame)):
-
-
         msg = "Partition data is not a pandas DataFrame"
-
 
         raise TypeError(msg)
 
-
-
-
-
     # Cleanup index if present
 
-
     for df in [train_df, test_df]:
-
-
         if "__index_level_0__" in df.columns:
-
-
             df.drop(columns=["__index_level_0__"], inplace=True)
-
-
-
-
 
     cols_to_drop = [*sens_cols, label_name]
 
-
     x_train, y_train = train_df.drop(columns=cols_to_drop, errors="ignore"), train_df[label_name].to_numpy().flatten()
-
-
-
-
 
     # Ensure features are numeric
 
-
     x_train = x_train.select_dtypes(include=["number", "bool"])
-
-
-
-
 
     model.fit(x_train, y_train)
 
-
-
-
-
     x_test = test_df.drop(columns=cols_to_drop, errors="ignore")
-
 
     x_test = x_test.select_dtypes(include=["number", "bool"])
 
-
-
-
-
     y_pred, y_true = model.predict(x_test), test_df[label_name].to_numpy()
-
 
     sf_data = test_df[sens_att] if isinstance(sens_att, list) else test_df[[sens_att]]
 
-
-
-
-
     fairness_series = _compute_fairness(y_true, y_pred, sf_data, fairness_metric, sens_att, size_unit)
 
-
     fairness_series["Accuracy"] = accuracy_score(y_true, y_pred)
-
 
     return fairness_series
 
 
-
-
-
-
-
-
 def _evaluate_data_bias_on_partition(partition, sens_att, fairness_metric, label_name, size_unit):
-
-
     raw_df = partition.to_pandas()
 
-
     if not isinstance(raw_df, pd.DataFrame):
-
-
         msg = "Partition data is not a pandas DataFrame"
-
 
         raise TypeError(msg)
 
-
-
-
-
     # Cleanup index if present
 
-
     if "__index_level_0__" in raw_df.columns:
-
-
         raw_df.drop(columns=["__index_level_0__"], inplace=True)
-
-
-
-
 
     y_true = raw_df[[label_name]]
 
-
     sf_data = raw_df[sens_att] if isinstance(sens_att, list) else raw_df[[sens_att]]
 
-
     return _compute_fairness(y_true, y_true, sf_data, fairness_metric, sens_att, size_unit)
-
-
-

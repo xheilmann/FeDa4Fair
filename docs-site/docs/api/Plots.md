@@ -52,4 +52,27 @@ def plot_fairness_distributions(
 ) -> tuple[Figure, Axes, pd.DataFrame]:
 ```
 
-Plot fairness metric distributions for a single partitioner (and its test set) across its partitions.
+---
+
+### `plot_multi_attribute_fairness`
+
+```python
+def plot_multi_attribute_fairness(
+    partitioner: Partitioner,
+    partitioner_test: Partitioner,
+    label_name: str,
+    sens_atts: list[str],
+    fairness_metric: Literal["DP", "EO"] = "DP",
+    model: Any | None = None,
+    size_unit: Literal["value", "attribute"] = "attribute",
+    value_colors: dict[Any, str] | None = None,
+    # ...
+) -> tuple[Figure, Axes, pd.DataFrame]:
+```
+
+Plot fairness metrics for multiple sensitive attributes side-by-side for each partition. 
+
+**Key Features:**
+- **Grouped Bar Charts:** Compare different attributes (e.g., SEX and MAR) per client.
+- **Signed-Bias Coloring:** When `size_unit='value'`, bars are color-coded based on which group is favored (using the `value_colors` mapping).
+- **Red/Blue Coloring:** Automatically highlights conflicting bias directions across clients.

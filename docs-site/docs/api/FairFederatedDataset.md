@@ -40,7 +40,7 @@ Supports downloading, loading, preprocessing, modifying, evaluating, mapping, an
 - **`modification_dict`** (*Optional[dict]*, default=None): Configuration for bias injection.
 - **`mapping`** (*Optional[dict]*, default=None): Remapping dictionary for features/labels.
 - **`label_name`** (*Optional[str]*, default=None): Target label column name.
-- **`preloaded_data`** (*Optional[dict]*, default=None): Dictionary of pre-loaded DataFrames.
+- **`preloaded_data`** (*Optional[Union[dict, pd.DataFrame]]*, default=None): Pre-loaded data to bypass HF downloads. Can be a dictionary of splits or a single Pandas DataFrame (which is assigned to the "train" split).
 - **`client_names`** (*Optional[list[str]]*, default=None): Optional list of names for partitions.
 - **`sample_cap`** (*Optional[int]*, default=None): Maximum number of samples per client (distribution preserving).
 

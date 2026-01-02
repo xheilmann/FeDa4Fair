@@ -65,5 +65,25 @@ Compute a fairness metric (Demographic Parity or Equalized Odds) for given sensi
 - `sens_att`: Sensitive attribute name.
 - `size_unit`: Level of detail.
 
-**Returns:**
-- *pd.Series*: Computed fairness metric values.
+---
+
+### `compute_multi_fairness`
+
+```python
+def compute_multi_fairness(
+    partitioner: Partitioner,
+    partitioner_test: Partitioner,
+    model: Any,
+    sens_atts: list[str],
+    max_num_partitions: int | None = None,
+    fairness_metric: Literal["DP", "EO"] = "DP",
+    label_name: str = "label",
+    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
+) -> pd.DataFrame:
+```
+
+Computes fairness metrics for multiple sensitive attributes independently in a single pass. 
+
+**Key Benefits:**
+- **Performance:** Trains the model only once per partition, then evaluates it against all provided sensitive attributes.
+- **Side-by-Side:** Returns a DataFrame where each row is a partition and columns represent the fairness metric for each attribute.

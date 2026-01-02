@@ -62,5 +62,8 @@ Using FeDa4Fair typically involves three steps:
 
 ## Next Steps
 
-*   Check out **[Creating Datasets](./CreatingDatasets.md)** to learn how to generate custom federated splits.
-*   See **[Using Custom Datasets](./CustomDatasets.md)** for instructions on loading Hugging Face data.
+*   Check out **[Creating Datasets](./api/CreatingDatasets.md)** to learn how to generate custom federated splits.
+
+*   See **[Using Custom Datasets](./api/CustomDatasets.md)** for instructions on loading Hugging Face data.
+
+*   Explore our **[Examples](./examples/DutchCensus.md)** to see the library in action with real datasets.

@@ -484,10 +484,15 @@ if st.button("Load and Evaluate"):
                     part_obj = fds.partitioners[train_split]
                     model_instance = model_class() if model_class else None
 
+                    # Value-based color mapping if level is 'value'
+                    val_colors = None
+                    if size_unit == "value":
+                        val_colors = {0: "red", 1: "blue"}
+
                     # Use the library's plotting/computation function
                     fig, ax, combined_df = plot_multi_attribute_fairness(
                         partitioner=part_obj,
-                        partitioner_test=part_obj, # compute_multi_fairness handles the model/data bias
+                        partitioner_test=part_obj,
                         label_name=fds.label_column,
                         sens_atts=selected_eval_atts,
                         fairness_metric=metric,
@@ -497,10 +502,11 @@ if st.button("Load and Evaluate"):
                         split=train_split,
                         test_split=test_split,
                         figsize=(12, 6),
-                        title=f"{metric} Comparison - {split}"
+                        title=f"{metric} Comparison - {split}",
+                        size_unit=size_unit,
+                        value_colors=val_colors
                     )
                     
-                    # Prefix index with split name if multiple splits
                     if len(splits) > 1:
                         combined_df.index = [f"{split}_{i}" for i in combined_df.index]
                     

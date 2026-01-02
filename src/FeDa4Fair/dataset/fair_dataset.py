@@ -522,8 +522,14 @@ class FairFederatedDataset(FederatedDataset):
 
         if self._preloaded_data is not None:
             self._dataset = DatasetDict()
-            for split_name, split_df in self._preloaded_data.items():
-                self._dataset[split_name] = Dataset.from_pandas(split_df)
+            if isinstance(self._preloaded_data, pd.DataFrame):
+                self._dataset["train"] = Dataset.from_pandas(self._preloaded_data)
+            elif isinstance(self._preloaded_data, dict):
+                for split_name, split_df in self._preloaded_data.items():
+                    self._dataset[split_name] = Dataset.from_pandas(split_df)
+            else:
+                msg = f"Unsupported type for preloaded_data: {type(self._preloaded_data)}"
+                raise TypeError(msg)
         else:
             # Check if we need to load all splits and merge them
             if self._load_dataset_kwargs.get("split") == "all":

@@ -33,6 +33,8 @@ from datasets import ClassLabel, Dataset, DatasetDict, concatenate_datasets, loa
 from FeDa4Fair.metrics.evaluation import evaluate_fairness
 from FeDa4Fair.utils.data_utils import balance_data, cap_samples, drop_data, flip_data
 
+TRAIN_VAL_TEST_SPLIT_LEN = 3
+
 
 def _clone_partitioner(obj: Any) -> Any:
     """
@@ -347,7 +349,7 @@ class FairFederatedDataset(FederatedDataset):
             return
         keys_to_process = list(self._dataset.keys())
 
-        has_validation = len(self._perc_train_test_split) == 3
+        has_validation = len(self._perc_train_test_split) == TRAIN_VAL_TEST_SPLIT_LEN
 
         for entry in keys_to_process:
             if has_validation:
@@ -521,43 +523,57 @@ class FairFederatedDataset(FederatedDataset):
         # Load dataset using Hugging Face datasets library
 
         if self._preloaded_data is not None:
-            self._dataset = DatasetDict()
-            if isinstance(self._preloaded_data, pd.DataFrame):
-                self._dataset["train"] = Dataset.from_pandas(self._preloaded_data)
-            elif isinstance(self._preloaded_data, dict):
-                for split_name, split_df in self._preloaded_data.items():
-                    self._dataset[split_name] = Dataset.from_pandas(split_df)
-            else:
-                msg = f"Unsupported type for preloaded_data: {type(self._preloaded_data)}"
-                raise TypeError(msg)
+            self._prepare_from_preloaded_data()
         else:
-            # Check if we need to load all splits and merge them
-            if self._load_dataset_kwargs.get("split") == "all":
-                loaded_data = self._load_and_merge_all_splits()
-            else:
-                loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
-
-            if isinstance(loaded_data, Dataset):
-                # If a single split is returned, wrap it in a DatasetDict
-                split_name = self._load_dataset_kwargs.get("split", "train")
-                self._dataset = DatasetDict({str(split_name): loaded_data})
-            elif isinstance(loaded_data, DatasetDict):
-                self._dataset = loaded_data
-            else:
-                msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
-                raise TypeError(msg)
+            self._prepare_from_hf_dataset()
 
         # Apply modifications if specified (assuming tabular/pandas compatible for now)
         if self._modification_dict:
-            for split_name in self._dataset:
-                if split_name in self._modification_dict:
-                    try:
-                        split_df = self._dataset[split_name].to_pandas()
-                        if isinstance(split_df, pd.DataFrame):
-                            split_df = self._modify_data(split_df, split_name)
-                            self._dataset[split_name] = Dataset.from_pandas(split_df)
-                    except Exception as e:  # noqa: BLE001
-                        warnings.warn(f"Could not apply modification to split {split_name}: {e}", stacklevel=2)
+            self._apply_modifications_to_dataset()
+
+    def _prepare_from_preloaded_data(self) -> None:
+        """Helper to prepare dataset from preloaded pandas DataFrames."""
+        self._dataset = DatasetDict()
+        if isinstance(self._preloaded_data, pd.DataFrame):
+            self._dataset["train"] = Dataset.from_pandas(self._preloaded_data)
+        elif isinstance(self._preloaded_data, dict):
+            for split_name, split_df in self._preloaded_data.items():
+                self._dataset[split_name] = Dataset.from_pandas(split_df)
+        else:
+            msg = f"Unsupported type for preloaded_data: {type(self._preloaded_data)}"
+            raise TypeError(msg)
+
+    def _prepare_from_hf_dataset(self) -> None:
+        """Helper to load and prepare dataset from Hugging Face."""
+        if self._load_dataset_kwargs.get("split") == "all":
+            loaded_data = self._load_and_merge_all_splits()
+        else:
+            loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
+
+        if isinstance(loaded_data, Dataset):
+            # If a single split is returned, wrap it in a DatasetDict
+            split_name = self._load_dataset_kwargs.get("split", "train")
+            self._dataset = DatasetDict({str(split_name): loaded_data})
+        elif isinstance(loaded_data, DatasetDict):
+            self._dataset = loaded_data
+        else:
+            msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
+            raise TypeError(msg)
+
+    def _apply_modifications_to_dataset(self) -> None:
+        """Apply data modifications to specific splits in the dataset."""
+        if self._dataset is None or self._modification_dict is None:
+            return
+
+        for split_name in self._dataset:
+            if split_name in self._modification_dict:
+                try:
+                    split_df = self._dataset[split_name].to_pandas()
+                    if isinstance(split_df, pd.DataFrame):
+                        split_df = self._modify_data(split_df, split_name)
+                        self._dataset[split_name] = Dataset.from_pandas(split_df)
+                except Exception as e:  # noqa: BLE001
+                    warnings.warn(f"Could not apply modification to split {split_name}: {e}", stacklevel=2)
 
     def _load_and_merge_all_splits(self) -> DatasetDict:
         """Load all splits and concatenate them into a single 'train' split."""

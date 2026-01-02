@@ -141,7 +141,10 @@ def flip_data(
         return df
 
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index
-    df.loc[rows_to_flip, label_column] = 0
+    if pd.api.types.is_bool_dtype(df[label_column]):
+        df.loc[rows_to_flip, label_column] = False
+    else:
+        df.loc[rows_to_flip, label_column] = 0
 
     return df
 
@@ -406,6 +409,7 @@ def generate_multiobjective_bias(
     -------
     dict
         Modification dictionary compatible with FairFederatedDataset.
+
     """
     sum_clients = sum(g["num_clients"] for g in group_configs)
     if sum_clients != num_total_clients:

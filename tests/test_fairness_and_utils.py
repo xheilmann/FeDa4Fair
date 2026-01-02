@@ -57,8 +57,8 @@ class TestFairnessComputation(unittest.TestCase):
             sens_att="sensitive",
             size_unit="attribute-value",
         )
-        # Pairs: 0_0, 0_1, 1_0, 1_1
-        self.assertIn("0_1", res.index)
+        # Pairs: sensitive_0_0, sensitive_0_1, sensitive_1_0, sensitive_1_1
+        self.assertIn("sensitive_0_1", res.index)
         self.assertEqual(len(res), 4)
 
     def test_compute_fairness_progress_callback(self):

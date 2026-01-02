@@ -1,7 +1,7 @@
 import os
+import string
 import sys
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 from sklearn.linear_model import LogisticRegression
@@ -14,8 +14,8 @@ from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
 
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 from FeDa4Fair.dataset.partitioning import RepresentativeDiversityPartitioner
-from FeDa4Fair.metrics.fairness import compute_fairness, compute_multi_fairness
-from FeDa4Fair.utils.data_utils import generate_bias_by_groups, generate_multiobjective_bias
+from FeDa4Fair.metrics.fairness import compute_fairness
+from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 from FeDa4Fair.visualization import plot_multi_attribute_fairness
 
 st.set_page_config(page_title="FeDa4Fair Dashboard", layout="wide")
@@ -77,6 +77,9 @@ US_STATES = [
 ]
 
 st.sidebar.header("Dataset Configuration")
+
+MAX_GROUPS_FOR_LETTERS = 26
+
 
 dataset_name = st.sidebar.selectbox(
     "Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"]
@@ -217,11 +220,9 @@ if inject_bias:
     # UI to Add/Remove Groups
     col_add, col_rem = st.sidebar.columns(2)
     if col_add.button("+ Add Group"):
-        import string
-
         letters = string.ascii_uppercase
         current_len = len(st.session_state.bias_groups)
-        new_name = f"Group {letters[current_len]}" if current_len < 26 else f"Group {current_len + 1}"
+        new_name = f"Group {letters[current_len]}" if current_len < MAX_GROUPS_FOR_LETTERS else f"Group {current_len + 1}"
         st.session_state.bias_groups.append(
             {
                 "group_id": new_name,
@@ -483,8 +484,7 @@ if st.button("Load and Evaluate"):
             bias_atts = []
             if inject_bias:
                 for group in group_configs:  # group_configs is already built from st.session_state.bias_groups
-                    for conf in group.get("configs", []):
-                        bias_atts.append(conf["attribute"])
+                    bias_atts.extend(conf["attribute"] for conf in group.get("configs", []))
 
             all_possible_atts = list(set(initial_atts + bias_atts))
             if not all_possible_atts:
@@ -580,3 +580,4 @@ if st.button("Load and Evaluate"):
 st.markdown("---")
 if not st.session_state.get("fds"):
     st.info("Run this dashboard using: `uv run streamlit run dashboard/app.py`")
+

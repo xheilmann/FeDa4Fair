@@ -16,7 +16,9 @@
 from typing import Any, Literal
 
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from flwr_datasets.common import EventType, event
 from flwr_datasets.partitioner import Partitioner
@@ -293,34 +295,79 @@ def plot_multi_attribute_fairness(
     title: str | None = None,
     cmap: str | list[str] | None = None,
     legend: bool = True,
+    value_colors: dict[Any, str] | None = None,
     **plot_kwargs: Any,
 ) -> tuple[Figure, Axes, pd.DataFrame]:
     """
     Plot fairness metrics for multiple sensitive attributes side-by-side for each partition.
+    Supports value-based color coding for a single bar per attribute when size_unit='value'.
     """
     from FeDa4Fair.metrics.fairness import compute_multi_fairness
 
-    combined_df = compute_multi_fairness(
-        partitioner=partitioner,
-        partitioner_test=partitioner_test,
-        model=model,
-        sens_atts=sens_atts,
-        fairness_metric=fairness_metric,
-        label_name=label_name,
-        max_num_partitions=max_num_partitions,
-        size_unit=size_unit,
-        fds=fds,
-        split=split,
-        test_split=test_split
-    )
+    if size_unit == "value":
+        # Use 'attribute-value' to get all pairwise differences for coloring logic
+        combined_df = compute_multi_fairness(
+            partitioner=partitioner,
+            partitioner_test=partitioner_test,
+            model=model,
+            sens_atts=sens_atts,
+            fairness_metric=fairness_metric,
+            label_name=label_name,
+            max_num_partitions=max_num_partitions,
+            size_unit="attribute-value",
+            fds=fds,
+            split=split,
+            test_split=test_split
+        )
 
-    # Extract only the metric columns for plotting
-    metric_cols = [f"{attr}_{fairness_metric}" for attr in sens_atts]
-    plot_df = combined_df[metric_cols].copy()
-    # Rename columns for cleaner legend
-    plot_df.columns = sens_atts
+        plot_data = {}
+        all_bar_colors = []
 
-    # Plotting
+        for attr in sens_atts:
+            pattern = f"{attr}_"
+            attr_cols = [c for c in combined_df.columns if c.startswith(pattern)]
+            
+            # The magnitude is the max disparity
+            plot_data[attr] = combined_df[attr_cols].max(axis=1)
+
+            if value_colors:
+                def get_row_color(row):
+                    if row.max() <= 0:
+                        return "gray"
+                    best_col = row.idxmax()
+                    parts = best_col.split("_")
+                    # Group responsible is the second to last part
+                    group_a = parts[-2]
+                    try:
+                        group_a = int(float(group_a))
+                    except (ValueError, TypeError):
+                        pass
+                    return value_colors.get(group_a, "gray")
+
+                attr_colors = [get_row_color(r) for _, r in combined_df[attr_cols].iterrows()]
+                all_bar_colors.append(attr_colors)
+        
+        plot_df = pd.DataFrame(plot_data)
+        bar_colors = all_bar_colors
+    else:
+        combined_df = compute_multi_fairness(
+            partitioner=partitioner,
+            partitioner_test=partitioner_test,
+            model=model,
+            sens_atts=sens_atts,
+            fairness_metric=fairness_metric,
+            label_name=label_name,
+            max_num_partitions=max_num_partitions,
+            size_unit=size_unit,
+            fds=fds,
+            split=split,
+            test_split=test_split
+        )
+        metric_cols = [f"{attr}_{fairness_metric}" for attr in sens_atts]
+        plot_df = combined_df[metric_cols].copy()
+        plot_df.columns = sens_atts
+        bar_colors = [cmap] * len(sens_atts) if isinstance(cmap, str) else (cmap or [None] * len(sens_atts))
+
     if figsize is None:
         num_partitions = len(plot_df)
         figsize = (max(8.0, num_partitions * 0.5), 6.0)
@@ -330,26 +377,29 @@ def plot_multi_attribute_fairness(
     if title is None:
         title = f"{fairness_metric} by Attribute per Partition"
 
-    plot_df.plot(
-        kind="bar",
-        ax=ax,
-        color=cmap,
-        width=0.8,
-        **plot_kwargs
-    )
+    x = np.arange(len(plot_df))
+    width = 0.8 / len(sens_atts)
+    
+    for i, attr in enumerate(sens_atts):
+        pos = x - 0.4 + (i + 0.5) * width
+        color = bar_colors[i] if isinstance(bar_colors, list) and i < len(bar_colors) else None
+        bars = ax.bar(pos, plot_df[attr], width, label=attr, color=color, **plot_kwargs)
+        if len(plot_df) * len(sens_atts) < 50:
+            ax.bar_label(bars, fmt='%.2f', padding=3)
 
     ax.set_title(title)
     ax.set_ylabel(f"{fairness_metric} Difference")
     ax.set_xlabel("Partition ID")
     
     if legend:
-        ax.legend(title="Sensitive Attribute")
+        if size_unit == "value" and value_colors:
+            import matplotlib.patches as mpatches
+            val_handles = [mpatches.Patch(color=color, label=f"Bias toward {val}") for val, color in value_colors.items()]
+            ax.legend(handles=val_handles, title="Legend")
+        else:
+            ax.legend(title="Sensitive Attribute")
         
     ax.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    if len(plot_df) * len(sens_atts) < 50:
-        for container in ax.containers:
-            ax.bar_label(container, fmt='%.2f', padding=3)
 
     return fig, ax, combined_df
 

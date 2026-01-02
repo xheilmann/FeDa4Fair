@@ -102,9 +102,9 @@ def _compute_fairness(
         msg = f"Unknown fairness metric {fairness_metric}"
         raise ValueError(msg)
 
-    diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
-
     sens_att_name = str(sens_att) if isinstance(sens_att, list) else sens_att
+    diff_df = pd.Series(diff_matrix.flatten(), index=[f"{sens_att_name}_{c}" for c in column_names])
+
     if size_unit == "value":
         # Return max diff and the pair responsible
         return pd.Series(

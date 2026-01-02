@@ -40,12 +40,17 @@ def _clone_partitioner(obj: Any) -> Any:
     """
     Creates a new instance of the same class as obj with the same arguments.
 
-    Assumes that arguments to __init__ are stored as attributes in obj.
+    Assumes that arguments to __init__ are stored as attributes in obj (possibly with a leading underscore).
     """
     cls = obj.__class__
     init_signature = inspect.signature(cls.__init__)
     arg_names = [param for param in init_signature.parameters if param != "self"]
-    init_args = {arg: getattr(obj, arg) for arg in arg_names if hasattr(obj, arg)}
+    init_args = {}
+    for arg in arg_names:
+        if hasattr(obj, arg):
+            init_args[arg] = getattr(obj, arg)
+        elif hasattr(obj, f"_{arg}"):
+            init_args[arg] = getattr(obj, f"_{arg}")
     return cls(**init_args)
 
 

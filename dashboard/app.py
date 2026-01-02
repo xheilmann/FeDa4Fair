@@ -172,8 +172,13 @@ if partition_strategy == "Dirichlet (Non-IID)":
 
 def create_partitioner():
     if partition_strategy == "Dirichlet (Non-IID)":
+        # Determine correct fallback label for ACS datasets
+        fallback_label = "ESR" if dataset_name == "ACSEmployment" else "PINCP"
         return DirichletPartitioner(
-            num_partitions=num_partitions, partition_by=label_name if label_name else "PINCP", alpha=alpha, seed=seed
+            num_partitions=num_partitions,
+            partition_by=label_name if label_name else fallback_label,
+            alpha=alpha,
+            seed=seed,
         )
     if partition_strategy == "Representative diversity":
         if dataset_name in ["ACSIncome", "ACSEmployment"]:
@@ -220,6 +225,8 @@ if inject_bias:
     # UI to Add/Remove Groups
     col_add, col_rem = st.sidebar.columns(2)
     if col_add.button("+ Add Group"):
+        import string
+
         letters = string.ascii_uppercase
         current_len = len(st.session_state.bias_groups)
         new_name = f"Group {letters[current_len]}" if current_len < MAX_GROUPS_FOR_LETTERS else f"Group {current_len + 1}"
@@ -314,6 +321,44 @@ if inject_bias:
         modification_dict = generate_multiobjective_bias(expected_total, group_configs)
 
 st.sidebar.header("Evaluation Settings")
+
+# Dynamically determine attributes to evaluate for the selection UI
+# 1. Start with attributes from Dataset Configuration
+initial_atts = sensitive_attributes if sensitive_attributes else []
+if dataset_name in ["ACSIncome", "ACSEmployment"] and not initial_atts:
+    initial_atts = ["SEX", "MAR", "RAC1P"]
+
+# 2. Add attributes used in Bias Injection groups (if defined)
+bias_atts = []
+if inject_bias and "bias_groups" in st.session_state:
+    for group in st.session_state.bias_groups:
+        configs = group.get("configs", [])
+        for conf in configs:
+            if isinstance(conf, dict) and "attribute" in conf:
+                bias_atts.append(conf["attribute"])
+
+# 3. Support custom attributes via text input
+if "custom_eval_atts" not in st.session_state:
+    st.session_state.custom_eval_atts = []
+
+new_att = st.sidebar.text_input("Add Custom Attribute to Evaluate", help="Type attribute name and press Enter.")
+if new_att and new_att.strip():
+    if new_att not in st.session_state.custom_eval_atts:
+        st.session_state.custom_eval_atts.append(new_att.strip())
+
+all_possible_atts = list(set(initial_atts + bias_atts + st.session_state.custom_eval_atts))
+if "ACS" in dataset_name:
+    # Ensure sex_binary is not present for ACS
+    all_possible_atts = [a for a in all_possible_atts if a != "sex_binary"]
+    if not all_possible_atts:
+        all_possible_atts = ["SEX"]  # Fallback for ACS
+elif not all_possible_atts:
+    all_possible_atts = ["sex_binary"]  # Fallback for generic
+
+selected_eval_atts = st.sidebar.multiselect(
+    "Attributes to Evaluate", sorted(all_possible_atts), default=sorted(all_possible_atts)
+)
+
 fairness_metric = st.sidebar.selectbox("Fairness Metric", ["DP", "EO"])
 size_unit = st.sidebar.selectbox("Fairness Level (Size Unit)", ["attribute", "value", "attribute-value"])
 max_parts_eval = st.sidebar.number_input("Max Partitions to Evaluate", min_value=1, value=num_partitions)
@@ -472,27 +517,6 @@ if st.button("Load and Evaluate"):
             col2.metric("Total Samples Removed (Balancing)", fds._total_removed_samples)
 
             # Evaluate Fairness
-            st.sidebar.subheader("Multi-Attribute Evaluation")
-
-            # Dynamically determine attributes to evaluate
-            # 1. Start with attributes from Dataset Configuration
-            initial_atts = sensitive_attributes if sensitive_attributes else []
-            if dataset_name in ["ACSIncome", "ACSEmployment"] and not initial_atts:
-                initial_atts = ["SEX", "MAR", "RAC1P"]
-
-            # 2. Add attributes used in Bias Injection groups
-            bias_atts = []
-            if inject_bias:
-                for group in group_configs:  # group_configs is already built from st.session_state.bias_groups
-                    bias_atts.extend(conf["attribute"] for conf in group.get("configs", []))
-
-            all_possible_atts = list(set(initial_atts + bias_atts))
-            if not all_possible_atts:
-                all_possible_atts = ["sex_binary"]  # Fallback
-
-            selected_eval_atts = st.sidebar.multiselect(
-                "Attributes to Evaluate", sorted(all_possible_atts), default=sorted(all_possible_atts)
-            )
 
             # Determine which splits to evaluate
             splits_to_eval = selected_states if dataset_name in ["ACSIncome", "ACSEmployment"] else ["train"]
@@ -580,4 +604,3 @@ if st.button("Load and Evaluate"):
 st.markdown("---")
 if not st.session_state.get("fds"):
     st.info("Run this dashboard using: `uv run streamlit run dashboard/app.py`")
-

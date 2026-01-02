@@ -8,6 +8,8 @@
 
 Unlike standard FL benchmarks that often focus solely on data heterogeneity (e.g., non-IID label distributions), FeDa4Fair specifically addresses **fairness heterogeneity**. It simulates realistic scenarios where different clients (silos or devices) exhibit varying levels of bias against sensitive attributes (e.g., based on race or gender) or toward different values of the same sensitive attributes.
 
+The goal of this library is to enable researchers and practitioners to evaluate fair FL methods in scenarios [that are usually underexplored](https://dl.acm.org/doi/full/10.1145/3715275.3732152).
+
 ## What This Library Does
 
 FeDa4Fair provides a unified interface to:
@@ -37,10 +39,20 @@ We provide 4 pre-configured benchmarking datasets derived from the ACS (American
 4.  **Value-Device**: A cross-device version with varying value bias. ([Link](https://huggingface.co/datasets/lucacorbucci/device-value))
 
 Additionally, FeDa4Fair has first-class support for:
-*   **ACSIncome** (Folktables)
-*   **ACSEmployment** (Folktables)
-*   **Dutch Census** (Hugging Face)
+*   **ACSIncome** (Locally downloaded using Folktables)
+*   **ACSEmployment** (Locally downloaded using Folktables)
+*   **Dutch Census** (Downloaded from Hugging Face Hub)
 *   **Any Hugging Face Dataset** (see below)
+
+# How to use FeDa4Fair
+
+## Clone the repository
+
+```bash
+git clone https://github.com/xheilmann/FeDa4Fair.git
+cd FeDa4Fair
+```
+
 
 ## Create the environment
 
@@ -53,8 +65,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Then we can create the environment:
 
 ```bash
-uv sync
 uv venv
+uv sync
 ```
 
 We suggest you create the helper folder `data_stats`:
@@ -63,22 +75,28 @@ We suggest you create the helper folder `data_stats`:
 mkdir src/FeDa4Fair/data_stats
 ```
 
-## Tutorial and Example 
+## Tutorial and Examples
 
 A detailed example/tutorial on how to use the library can be found in the example folder:
 
 * We provide an example with the [ACS Income](examples/acs_income.ipynb) dataset
 * We provide an example with the [Dutch Census](examples/dutch.ipynb) dataset
 * We provide an example with an image dataset, [CelebA](examples/celeba.ipynb), using data from Hugging Face Hub.
+* We provide an example of how to create a dataset with conflicting values for the same sensitive attribute, [Dutch Value](examples/dutch_value.ipynb).
+* We provide an example of how to create a dataset with conflicting attributes for different groups of clients, [Dutch Attribute](examples/dutch_attribute.ipynb).
 
 
-## How to use the library
+## Use of the library
 
 FeDa4Fair supports loading arbitrary datasets from Hugging Face Hub or local files.
 
 ### 1. Hugging Face Datasets
 
-You can load any dataset available on Hugging Face Hub by specifying its name.
+You can load any dataset available on Hugging Face Hub by specifying its name. 
+
+It is important to note that the dataset should have a tabular format. This does not mean that the library only supports tabular data; for instance, image datasets with associated metadata can also be used. However, the dataset must be structured in a way that allows FeDa4Fair to interpret it as tabular data. 
+
+For instance, Celeba is an image dataset, but it includes metadata that can be treated as tabular data and that allows us to define sensitive attributes and labels.
 
 ```python
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
@@ -129,7 +147,7 @@ This configuration creates two groups of clients with different bias profiles re
 
 By specifying "all" in the `split` parameter, we ensure that all the dataset splits (train, validation, test) available on Hugging face are downloaded and merged into a single dataset before partitioning. Later, we will split the data into train, validation, and test sets at the client level to support federated learning scenarios.
 
-See `examples/celeba.ipynb` for a complete example. 
+See [the notebook](examples/celeba.ipynb) for a complete example. 
 
 
 ### 2. Local Datasets
@@ -150,9 +168,132 @@ ffds = FairFederatedDataset(
 
 ```
 
-See `examples/acs_income.ipynb` for an example using ACSIncome locally downloaded.
+See [the notebook](examples/acs_income.ipynb) for an example using ACSIncome locally downloaded.
 
-## How to use our dashboard
+### 3. Create datasets with conflicting attribute level biases
+
+The library allows you to create federated datasets where different groups of clients exhibit conflicting biases toward different sensitive attributes.
+
+For instance, let's consider the Dutch dataset, where we want to create two groups of clients: one group unfair toward the sensitive attribute "sex_binary" and not unfair toward the "Marital_status", and another group unfair toward "Marital_status" and not unfair toward "sex_binary".
+
+We have to define the following group configurations:
+
+```python
+num_clients = 100
+group_split_idx = 50 
+client_names = [str(i) for i in range(num_clients)]
+
+# We use the new generate_multiobjective_bias function which allows 
+# defining multiple attribute modifications per group in a single structure.
+
+group_configs = [
+    {
+        "group_id": "Group A",
+        "num_clients": group_split_idx,
+        "configs": [
+            # Mitigate sex_binary
+            {"attribute": "sex_binary", "mitigate": True},
+            # Bias Marital_status (Drop value 0)
+            {
+                "attribute": "Marital_status",
+                "value": 0,
+                "drop_mean": 0.3, "drop_std": 0.1,
+                "flip_mean": 0.2, "flip_std": 0.05
+            }
+        ]
+    },
+    {
+        "group_id": "Group B",
+        "num_clients": num_clients - group_split_idx,
+        "configs": [
+            # Bias sex_binary (Drop value 1)
+            {
+                "attribute": "sex_binary",
+                "value": 1,
+                "drop_mean": 0.4, "drop_std": 0.1,
+                "flip_mean": 0.3, "flip_std": 0.05
+            },
+            # Mitigate Marital_status
+            {"attribute": "Marital_status", "mitigate": True}
+        ]
+    }
+]
+
+modifications = generate_multiobjective_bias(num_clients, group_configs, client_names)
+```
+
+Then, we can use this dictionary to create the federated dataset:
+
+```python
+fds = FairFederatedDataset(
+    dataset="lucacorbucci/Dutch_census_binary_marital_status",
+    split="all",
+    partitioners={"train": num_clients},
+    label_name="occupation_binary",
+    sensitive_attributes=["sex_binary", "Marital_status"],
+    modification_dict=modifications,
+    fl_setting="cross-silo",
+    perc_train_val_test=[0.8, 0.2],
+    client_names=client_names
+)
+
+print("Preparing dataset...")
+fds.prepare()
+```
+
+As you will see in the [Dutch Attribute notebook](examples/dutch_attribute.ipynb), this will create a federated dataset with two groups of clients exhibiting conflicting biases toward different sensitive attributes. In the example we can also visualize the unfairness metrics at the client level to confirm the desired bias profiles.
+
+### 4. Create datasets with conflicting value level biases
+
+The library also allows you to create federated datasets where different groups of clients exhibit conflicting biases toward different values of the same sensitive attribute.
+
+For instance, let's consider the Dutch dataset again, where we want to create two groups of clients: one group unfair toward value 1 of the sensitive attribute "sex_binary" and another group unfair toward value 0 of the same sensitive attribute.
+
+We have to define the following group configurations:
+
+```python
+
+num_clients = 100
+group_split = 50
+client_names = [str(i) for i in range(num_clients)]
+
+# Configure groups to show opposite bias directions for 'sex_binary'
+# We use aggressive bias injection to ensure the model learns the bias.
+group_configs = [
+    {
+        "group_id": "Group A (Favors 1)",
+        "num_clients": group_split,
+        "configs": [
+            {
+                "attribute": "sex_binary",
+                "value": 0,  # Bias against 0 (favors 1)
+                "drop_mean": 0.9, "drop_std": 0.05,
+                "flip_mean": 0.3, "flip_std": 0.05
+            }
+        ]
+    },
+    {
+        "group_id": "Group B (Favors 0)",
+        "num_clients": num_clients - group_split,
+        "configs": [
+            {
+                "attribute": "sex_binary",
+                "value": 1,  # Bias against 1 (favors 0)
+                "drop_mean": 0.3, "drop_std": 0.05,
+                "flip_mean": 0.1, "flip_std": 0.05
+            }
+        ]
+    }
+]
+
+modifications = generate_multiobjective_bias(num_clients, group_configs, client_names)
+```
+
+This configuration creates two groups of clients with opposite bias directions regarding the "sex_binary" attribute. 
+You can find a complete example in the [Dutch value notebook](examples/dutch_value.ipynb).
+
+
+## How to use the dashboard
 
 FeDa4Fair includes a dashboard for easily split dataset into clients and visualize fairness metrics.
 To launch the dashboard, run the following command from the dashboard folder:

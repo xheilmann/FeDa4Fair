@@ -46,9 +46,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - ../../../../datasets/dutch/cross_silo_value/mild/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - ../../../../datasets/dutch/cross_silo_value/mild/
   - --seed 
   - 41 
   - --wandb 

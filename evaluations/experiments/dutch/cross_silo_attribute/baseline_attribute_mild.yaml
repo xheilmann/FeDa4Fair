@@ -1,4 +1,4 @@
-program:  ../../../puffle/main.py
+program:  ../../puffle/main.py
 method: bayes
 metric:
   name: Custom_metric
@@ -11,8 +11,8 @@ parameters:
     min: 1
     max: 5
   batch_size:
-    min: 64
-    max: 256
+    min: 128
+    max: 512
   lr:
     min: 0.0001
     max: 0.1
@@ -46,9 +46,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - ../../../../datasets/dutch/cross_silo_attribute/mild/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - ../../../../datasets/dutch/cross_silo_attribute/mild/
   - --seed 
   - 41 
   - --wandb 
@@ -56,11 +56,11 @@ command:
   - --sweep
   - True
   - --training_nodes 
-  - 0.6
+  - 1
   - --validation_nodes 
-  - 0.20
+  - 1
   - --test_nodes 
-  - 0.20
+  - 1
   - --tabular_data 
   - True
   - --update_lambda
@@ -71,3 +71,5 @@ command:
   - federated
   - --ratio_unfair_nodes 
   - 0.5
+  - --cross_silo
+  - True

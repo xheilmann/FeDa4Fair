@@ -27,8 +27,8 @@ def pre_process_income(df):
         - The second list contains a pandas dataframe of labels for each state
         - The third list contains a pandas dataframe of groups for each state
         The values in the list are numpy array of the dataframes
-    """
 
+    """
     categorical_columns = ["COW", "SCHL"] #, "RAC1P"]
     continuous_columns = ["AGEP", "WKHP", "OCCP", "POBP", "RELP"]
 
@@ -60,7 +60,7 @@ def pre_process_single_datasets(df):
     target_attributes = df[">50K"]
     sensitive_attributes = df["SEX"]
     second_sensitive_attributes = df["MAR"]
-    
+
     third_sensitive_attributes = df["RAC1P"]
     third_sensitive_attributes = third_sensitive_attributes.astype(int)
     target_attributes = target_attributes.astype(int)
@@ -116,57 +116,57 @@ if __name__ == "__main__":
 
     unfair_dfs = []
 
-    states = ['CT',
-    'RI',
-    'VT',
-    'TX',
-    'GA',
-    'PR',
-    'OH',
-    'NE',
-    'HI',
-    'MO',
-    'PA',
-    'DE',
-    'WV',
-    'MD',
-    'AZ',
-    'LA',
-    'WA',
-    'TN',
-    'MA',
-    'NJ',
-    'ME',
-    'SC',
-    'MI',
-    'OK',
-    'IL',
-    'FL',
-    'UT',
-    'AK',
-    'WI',
-    'NH',
-    'VA',
-    'SD',
-    'MS',
-    'ND',
-    'NC',
-    'AL',
-    'IA',
-    'ID',
-    'WY',
-    'NV',
-    'NM',
-    'NY',
-    'CA',
-    'AR',
-    'MN',
-    'OR',
-    'MT',
-    'KY',
-    'KS',
-    'IN',
-    'CO']
+    states = ["CT",
+    "RI",
+    "VT",
+    "TX",
+    "GA",
+    "PR",
+    "OH",
+    "NE",
+    "HI",
+    "MO",
+    "PA",
+    "DE",
+    "WV",
+    "MD",
+    "AZ",
+    "LA",
+    "WA",
+    "TN",
+    "MA",
+    "NJ",
+    "ME",
+    "SC",
+    "MI",
+    "OK",
+    "IL",
+    "FL",
+    "UT",
+    "AK",
+    "WI",
+    "NH",
+    "VA",
+    "SD",
+    "MS",
+    "ND",
+    "NC",
+    "AL",
+    "IA",
+    "ID",
+    "WY",
+    "NV",
+    "NM",
+    "NY",
+    "CA",
+    "AR",
+    "MN",
+    "OR",
+    "MT",
+    "KY",
+    "KS",
+    "IN",
+    "CO"]
 
     partitions_names = []
     list_files = os.listdir(folder)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
                     except:
                         print(f"Error reading file {state}_{partition}.csv")
                         continue
-    
+
     concatenated_df = pd.concat(unfair_dfs, ignore_index=True)
     concatenated_df["PINCP"] = [1 if item == True else 0 for item in concatenated_df["PINCP"]]
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
                 f"{folder}FL_data/federated/{index // 2}"
             ):
                 os.makedirs(f"{folder}FL_data/federated/{index // 2}")
-                # save partitions_names 
+                # save partitions_names
             json_file = {index:data for index, data in enumerate(partitions_names)}
             with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
                 json.dump(json_file, f)
@@ -290,7 +290,7 @@ if __name__ == "__main__":
             )
     else:
         print("Cross-device setting")
-        for index in range(0, len(split_dfs)):
+        for index in range(len(split_dfs)):
             print("Processing partition:", index)
             train_state = split_dfs[index]
             (
@@ -307,7 +307,7 @@ if __name__ == "__main__":
                 f"{folder}FL_data/federated/{index}"
             ):
                 os.makedirs(f"{folder}FL_data/federated/{index}")
-                # save partitions_names 
+                # save partitions_names
             json_file = {index:data for index, data in enumerate(partitions_names)}
             with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
                 json.dump(json_file, f)

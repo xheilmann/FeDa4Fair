@@ -154,7 +154,7 @@ class FairFederatedDataset(FederatedDataset):
         sensitive_attributes: list[str] | None = None,
         fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
         fairness_metric: Literal["DP", "EO"] = "DP",
-        fl_setting: Literal["cross-silo", "cross-device", None] = None,
+        fl_setting: Literal["cross-silo", "cross-device"] | None = None,
         perc_train_val_test: list[float] | None = None,
         path: PathLike | None = None,
         modification_dict: dict[Any, dict[str, Any]] | None = None,

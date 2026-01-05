@@ -1,4 +1,3 @@
-import torch.nn as nn
 from torch import Tensor, nn
 
 
@@ -11,13 +10,15 @@ class CelebaNet(nn.Module):
         num_classes: int = 2,
         dropout_rate: float = 0,
     ) -> None:
-        """Initializes the CelebaNet network.
+        """
+        Initializes the CelebaNet network.
 
         Args:
         ----
             in_channels (int, optional): Number of input channels . Defaults to 3.
             num_classes (int, optional): Number of classes . Defaults to 2.
             dropout_rate (float, optional): _description_. Defaults to 0.2.
+
         """
         super().__init__()
         self.cnn1 = nn.Conv2d(
@@ -37,14 +38,16 @@ class CelebaNet(nn.Module):
         # self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, input_data: Tensor) -> Tensor:
-        """Defines the forward pass of the network.
+        """
+        Defines the forward pass of the network.
 
         Args:
             input_data (Tensor): Input data
 
-        Returns
+        Returns:
         -------
             Tensor: Output data
+
         """
         out = self.gn_relu(self.cnn1(input_data))
         out = self.gn_relu(self.cnn2(out))

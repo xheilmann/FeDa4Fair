@@ -1,12 +1,11 @@
 import random
-from typing import Tuple
 
 import numpy as np
 import torch
+from torchvision import transforms
 from Utils.celeba import CelebaDataset
 from Utils.dutch import TabularDataset
 from Utils.tabular_data_loader import dataset_to_numpy, load_dutch
-from torchvision import transforms
 
 
 class DatasetUtils:
@@ -16,8 +15,9 @@ class DatasetUtils:
         debug: bool,
         test_csv: str = None,
         base_path: str = "../data/celeba",
-    ) -> Tuple[CelebaDataset, CelebaDataset]:
-        """This function loads the celeba dataset from disk
+    ) -> tuple[CelebaDataset, CelebaDataset]:
+        """
+        This function loads the celeba dataset from disk
 
         Args:
             train_csv (str): name of the train_csv
@@ -27,8 +27,8 @@ class DatasetUtils:
         Returns:
             Tuple[torchvision.datasets.MNIST, torchvision.datasets.MNIST]:
             the train and test dataset
-        """
 
+        """
         transform = transforms.Compose(
             [
                 transforms.Resize((64, 64)),
@@ -60,8 +60,9 @@ class DatasetUtils:
         debug: bool = False,
         test_csv: str = None,
         base_path: str = "../data/celeba",
-    ) -> Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
-        """This function loads the required dataset from disk.
+    ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+        """
+        This function loads the required dataset from disk.
 
         Args:
             dataset_name (str): name of the dataset to load from disk
@@ -75,6 +76,7 @@ class DatasetUtils:
         Returns:
             Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
             the train and test dataset
+
         """
         if dataset_name == "celeba":
             return DatasetUtils.load_celeba(
@@ -83,7 +85,7 @@ class DatasetUtils:
                 base_path=base_path,
                 debug=debug,
             )
-        elif dataset_name == "dutch":
+        if dataset_name == "dutch":
             tmp = load_dutch(dataset_path=base_path)
             tmp = dataset_to_numpy(*tmp, num_sensitive_features=1)
 
@@ -118,16 +120,16 @@ class DatasetUtils:
             )
 
             return train_dataset, test_dataset
-        else:
-            raise ValueError(f"Dataset {dataset_name} not supported")
+        raise ValueError(f"Dataset {dataset_name} not supported")
 
     @staticmethod
     def prepare_datasets(
         train_ds: torch.utils.data.Dataset,
         test_ds: torch.utils.data.Dataset,
         batch_size: int,
-    ) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
-        """Given the train and the test dataset, this function
+    ) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+        """
+        Given the train and the test dataset, this function
         returns the train and test dataloader.
 
         Args:
@@ -138,6 +140,7 @@ class DatasetUtils:
         Returns:
             Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
             the train and test dataloader
+
         """
         kwargs = {"num_workers": 0, "pin_memory": True}
 

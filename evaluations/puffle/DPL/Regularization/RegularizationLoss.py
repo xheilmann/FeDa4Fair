@@ -5,7 +5,8 @@ from torch import nn
 
 
 class RegularizationLoss(nn.Module):
-    """This class defines the regularization loss as proposed in
+    """
+    This class defines the regularization loss as proposed in
     https://arxiv.org/abs/2302.09183.
     It uses the definition of demographic parity to compute the
     fairness violation term for each batch and then it uses this
@@ -28,7 +29,8 @@ class RegularizationLoss(nn.Module):
         wandb_run=None,
         batch=None,
     ) -> torch.tensor:
-        """This function computes the regularization term.
+        """
+        This function computes the regularization term.
         It takes as input the sensitive attribute list, the targets,
         the device and the predictions computed with the model.
         It returns the regularization term.
@@ -71,8 +73,8 @@ class RegularizationLoss(nn.Module):
 
         Returns:
             float: the disparity metric computed on the data passed as parameter
-        """
 
+        """
         fairness_violations = []
         # We compute the softmax of the predictions. We do this because
         # we can't use the argmax function on the nn output,
@@ -202,6 +204,7 @@ class RegularizationLoss(nn.Module):
         Returns:
             float: the disparity metric computed on the dataset
                 passed as parameter
+
         """
         predictions = torch.tensor([]).to(device)
         sensitive_attribute_list = torch.tensor([]).to(device)
@@ -262,6 +265,7 @@ class RegularizationLoss(nn.Module):
         Returns:
             float: the disparity metric computed on the dataset
                 passed as parameter
+
         """
         predictions = torch.tensor([]).to(device)
         sensitive_attribute_list = torch.tensor([]).to(device)
@@ -322,6 +326,7 @@ class RegularizationLoss(nn.Module):
         Returns:
             float: the disparity metric computed on the dataset
                 passed as parameter
+
         """
         predictions = torch.tensor([]).to(device)
         sensitive_attribute_list = torch.tensor([]).to(device)
@@ -360,7 +365,8 @@ class RegularizationLoss(nn.Module):
         current_sensitive_feature: int,
         weights: dict = None,
     ):
-        """Debug function used to compute the DPL using the argmax function
+        """
+        Debug function used to compute the DPL using the argmax function
         instead of the softmax.
 
         Args:
@@ -384,8 +390,8 @@ class RegularizationLoss(nn.Module):
                 feature we are considering in this iteration, the number
                 of times the sensitive feature is not equal to the sensitive
                 feature we are considering in this iteration
-        """
 
+        """
         opposite_sensitive_feature = 0 if current_sensitive_feature == 1 else 1
 
         Z_eq_z_argmax = 0
@@ -408,14 +414,13 @@ class RegularizationLoss(nn.Module):
 
         if Z_eq_z_argmax == 0 and Z_not_eq_z_argmax != 0:
             return np.abs(Y_eq_k_and_Z_not_eq_z_argmax / Z_not_eq_z_argmax).item()
-        elif Z_eq_z_argmax != 0 and Z_not_eq_z_argmax == 0:
+        if Z_eq_z_argmax != 0 and Z_not_eq_z_argmax == 0:
             return np.abs(Y_eq_k_and_Z_eq_z_argmax / Z_eq_z_argmax).item()
-        elif Z_eq_z_argmax == 0 and Z_not_eq_z_argmax == 0:
+        if Z_eq_z_argmax == 0 and Z_not_eq_z_argmax == 0:
             return 0
-        else:
-            return np.abs(
-                Y_eq_k_and_Z_eq_z_argmax / Z_eq_z_argmax - Y_eq_k_and_Z_not_eq_z_argmax / Z_not_eq_z_argmax
-            ).item()
+        return np.abs(
+            Y_eq_k_and_Z_eq_z_argmax / Z_eq_z_argmax - Y_eq_k_and_Z_not_eq_z_argmax / Z_not_eq_z_argmax
+        ).item()
 
     @staticmethod
     def compute_probabilities(
@@ -425,7 +430,8 @@ class RegularizationLoss(nn.Module):
         possible_sensitive_attributes: list,
         possible_targets: list,
     ) -> torch.tensor:
-        """This function computes the probabilities and the counters
+        """
+        This function computes the probabilities and the counters
             of each possible combination of target and sensitive attribute.
             It is used to compute the probabilities that we use to estimate
             the probabilities of the missing sensitive attributes in the
@@ -443,6 +449,7 @@ class RegularizationLoss(nn.Module):
         Returns:
             (dict, dict): the probabilities and the counters of each possible combination
                 of target and sensitive attribute
+
         """
         softmax_ = F.softmax(predictions, dim=1)
 

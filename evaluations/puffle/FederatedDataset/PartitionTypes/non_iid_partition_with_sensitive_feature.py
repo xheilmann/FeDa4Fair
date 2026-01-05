@@ -69,7 +69,7 @@ class NonIIDPartitionWithSensitiveFeature:
         assert total_sampled == len(labels)
         # create the partitions
         partitions_index = {
-            f"node_{cluster_name}": [] for cluster_name in range(0, num_partitions)
+            f"node_{cluster_name}": [] for cluster_name in range(num_partitions)
         }
         total_samples = 0
         for (class_index, _), distribution_samples in zip(
@@ -161,7 +161,7 @@ class NonIIDPartitionWithSensitiveFeature:
         assert total_sampled == len(labels)
         # create the partitions
         partitions_index = {
-            f"node_{cluster_name}": [] for cluster_name in range(0, num_partitions)
+            f"node_{cluster_name}": [] for cluster_name in range(num_partitions)
         }
         total_samples = 0
         for (class_index, _), distribution_samples in zip(

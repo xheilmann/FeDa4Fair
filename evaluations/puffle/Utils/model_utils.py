@@ -1,4 +1,3 @@
-from typing import Tuple
 
 import torch
 from Models.celeba_net import CelebaNet
@@ -21,7 +20,7 @@ class ModelUtils:
         MAX_GRAD_NORM: float,
         batch_size: int,
         noise_multiplier: float = 0,
-    ) -> Tuple[GradSampleModule, DPOptimizer, DataLoader]:
+    ) -> tuple[GradSampleModule, DPOptimizer, DataLoader]:
         """
 
         Args:
@@ -38,6 +37,7 @@ class ModelUtils:
         Returns:
             Tuple[GradSampleModule, DPOptimizer, DataLoader]: the wrapped model,
                 the wrapped optimizer and the train dataloader
+
         """
         privacy_engine = PrivacyEngine(accountant="rdp")
 
@@ -80,7 +80,8 @@ class ModelUtils:
         input_size: int = None,
         output_size: int = None,
     ) -> torch.nn.Module:
-        """This function returns the model to train.
+        """
+        This function returns the model to train.
 
         Args:
             dataset (str): the name of the dataset
@@ -91,20 +92,20 @@ class ModelUtils:
 
         Returns:
             torch.nn.Module: the model to train
+
         """
         if dataset == "celeba":
             return CelebaNet()
-        elif dataset == "dutch":
+        if dataset == "dutch":
             return LinearClassificationNet(input_size=11, output_size=2)
-        elif dataset == "income":
+        if dataset == "dutch_prepared":
+            return LinearClassificationNet(input_size=11, output_size=2)
+        if dataset == "income":
             return LinearClassificationNet(input_size=49, output_size=2)
-        elif dataset == "income_NO_RACE":
+        if dataset == "income_NO_RACE" or dataset == "income_cross_device":
             return LinearClassificationNet(input_size=41, output_size=2)
-        elif dataset == "income_cross_device":
-            return LinearClassificationNet(input_size=41, output_size=2)
-        elif dataset == "employment":
+        if dataset == "employment":
             return LinearClassificationNet(input_size=88, output_size=2)
-        elif dataset == "employment_NO_RACE":
+        if dataset == "employment_NO_RACE":
             return LinearClassificationNet(input_size=80, output_size=2)
-        else:
-            raise ValueError(f"Dataset {dataset} not supported")
+        raise ValueError(f"Dataset {dataset} not supported")

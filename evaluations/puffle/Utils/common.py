@@ -15,16 +15,14 @@
 """Commonly used functions for generating partitioned datasets."""
 
 # pylint: disable=invalid-name
-import random
 from collections import Counter
-from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.random import BitGenerator, Generator, SeedSequence
 
-XYZ = Tuple[np.ndarray, np.ndarray]
-XYZList = List[XYZ]
-PartitionedDataset = Tuple[XYZList, XYZList]
+XYZ = tuple[np.ndarray, np.ndarray]
+XYZList = list[XYZ]
+PartitionedDataset = tuple[XYZList, XYZList]
 
 np.random.seed(2020)
 
@@ -38,27 +36,30 @@ def float_to_int(i: float) -> int:
 
 
 def sort_by_label(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
-    """Sort by label.
+    """
+    Sort by label.
 
     Assuming two labels and four examples the resulting label order
     would be 1,1,2,2
     """
-    idx = np.argsort(z, axis=0).reshape((z.shape[0]))
+    idx = np.argsort(z, axis=0).reshape(z.shape[0])
     return (x[idx], y[idx], z[idx])
 
 
 def sort_by_sensitive_value(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
-    """Sort by label.
+    """
+    Sort by label.
 
     Assuming two labels and four examples the resulting label order
     would be 1,1,2,2
     """
-    idx = np.argsort(y, axis=0).reshape((y.shape[0]))
+    idx = np.argsort(y, axis=0).reshape(y.shape[0])
     return (x[idx], y[idx], z[idx])
 
 
 def sort_by_label_repeating(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
-    """Sort by label in repeating groups. Assuming two labels and four examples
+    """
+    Sort by label in repeating groups. Assuming two labels and four examples
     the resulting label order would be 1,2,1,2.
 
     Create sorting index which is applied to by label sorted x, y
@@ -96,7 +97,7 @@ def sort_by_label_repeating(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
 
 def split_at_fraction(
     x: np.ndarray, y: np.ndarray, z: np.ndarray, fraction: float
-) -> Tuple[XYZ, XYZ]:
+) -> tuple[XYZ, XYZ]:
     """Split x, y at a certain fraction."""
     splitting_index = float_to_int(x.shape[0] * fraction)
     # Take everything BEFORE splitting_index
@@ -114,7 +115,7 @@ def shuffle(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
 
 def partition(
     x: np.ndarray, y: np.ndarray, z: np.ndarray, num_partitions: int
-) -> List[XYZ]:
+) -> list[XYZ]:
     """Return x, y as list of partitions."""
     return list(
         zip(
@@ -138,8 +139,10 @@ def combine_partitions(XYZ_list_0: XYZList, XYZ_list_1: XYZList) -> XYZList:
 
 
 def shift(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
-    """Shift x_1, y_1 so that the first half contains only labels 0 to 4 and
-    the second half 5 to 9."""
+    """
+    Shift x_1, y_1 so that the first half contains only labels 0 to 4 and
+    the second half 5 to 9.
+    """
     x, y, z = sort_by_label(x, y, z)
 
     (x_0, y_0, z_0), (x_1, y_1, z_1) = split_at_fraction(x, y, z, fraction=0.5)
@@ -157,7 +160,8 @@ def create_partitions(
     iid_fraction: float,
     num_partitions: int,
 ) -> XYZList:
-    """Create partitioned version of a training or test set.
+    """
+    Create partitioned version of a training or test set.
 
     Currently tested and supported are MNIST, FashionMNIST and
     CIFAR-10/100
@@ -182,11 +186,12 @@ def create_partitions(
 
 
 def create_partitioned_dataset(
-    keras_dataset: Tuple[XYZ, XYZ],
+    keras_dataset: tuple[XYZ, XYZ],
     iid_fraction: float,
     num_partitions: int,
-) -> Tuple[PartitionedDataset, XYZ]:
-    """Create partitioned version of keras dataset.
+) -> tuple[PartitionedDataset, XYZ]:
+    """
+    Create partitioned version of keras dataset.
 
     Currently tested and supported are MNIST, FashionMNIST and
     CIFAR-10/100
@@ -239,8 +244,9 @@ def adjust_y_shape(nda: np.ndarray) -> np.ndarray:
 
 def split_array_at_indices(
     x: np.ndarray, split_idx: np.ndarray
-) -> List[List[np.ndarray]]:
-    """Splits an array `x` into list of elements using starting indices from
+) -> list[list[np.ndarray]]:
+    """
+    Splits an array `x` into list of elements using starting indices from
     `split_idx`.
 
         This function should be used with `unique_indices` from `np.unique()` after
@@ -254,8 +260,8 @@ def split_array_at_indices(
 
     Returns:
         List[List[np.ndarray]]: List of list of samples.
-    """
 
+    """
     if split_idx.ndim != 1:
         raise ValueError("Variable `split_idx` must be a 1-D numpy array.")
     if split_idx.dtype != np.int64:
@@ -273,9 +279,9 @@ def split_array_at_indices(
     num_splits: int = len(split_idx)
     split_idx = np.append(split_idx, x.shape[0])
 
-    list_samples_split: List[List[np.ndarray]] = [[] for _ in range(num_splits)]
+    list_samples_split: list[list[np.ndarray]] = [[] for _ in range(num_splits)]
     for j in range(num_splits):
-        tmp_x = x[split_idx[j] : split_idx[j + 1]]  # noqa: E203
+        tmp_x = x[split_idx[j] : split_idx[j + 1]]
         for sample in tmp_x:
             list_samples_split[j].append(sample)
 
@@ -283,9 +289,10 @@ def split_array_at_indices(
 
 
 def exclude_classes_and_normalize(
-    distribution: np.ndarray, exclude_dims: List[bool], eps: float = 1e-5
+    distribution: np.ndarray, exclude_dims: list[bool], eps: float = 1e-5
 ) -> np.ndarray:
-    """Excludes classes from a distribution.
+    """
+    Excludes classes from a distribution.
 
     This function is particularly useful when sampling without replacement.
     Classes for which no sample is available have their probabilities are set to 0.
@@ -300,6 +307,7 @@ def exclude_classes_and_normalize(
 
     Returns:
         np.ndarray: Normalized distributions.
+
     """
     if np.any(distribution < 0) or (not np.isclose(np.sum(distribution), 1.0)):
         raise ValueError("distribution must sum to 1 and have only positive values.")
@@ -322,12 +330,13 @@ def exclude_classes_and_normalize(
 
 def sample_without_replacement(
     distribution: np.ndarray,
-    list_samples: List[List[np.ndarray]],
-    list_sensitive_features_per_class: List[List[np.ndarray]],
+    list_samples: list[list[np.ndarray]],
+    list_sensitive_features_per_class: list[list[np.ndarray]],
     num_samples: int,
-    empty_classes: List[bool],
-) -> Tuple[XYZ, List[bool]]:
-    """Samples from a list without replacement using a given distribution.
+    empty_classes: list[bool],
+) -> tuple[XYZ, list[bool]]:
+    """
+    Samples from a list without replacement using a given distribution.
 
     Args:
         distribution (np.ndarray): Distribution used for sampling.
@@ -339,6 +348,7 @@ def sample_without_replacement(
     Returns:
         XYZ: Dataset contaning samples
         List[bool]: empty_classes.
+
     """
     if np.sum([len(x) for x in list_samples]) < num_samples:
         raise ValueError(
@@ -354,9 +364,9 @@ def sample_without_replacement(
         distribution=distribution, exclude_dims=empty_classes
     )
 
-    data: List[np.ndarray] = []
-    target: List[np.ndarray] = []
-    sensitive_list: List[np.ndarray] = []
+    data: list[np.ndarray] = []
+    target: list[np.ndarray] = []
+    sensitive_list: list[np.ndarray] = []
 
     # check this or find a different dirty solution to run an experiment
     for _ in range(num_samples):
@@ -386,12 +396,13 @@ def sample_without_replacement(
 
 def sample_without_replacement_sensitive(
     distribution: np.ndarray,
-    list_samples_per_sensitive_feature: List[List[np.ndarray]],
-    list_class_per_sensitive_feature: List[List[np.ndarray]],
+    list_samples_per_sensitive_feature: list[list[np.ndarray]],
+    list_class_per_sensitive_feature: list[list[np.ndarray]],
     num_samples: int,
-    empty_classes: List[bool],
-) -> Tuple[XYZ, List[bool]]:
-    """Samples from a list without replacement using a given distribution.
+    empty_classes: list[bool],
+) -> tuple[XYZ, list[bool]]:
+    """
+    Samples from a list without replacement using a given distribution.
 
     Args:
         distribution (np.ndarray): Distribution used for sampling.
@@ -403,9 +414,8 @@ def sample_without_replacement_sensitive(
     Returns:
         XYZ: Dataset contaning samples
         List[bool]: empty_classes.
-    """
-    import random
 
+    """
     if np.sum([len(x) for x in list_samples_per_sensitive_feature]) < num_samples:
         raise ValueError(
             """Number of samples in `list_samples` is less than `num_samples`"""
@@ -420,9 +430,9 @@ def sample_without_replacement_sensitive(
         distribution=distribution, exclude_dims=empty_classes
     )
 
-    data: List[np.ndarray] = []
-    target: List[np.ndarray] = []
-    sensitive_list: List[np.ndarray] = []
+    data: list[np.ndarray] = []
+    target: list[np.ndarray] = []
+    sensitive_list: list[np.ndarray] = []
 
     # check this or find a different dirty solution to run an experiment
     for _ in range(num_samples):
@@ -454,14 +464,16 @@ def sample_without_replacement_sensitive(
     return (data_array, sensitive_array, target_array), empty_classes
 
 
-def get_partitions_distributions(partitions: XYZList) -> Tuple[np.ndarray, List[int]]:
-    """Evaluates the distribution over classes for a set of partitions.
+def get_partitions_distributions(partitions: XYZList) -> tuple[np.ndarray, list[int]]:
+    """
+    Evaluates the distribution over classes for a set of partitions.
 
     Args:
         partitions (XYZList): Input partitions
 
     Returns:
         np.ndarray: Distributions of size (num_partitions, num_classes)
+
     """
     # Get largest available label
     labels = set()
@@ -481,13 +493,14 @@ def get_partitions_distributions(partitions: XYZList) -> Tuple[np.ndarray, List[
 
 def create_lda_partitions(
     dataset: XYZ,
-    dirichlet_dist: Optional[np.ndarray] = None,
+    dirichlet_dist: np.ndarray | None = None,
     num_partitions: int = 100,
-    concentration: Union[float, np.ndarray, List[float]] = 0.5,
+    concentration: float | np.ndarray | list[float] = 0.5,
     accept_imbalanced: bool = False,
-    seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
-) -> Tuple[XYZList, np.ndarray]:
-    """Create imbalanced non-iid partitions using Latent Dirichlet Allocation
+    seed: int | SeedSequence | BitGenerator | Generator | None = None,
+) -> tuple[XYZList, np.ndarray]:
+    """
+    Create imbalanced non-iid partitions using Latent Dirichlet Allocation
     (LDA) without resampling.
 
     Args:
@@ -520,6 +533,7 @@ def create_lda_partitions(
             - position 0 -> the samples for the client
             - position 1 -> the sensitive features for the client
             - position 2 -> the labels for the client
+
     """
     # pylint: disable=too-many-arguments,too-many-locals
 
@@ -545,7 +559,7 @@ def create_lda_partitions(
     concentration = np.asarray(concentration)
 
     # Check if concentration is Inf, if so create uniform partitions
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
     if float("inf") in concentration:
         partitions = create_partitions(
             unpartitioned_dataset=(x, y, z),
@@ -565,10 +579,10 @@ def create_lda_partitions(
         )
 
     # Split into list of list of samples per class
-    list_samples_per_class: List[List[np.ndarray]] = split_array_at_indices(
+    list_samples_per_class: list[list[np.ndarray]] = split_array_at_indices(
         x, start_indices
     )
-    list_sensitive_features_per_class: List[List[np.ndarray]] = [[]] * len(
+    list_sensitive_features_per_class: list[list[np.ndarray]] = [[]] * len(
         list_samples_per_class
     )
     for class_index, index_list in enumerate(list_samples_per_class):
@@ -604,13 +618,14 @@ def create_lda_partitions(
 
 def create_sensitive_partition(
     dataset: XYZ,
-    dirichlet_dist: Optional[np.ndarray] = None,
+    dirichlet_dist: np.ndarray | None = None,
     num_partitions: int = 100,
-    concentration: Union[float, np.ndarray, List[float]] = 100000,
+    concentration: float | np.ndarray | list[float] = 100000,
     accept_imbalanced: bool = False,
-    seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
-) -> Tuple[XYZList, np.ndarray]:
-    """Simple function for testing purposes. It creates a partitioning
+    seed: int | SeedSequence | BitGenerator | Generator | None = None,
+) -> tuple[XYZList, np.ndarray]:
+    """
+    Simple function for testing purposes. It creates a partitioning
     of the dataset based on the sensitive attribute.
     In particular, it creates `num_partitions` partitions, each one containing
     all the samples with the same sensitive attribute value.
@@ -621,6 +636,7 @@ def create_sensitive_partition(
 
     Returns:
         _type_: _description_
+
     """
     # pylint: disable=too-many-arguments,too-many-locals
     x, y, z = dataset
@@ -645,7 +661,7 @@ def create_sensitive_partition(
     concentration = np.asarray(concentration)
 
     # Check if concentration is Inf, if so create uniform partitions
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
     # TODO FIXME
     # if float("inf") in concentration:
     #     partitions = create_partitions(
@@ -666,12 +682,12 @@ def create_sensitive_partition(
         )
 
     # Split into list of list of samples per class
-    list_samples_per_sensitive_feature: List[List[np.ndarray]] = split_array_at_indices(
+    list_samples_per_sensitive_feature: list[list[np.ndarray]] = split_array_at_indices(
         x,
         start_indices,
     )
 
-    list_class_per_sensitive_feature: List[List[np.ndarray]] = [[]] * len(
+    list_class_per_sensitive_feature: list[list[np.ndarray]] = [[]] * len(
         list_samples_per_sensitive_feature,
     )
 
@@ -713,7 +729,7 @@ def create_unbalanced_partitions(dataset, num_partitions=2):
 
     sensitive_values, start_indices = np.unique(y, return_index=True)
 
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
     # just a stupid example
     print(f"Assigning {start_indices[1]} samples with Male = {y[0]} to user 0")
@@ -751,7 +767,7 @@ def create_unbalanced_partitions_max_size(
         y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))
     ]
 
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
     for partition_id in range(num_partitions):
         underrepresented_group = np.random.choice(list(set(y)))
@@ -835,7 +851,7 @@ def create_single_unbalanced_partition_max_size(
         y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))
     ]
 
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
     # create the first partition [BALANCED]
     num_samples_underrepresented_group = max_size // 2
@@ -993,7 +1009,7 @@ def partition_10_nodes(dataset, num_partitions, max_size, num_underrepresented_n
 
     sensitive_values, start_indices = np.unique(y, return_index=True)
 
-    partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
+    partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
     represented_nodes = num_partitions - num_underrepresented_nodes
     print(len(x))

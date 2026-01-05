@@ -1,13 +1,11 @@
 import copy
 import json
-import os
 from itertools import product
 
 import dill
 import numpy as np
 import pandas as pd
-from fairlearn.metrics import MetricFrame, false_positive_rate, selection_rate, true_positive_rate
-from sklearn.metrics import confusion_matrix
+from fairlearn.metrics import MetricFrame, selection_rate
 
 # def demographic_disparity_by_group(y_pred, sensitive_features):
 #     """
@@ -164,7 +162,7 @@ class AggregationFunctions:
                     column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(df)), repeat=2)]
 
                     diff_df = pd.Series(diff_matrix.flatten(), index=column_names)
-                    diff_df = pd.Series([diff_df.max(), diff_df.idxmax()], index=[f"DP_SEX_DP", f"DP_SEX_val"])
+                    diff_df = pd.Series([diff_df.max(), diff_df.idxmax()], index=["DP_SEX_DP", "DP_SEX_val"])
                     dp_third = diff_df[0]
                     group_3 = diff_df[1].split("_")[1]
                     return dp_third, group_3
@@ -500,18 +498,18 @@ class AggregationFunctions:
 
     def handle_counters(metrics, key, fed_dir, unfair_list=None):
         # open the metadata file and update the counters
-        with open(f"{fed_dir}/metadata.json", "r") as infile:
+        with open(f"{fed_dir}/metadata.json") as infile:
             json_file = json.load(infile)
 
         combinations = json_file["combinations"]  # ["1|0", "1|1"]
         all_combinations = json_file["all_combinations"]  # ["0|0", "0|1", "1|0", "1|1"]
         missing_combinations = json_file["missing_combinations"]  # [("0|0", "1|0"), ("0|1", "1|1")]
         # sum_counters = {"0|0": 0, "0|1": 0, "1|0": 0, "1|1": 0}
-        sum_counters = {key: 0 for key in all_combinations}
+        sum_counters = dict.fromkeys(all_combinations, 0)
         possible_sensitive_attributes = json_file["possible_z"]
         possible_targets = json_file["possible_y"]
 
-        sum_possible_sensitive_attributes = {key: 0 for key in possible_sensitive_attributes}  # {"0": 0, "1": 0}
+        sum_possible_sensitive_attributes = dict.fromkeys(possible_sensitive_attributes, 0)  # {"0": 0, "1": 0}
 
         for _, metric in metrics:
             metric_copy = copy.deepcopy(metric)
@@ -535,18 +533,14 @@ class AggregationFunctions:
 
         for non_existing, existing in missing_combinations:
             sum_counters[non_existing] = (
-                sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing]
-                if sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing] > 0
-                else 0
+                max(0, sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing])
             )
         average_probabilities = {}
         for combination in all_combinations:
             try:
                 proba = sum_counters[combination] / sum_possible_sensitive_attributes[combination[2]]
-                if proba > 1:
-                    proba = 1
-                if proba < 0:
-                    proba = 0
+                proba = min(proba, 1)
+                proba = max(proba, 0)
                 average_probabilities[combination] = proba
             except:
                 continue
@@ -581,10 +575,8 @@ class AggregationFunctions:
                 combinations_disparity.append((target, sensitive_value))
 
         max_disparity_with_statistics = max(max_disparity_statistics)
-        if max_disparity_with_statistics < 0:
-            max_disparity_with_statistics = 0
-        if max_disparity_with_statistics > 1:
-            max_disparity_with_statistics = 1
+        max_disparity_with_statistics = max(max_disparity_with_statistics, 0)
+        max_disparity_with_statistics = min(max_disparity_with_statistics, 1)
 
         combinations = [
             (target, sv, disparity) for (target, sv), disparity in zip(combinations_disparity, max_disparity_statistics)

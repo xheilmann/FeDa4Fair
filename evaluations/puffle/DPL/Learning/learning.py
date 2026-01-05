@@ -5,15 +5,13 @@ Regularization and Differential Privacy, you need to use this class for the trai
 (or implement something similar to this one)
 """
 
-import traceback
 from collections import defaultdict
-from typing import Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 from sklearn.metrics import f1_score, precision_score, recall_score
+from torch import nn
 
 from ..DPLUtils.regularization_config import RegularizationConfig
 from ..DPLUtils.utils import Utils
@@ -28,6 +26,7 @@ def exp_lr_scheduler(initial_alpha, current_fl_round, decay_rate=0.001):
         initial_alpha (float): initial learning rate
         current_fl_round (int): the current fl round in which the client was selected
         decay_rate (float, optional): decay rate. Defaults to 0.1.
+
     """
     new_alpha = initial_alpha * decay_rate ** (current_fl_round + 1)
     return new_alpha
@@ -52,7 +51,8 @@ class Learning:
         sigma_update_lambda: float = None,
         epoch: int = 0,
     ) -> dict:
-        """This function is used to train the private model.
+        """
+        This function is used to train the private model.
         If we want to use the unfairness mitigation through Regularization
         and Differential Privacy then we need two models: one for the
         classic training from which we get the loss and one for the
@@ -92,8 +92,8 @@ class Learning:
 
         Raises:
             ValueError: if model_regularization is None and DPL is True
-        """
 
+        """
         criterion = nn.CrossEntropyLoss()
         if train_parameters.metric == "disparity":
             criterion_regularization = RegularizationLoss()
@@ -370,8 +370,9 @@ class Learning:
         current_epoch: int,
         set_name: str = "Test set",
         average_probabilities=None,
-    ) -> Tuple[float, float, float, float, float, float]:
-        """Test the model on the test set computing the
+    ) -> tuple[float, float, float, float, float, float]:
+        """
+        Test the model on the test set computing the
         accuracy and also the maximum disparity of the model.
 
         Args:
@@ -382,6 +383,7 @@ class Learning:
             current_epoch (int): the current epoch
             set_name (str, optional): name of the dataset used for the test.
                 Defaults to "test set".
+
         """
         model.eval()
         criterion = nn.CrossEntropyLoss()
@@ -463,8 +465,9 @@ class Learning:
         current_epoch: int,
         set_name: str = "Test set",
         average_probabilities=None,
-    ) -> Tuple[float, float, float, float, float, float]:
-        """Test the model on the test set computing the
+    ) -> tuple[float, float, float, float, float, float]:
+        """
+        Test the model on the test set computing the
         accuracy and also the maximum disparity of the model.
 
         Args:
@@ -475,6 +478,7 @@ class Learning:
             current_epoch (int): the current epoch
             set_name (str, optional): name of the dataset used for the test.
                 Defaults to "test set".
+
         """
         model.eval()
         criterion = nn.CrossEntropyLoss()
@@ -556,8 +560,9 @@ class Learning:
         current_epoch: int,
         set_name: str = "Test set",
         average_probabilities=None,
-    ) -> Tuple[float, float, float, float, float, float]:
-        """Test the model on the test set computing the
+    ) -> tuple[float, float, float, float, float, float]:
+        """
+        Test the model on the test set computing the
         accuracy and also the maximum disparity of the model.
 
         Args:
@@ -568,6 +573,7 @@ class Learning:
             current_epoch (int): the current epoch
             set_name (str, optional): name of the dataset used for the test.
                 Defaults to "test set".
+
         """
         model.eval()
         criterion = nn.CrossEntropyLoss()
@@ -653,7 +659,8 @@ class Learning:
         wandb_run=None,
         batch: int = 0,
     ) -> torch.tensor:
-        """This function computes the regularization term on the training data
+        """
+        This function computes the regularization term on the training data
         passed as parameter.
 
         Args:
@@ -671,6 +678,7 @@ class Learning:
             fairness_violation (_type_): the fairness violation computed on the data
                 This does not include the multiplication with the Lambda
                 and the Backward pass.
+
         """
         possible_targets = set([item.item() for item in targets])
         possible_sensitive_attributes = set([item.item() for item in sensitive_feature])
@@ -698,8 +706,9 @@ class Learning:
         train_parameters: RegularizationConfig,
         current_epoch: int,
         set_name: str = "test set",
-    ) -> Tuple[float, float, float, float, float, float]:
-        """Test the model on the test set computing the
+    ) -> tuple[float, float, float, float, float, float]:
+        """
+        Test the model on the test set computing the
         accuracy and also the maximum disparity of the model.
 
         Args:
@@ -709,6 +718,7 @@ class Learning:
             current_epoch (int): the current epoch
             set_name (str, optional): name of the dataset used for the test.
                 Defaults to "test set".
+
         """
         model.eval()
         criterion = nn.CrossEntropyLoss()

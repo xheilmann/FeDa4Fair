@@ -15,7 +15,6 @@ import sys
 import time
 import warnings
 from logging import INFO
-from typing import Dict
 
 import flwr as fl
 import numpy as np
@@ -257,10 +256,11 @@ if __name__ == "__main__":
     num_validation_nodes = int(args.pool_size * args.validation_nodes)
     num_test_nodes = int(args.pool_size * args.test_nodes)
 
-    path_to_remove = os.listdir(f"{args.dataset_path}/federated/")
-    for item in path_to_remove:
-        if item.endswith(".pkl"):
-            os.remove(os.path.join(f"{args.dataset_path}/federated/", item))
+    if os.path.exists(f"{args.dataset_path}/federated/"):
+        path_to_remove = os.listdir(f"{args.dataset_path}/federated/")
+        for item in path_to_remove:
+            if item.endswith(".pkl"):
+                os.remove(os.path.join(f"{args.dataset_path}/federated/", item))
 
     train_parameters = TrainParameters(
         epochs=args.epochs,
@@ -369,15 +369,14 @@ if __name__ == "__main__":
                 lr=args.lr,
                 client_generator=client_generator,
             )
-        else:
-            raise Exception("Metric not recognized")
+        raise Exception("Metric not recognized")
 
     model = ModelUtils.get_model(dataset_name, "cuda" if torch.cuda.is_available() else "cpu",)
     model = model.to("cuda" if torch.cuda.is_available() else "cpu")
     model_parameters = [val.cpu().numpy() for _, val in model.state_dict().items()]
     initial_parameters = fl.common.ndarrays_to_parameters(model_parameters)
 
-    def fit_config(server_round: int = 0) -> Dict[str, Scalar]:
+    def fit_config(server_round: int = 0) -> dict[str, Scalar]:
         """Return a configuration with static batch size and (local) epochs."""
         config = {
             "epochs": args.epochs,  # number of local epochs
@@ -387,7 +386,7 @@ if __name__ == "__main__":
         }
         return config
 
-    def evaluate_config(server_round: int = 0) -> Dict[str, Scalar]:
+    def evaluate_config(server_round: int = 0) -> dict[str, Scalar]:
         """Return a configuration with static batch size and (local) epochs."""
         config = {
             "epochs": args.epochs,  # number of local epochs

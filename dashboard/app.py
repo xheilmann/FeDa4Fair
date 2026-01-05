@@ -540,7 +540,7 @@ if st.button("Load and Evaluate"):
                         val_colors = {0: "red", 1: "blue"}
 
                     # Use the library's plotting/computation function
-                    fig, ax, combined_df = plot_multi_attribute_fairness(
+                    fig, _, combined_df = plot_multi_attribute_fairness(
                         partitioner=part_obj,
                         partitioner_test=part_obj,
                         label_name=fds.label_column,

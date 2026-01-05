@@ -3,8 +3,9 @@ import os
 import random
 import shutil
 from collections import Counter, OrderedDict
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import flwr as fl
 import matplotlib.pyplot as plt
@@ -57,13 +58,12 @@ class Utils:
     ):
         if mechanism_type == "laplace":
             return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
-        elif mechanism_type == "geometric":
+        if mechanism_type == "geometric":
             p = 1 - np.exp(-epsilon / sensitivity)
             return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
-        elif mechanism_type == "gaussian":
+        if mechanism_type == "gaussian":
             return np.random.normal(loc=0, scale=sigma, size=1)[0]
-        else:
-            raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
+        raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
 
     @staticmethod
     def seed_everything(seed: int):
@@ -246,18 +246,17 @@ class Utils:
                 model.parameters(),
                 lr=lr,
             )
-        elif train_parameters.optimizer == "sgd":
+        if train_parameters.optimizer == "sgd":
             return torch.optim.SGD(
                 model.parameters(),
                 lr=lr,
             )
-        elif train_parameters.optimizer == "adamW":
+        if train_parameters.optimizer == "adamW":
             return torch.optim.AdamW(
                 model.parameters(),
                 lr=lr,
             )
-        else:
-            raise ValueError("Optimizer not recognized")
+        raise ValueError("Optimizer not recognized")
 
     @staticmethod
     def rescale_lambda(value, old_min, old_max, new_min, new_max):
@@ -266,12 +265,12 @@ class Utils:
         return (((value - old_min) * new_range) / old_range) + new_min
 
     @staticmethod
-    def get_params(model: torch.nn.ModuleList) -> List[np.ndarray]:
+    def get_params(model: torch.nn.ModuleList) -> list[np.ndarray]:
         """Get model weights as a list of NumPy ndarrays."""
         return [val.cpu().numpy() for _, val in model.state_dict().items()]
 
     @staticmethod
-    def set_params(model: torch.nn.ModuleList, params: List[np.ndarray]):
+    def set_params(model: torch.nn.ModuleList, params: list[np.ndarray]):
         """Set model weights from a list of NumPy ndarrays."""
         params_dict = zip(model.state_dict().keys(), params)
         state_dict = OrderedDict({k: torch.from_numpy(np.copy(v)) for k, v in params_dict})
@@ -286,14 +285,14 @@ class Utils:
                     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                 ],
             )
-        elif dataset_name == "mnist":
+        if dataset_name == "mnist":
             return transforms.Compose(
                 [
                     transforms.ToTensor(),
                     transforms.Normalize((0.1307,), (0.3081,)),
                 ],
             )
-        elif dataset_name == "celeba":
+        if dataset_name == "celeba":
             return transforms.Compose(
                 [
                     transforms.Resize((64, 64)),
@@ -301,40 +300,28 @@ class Utils:
                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                 ],
             )
-        else:
-            return None
+        return None
 
     @staticmethod
     def get_dataset(path_to_data: Path, cid: str, partition: str, dataset: str):
         # generate path to cid's data
         path_to_data = path_to_data / cid / (partition + ".pt")
-        if dataset == "dutch":
+        if dataset == "dutch" or dataset=="dutch_prepared" or dataset == "income" or dataset == "income_NO_RACE" or dataset == "income_cross_device" or dataset == "employment" or dataset == "employment_NO_RACE":
             return torch.load(path_to_data)
-        elif dataset == "income":
-            return torch.load(path_to_data)
-        elif dataset == "income_NO_RACE":
-            return torch.load(path_to_data)
-        elif dataset == "income_cross_device":
-            return torch.load(path_to_data)
-        elif dataset == "employment":
-            return torch.load(path_to_data)
-        elif dataset == "employment_NO_RACE":
-            return torch.load(path_to_data)
-        else:
-            return TorchVision_FL(
-                path_to_data,
-                transform=Utils.get_transformation(dataset),
-            )
+        return TorchVision_FL(
+            path_to_data,
+            transform=Utils.get_transformation(dataset),
+        )
 
     @staticmethod
     def get_random_id_splits(total: int, val_ratio: float, shuffle: bool = True):
-        """splits a list of length `total` into two following a
+        """
+        Splits a list of length `total` into two following a
         (1-val_ratio):val_ratio partitioning.
 
         By default the indices are shuffled before creating the split and
         returning.
         """
-
         if isinstance(total, int):
             indices = list(range(total))
         else:
@@ -609,7 +596,6 @@ class Utils:
         partition: str = "train",
     ):
         """Generates trainset/valset object and returns appropiate dataloader."""
-
         partition = "train" if partition == "train" else "test" if partition == "test" else "val"
         dataset = Utils.get_dataset(Path(path_to_data), cid, partition, dataset)
 
@@ -629,7 +615,7 @@ class Utils:
         batch_size: int,
         noise_multiplier: float = 0,
         accountant=None,
-    ) -> Tuple[GradSampleModule, DPOptimizer, DataLoader]:
+    ) -> tuple[GradSampleModule, DPOptimizer, DataLoader]:
         """
 
         Args:
@@ -646,6 +632,7 @@ class Utils:
         Returns:
             Tuple[GradSampleModule, DPOptimizer, DataLoader]: the wrapped model,
                 the wrapped optimizer and the train dataloader
+
         """
         privacy_engine = PrivacyEngine(accountant="rdp")
         if accountant:
@@ -696,12 +683,12 @@ class Utils:
         wandb_run: wandb.sdk.wandb_run.Run,
         batch_size: int,
         train_set,
-    ) -> Callable[[fl.common.NDArrays], Optional[Tuple[float, float]]]:
+    ) -> Callable[[fl.common.NDArrays], tuple[float, float] | None]:
         """Return an evaluation function for centralized evaluation."""
 
         def evaluate(
-            server_round: int, parameters: fl.common.NDArrays, config: Dict[str, Scalar]
-        ) -> Optional[Tuple[float, float]]:
+            server_round: int, parameters: fl.common.NDArrays, config: dict[str, Scalar]
+        ) -> tuple[float, float] | None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
             model = ModelUtils.get_model(dataset_name, device)
@@ -745,7 +732,8 @@ class Utils:
 
 
 class TorchVision_FL(VisionDataset):
-    """This is just a trimmed down version of torchvision.datasets.MNIST.
+    """
+    This is just a trimmed down version of torchvision.datasets.MNIST.
 
     Use this class by either passing a path to a torch file (.pt)
     containing (data, targets) or pass the data, targets directly
@@ -757,7 +745,7 @@ class TorchVision_FL(VisionDataset):
         path_to_data=None,
         data=None,
         targets=None,
-        transform: Optional[Callable] = None,
+        transform: Callable | None = None,
     ) -> None:
         path = path_to_data.parent if path_to_data else None
         self.dataset_path = path.parent.parent.parent if path_to_data else None
@@ -772,7 +760,7 @@ class TorchVision_FL(VisionDataset):
             self.data = data
             self.targets = targets
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+    def __getitem__(self, index: int) -> tuple[Any, Any]:
         img, target = self.data[index], int(self.targets[index])
 
         # doing this so that it is consistent with all other datasets

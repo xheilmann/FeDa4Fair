@@ -1,4 +1,3 @@
-from collections import Counter
 
 import numpy as np
 import torch
@@ -34,7 +33,8 @@ class IIDPartition:
         indexes: np.array,
         num_partitions: int,
     ) -> np.array:
-        """This function splits a list of indexes in N parts.
+        """
+        This function splits a list of indexes in N parts.
         First of all the list is shuffled and then it is splitted in N parts.
 
         Args:
@@ -43,6 +43,7 @@ class IIDPartition:
 
         Returns:
             np.array: the list of splitted indexes
+
         """
         idx = indexes[torch.randperm(len(indexes))]
         return np.array_split(idx, num_partitions)

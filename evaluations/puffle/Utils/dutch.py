@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 
 
 class TabularDataset(Dataset):
-    def __init__(self, x, z, w, t, y):
+    def __init__(self, x, z, y, w=None, t=None):
         """
         Initialize the custom dataset with x (features), z (sensitive values), and y (targets).
 
@@ -11,11 +11,14 @@ class TabularDataset(Dataset):
         x (list of tensors): List of input feature tensors.
         z (list): List of sensitive values.
         y (list): List of target values.
+        w (list): List of second sensitive values (optional).
+        t (list): List of third sensitive values (optional).
+
         """
         self.samples = x
         self.sensitive_features = z
-        self.sensitive_features_2 = w
-        self.sensitive_features_3 = t
+        self.sensitive_features_2 = w if w is not None else [0] * len(x)
+        self.sensitive_features_3 = t if t is not None else [0] * len(x)
         self.targets = y
         self.indexes = range(len(self.samples))
 
@@ -31,6 +34,7 @@ class TabularDataset(Dataset):
 
         Returns:
         sample (dict): A dictionary containing 'x', 'z', and 'y'.
+
         """
         x_sample = self.samples[idx]
         z_sample = self.sensitive_features[idx]

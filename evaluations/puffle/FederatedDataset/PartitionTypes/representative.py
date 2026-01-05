@@ -1,11 +1,7 @@
-import itertools
-import random
 from collections import Counter
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-
 from DPL.Regularization.RegularizationLoss import RegularizationLoss
 
 
@@ -128,8 +124,8 @@ class Representative:
                         current_target=target,
                         current_sensitive_feature=sv,
                     )
-                    for target in range(0, 1)
-                    for sv in range(0, 1)
+                    for target in range(1)
+                    for sv in range(1)
                 ]
             )
             disparities.append(max_disparity)

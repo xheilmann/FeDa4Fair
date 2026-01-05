@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Federated Averaging (FedAvg) [McMahan et al., 2016] strategy.
+"""
+Federated Averaging (FedAvg) [McMahan et al., 2016] strategy.
 
 Paper: https://arxiv.org/abs/1602.05629
 """
 
 from collections import OrderedDict
+from collections.abc import Callable
 from logging import WARNING
-from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import flwr as fl
 import numpy as np
@@ -50,7 +51,6 @@ than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 """
 
 
-# flake8: noqa: E501
 class FedAvg(Strategy):
     """Configurable FedAvg strategy implementation."""
 
@@ -64,19 +64,14 @@ class FedAvg(Strategy):
         min_fit_clients: int = 2,
         min_evaluate_clients: int = 2,
         min_available_clients: int = 2,
-        evaluate_fn: Optional[
-            Callable[
-                [int, NDArrays, Dict[str, Scalar]],
-                Optional[Tuple[float, Dict[str, Scalar]]],
-            ]
-        ] = None,
-        on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
-        on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        evaluate_fn: Callable[[int, NDArrays, dict[str, Scalar]], tuple[float, dict[str, Scalar]] | None] | None = None,
+        on_fit_config_fn: Callable[[int], dict[str, Scalar]] | None = None,
+        on_evaluate_config_fn: Callable[[int], dict[str, Scalar]] | None = None,
         accept_failures: bool = True,
-        initial_parameters: Optional[Parameters] = None,
-        fit_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-        evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-        test_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
+        initial_parameters: Parameters | None = None,
+        fit_metrics_aggregation_fn: MetricsAggregationFn | None = None,
+        evaluate_metrics_aggregation_fn: MetricsAggregationFn | None = None,
+        test_metrics_aggregation_fn: MetricsAggregationFn | None = None,
         current_max_epsilon: float = 0.0,
         fed_dir: str = None,
         model=None,
@@ -86,7 +81,8 @@ class FedAvg(Strategy):
         args=None,
         train_parameters=None,
     ) -> None:
-        """Federated Averaging strategy.
+        """
+        Federated Averaging strategy.
 
         Implementation based on https://arxiv.org/abs/1602.05629
 
@@ -122,6 +118,7 @@ class FedAvg(Strategy):
             Metrics aggregation function, optional.
         test_metrics_aggregation_fn : Optional[MetricsAggregationFn]
             Metrics aggregation function, optional.
+
         """
         super().__init__()
 
@@ -158,25 +155,27 @@ class FedAvg(Strategy):
         rep = f"FedAvg(accept_failures={self.accept_failures})"
         return rep
 
-    def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
-        """Return the sample size and the required number of available
-        clients."""
+    def num_fit_clients(self, num_available_clients: int) -> tuple[int, int]:
+        """
+        Return the sample size and the required number of available
+        clients.
+        """
         num_clients = int(num_available_clients * self.fraction_fit)
         return max(num_clients, self.min_fit_clients), self.min_available_clients
 
-    def num_evaluation_clients(self, num_available_clients: int) -> Tuple[int, int]:
+    def num_evaluation_clients(self, num_available_clients: int) -> tuple[int, int]:
         """Use a fraction of available clients for evaluation."""
         num_clients = int(num_available_clients * self.fraction_evaluate)
         return max(num_clients, self.min_evaluate_clients), self.min_available_clients
 
-    def num_test_clients(self, num_available_clients: int) -> Tuple[int, int]:
+    def num_test_clients(self, num_available_clients: int) -> tuple[int, int]:
         """Use a fraction of available clients for evaluation."""
         num_clients = int(num_available_clients * self.fraction_test)
         return max(num_clients, self.min_evaluate_clients), self.min_available_clients
 
     def initialize_parameters(
         self, client_manager: ClientManager
-    ) -> Optional[Parameters]:
+    ) -> Parameters | None:
         """Initialize global model parameters."""
         initial_parameters = self.initial_parameters
         self.initial_parameters = None  # Don't keep initial parameters in memory
@@ -184,7 +183,7 @@ class FedAvg(Strategy):
 
     def evaluate(
         self, server_round: int, parameters: Parameters
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+    ) -> tuple[float, dict[str, Scalar]] | None:
         """Evaluate model parameters using an evaluation function."""
         if self.evaluate_fn is None:
             # No evaluation function provided
@@ -198,7 +197,7 @@ class FedAvg(Strategy):
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, FitIns]]:
+    ) -> list[tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
         config = {}
         if self.on_fit_config_fn is not None:
@@ -225,7 +224,7 @@ class FedAvg(Strategy):
         parameters: Parameters,
         client_manager: ClientManager,
         phase: str,
-    ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+    ) -> list[tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         # Do not configure federated evaluation if fraction eval is 0.
         if self.fraction_evaluate == 0.0:
@@ -257,7 +256,7 @@ class FedAvg(Strategy):
         parameters: Parameters,
         client_manager: ClientManager,
         phase: str,
-    ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+    ) -> list[tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         # Do not configure federated evaluation if fraction eval is 0.
         if self.fraction_test == 0.0:
@@ -286,9 +285,9 @@ class FedAvg(Strategy):
     def aggregate_fit(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, FitRes]],
+        failures: list[tuple[ClientProxy, FitRes] | BaseException],
+    ) -> tuple[Parameters | None, dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
         if not results:
             return None, {}
@@ -327,7 +326,7 @@ class FedAvg(Strategy):
             print(f"Saving round {server_round} aggregated_parameters...")
 
             # Convert `Parameters` to `List[np.ndarray]`
-            aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(
+            aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(
                 parameters_aggregated
             )
 
@@ -351,9 +350,9 @@ class FedAvg(Strategy):
     def aggregate_evaluate(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, EvaluateRes]],
-        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
-    ) -> Tuple[Optional[float], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, EvaluateRes]],
+        failures: list[tuple[ClientProxy, EvaluateRes] | BaseException],
+    ) -> tuple[float | None, dict[str, Scalar]]:
         """Aggregate  losses using weighted average."""
         if not results:
             return None, {}
@@ -389,9 +388,9 @@ class FedAvg(Strategy):
     def aggregate_test(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, EvaluateRes]],
-        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
-    ) -> Tuple[Optional[float], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, EvaluateRes]],
+        failures: list[tuple[ClientProxy, EvaluateRes] | BaseException],
+    ) -> tuple[float | None, dict[str, Scalar]]:
         """Aggregate  losses using weighted average."""
         if not results:
             return None, {}

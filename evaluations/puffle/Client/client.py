@@ -58,18 +58,17 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 model.parameters(),
                 lr=self.lr,
             )
-        elif self.train_parameters.optimizer == "sgd":
+        if self.train_parameters.optimizer == "sgd":
             return torch.optim.SGD(
                 model.parameters(),
                 lr=self.lr,
             )
-        elif self.train_parameters.optimizer == "adamW":
+        if self.train_parameters.optimizer == "adamW":
             return torch.optim.AdamW(
                 model.parameters(),
                 lr=self.lr,
             )
-        else:
-            raise ValueError("Optimizer not recognized")
+        raise ValueError("Optimizer not recognized")
 
     def get_parameters(self, config):
         return Utils.get_params(self.net)
@@ -151,21 +150,20 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         if self.train_parameters.epsilon is None:
             self.noise_multiplier = 0
             self.original_epsilon = None
-        else:
-            if os.path.exists(f"{self.fed_dir}/noise_level_noise_level_{self.cid}.pkl"):
-                with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "rb") as file:
-                    self.noise_multiplier = dill.load(file)
-                    self.original_epsilon = self.train_parameters.epsilon
-                    self.train_parameters.epsilon = None
-            else:
-                # We compute the noise corresponding to the epsilon defined
-                # as parameter in the TrainParameter passed to the client
-                noise = self.get_noise(dataset=train_loader)
-                with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "wb") as file:
-                    dill.dump(noise, file)
-                self.noise_multiplier = noise
+        elif os.path.exists(f"{self.fed_dir}/noise_level_noise_level_{self.cid}.pkl"):
+            with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "rb") as file:
+                self.noise_multiplier = dill.load(file)
                 self.original_epsilon = self.train_parameters.epsilon
                 self.train_parameters.epsilon = None
+        else:
+            # We compute the noise corresponding to the epsilon defined
+            # as parameter in the TrainParameter passed to the client
+            noise = self.get_noise(dataset=train_loader)
+            with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "wb") as file:
+                dill.dump(noise, file)
+            self.noise_multiplier = noise
+            self.original_epsilon = self.train_parameters.epsilon
+            self.train_parameters.epsilon = None
 
         (
             private_net,
@@ -233,7 +231,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         all_metrics = []
         all_losses = []
         history_lambda = []
-        for epoch in range(0, self.train_parameters.epochs):
+        for epoch in range(self.train_parameters.epochs):
             metrics = Learning.train_private_model(
                 train_parameters=self.train_parameters,
                 model=private_net,
@@ -299,7 +297,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         # guarantee train_parameters.epsilon_statistics
         if self.train_parameters.epsilon_statistics is not None:
             if os.path.exists(f"{self.fed_dir}/metadata.json"):
-                with open(f"{self.fed_dir}/metadata.json", "r") as infile:
+                with open(f"{self.fed_dir}/metadata.json") as infile:
                     json_file = json.load(infile)
             combinations = json_file["combinations"]
             sampling_ratio = 1
@@ -383,7 +381,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         # Load data for this client and get trainloader
         num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
 
-        
+
         if self.train_parameters.cross_silo == True:
             partition = "test" if self.train_parameters.sweep == False else "val"
         else:
@@ -603,18 +601,16 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         regularization and so to a wrong model. Even if the lambda is updated during the
         training, the starting value is important.
         """
-
         delta = self.train_parameters.target - disparity_training
         if delta > 0:
             return 0
-        else:
-            return Utils.rescale_lambda(
-                value=abs(delta),
-                old_min=0,
-                old_max=1 - self.train_parameters.target,
-                new_min=0,
-                new_max=1,
-            )
+        return Utils.rescale_lambda(
+            value=abs(delta),
+            old_min=0,
+            old_max=1 - self.train_parameters.target,
+            new_min=0,
+            new_max=1,
+        )
 
     def get_noise(self, dataset, target_epsilon=None):
         model_noise = ModelUtils.get_model(self.dataset_name, device=self.train_parameters.device)

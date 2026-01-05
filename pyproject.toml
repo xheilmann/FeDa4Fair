@@ -22,7 +22,6 @@ dependencies = [
     "streamlit>=1.31.0",
     "ty>=0.0.4",
     "plotly>=6.5.0",
-    "complexipy>=5.1.0",
 ]
 
 [tool.uv]

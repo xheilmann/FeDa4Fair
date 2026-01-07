@@ -410,6 +410,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             y_true,
             y_pred,
             colors,
+            max_group,
         ) = Learning.test(
             model=self.net,
             test_loader=dataset,
@@ -426,8 +427,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             _,
             max_disparity_second,
             _,
-            _,
-            _,
+            max_group_2,
         ) = Learning.test_2(
             model=self.net,
             test_loader=dataset,
@@ -446,6 +446,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             _,
             _,
             _,
+            max_group_3,
         ) = Learning.test_3(
             model=self.net,
             test_loader=dataset,
@@ -530,6 +531,9 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "third_counters": third_counters,
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
+                "max_group_validation": max_group,
+                "max_group_validation_second": max_group_2,
+                "max_group_validation_third": max_group_3,
             }
         else:
             metrics = {
@@ -548,10 +552,9 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
                 "y_true": y_true,
-                "y_pred": y_pred,
-                "sensitive_attributes_1": sensitive_attributes,
-                "sensitive_attributes_2": second_sensitive_attributes,
-                "sensitive_attributes_3": third_sensitive_attributes,
+                "max_group_test": max_group,
+                "max_group_test_second": max_group_2,
+                "max_group_test_third": max_group_3,
             }
 
         # Return statistics

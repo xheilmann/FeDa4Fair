@@ -423,14 +423,16 @@ class Learning:
             counter_predictions[color].append(prediction)
             counter_true_predictions[color].append(true_value.item())
 
+        max_group = None
         if train_parameters.metric == "disparity":
             criterion_regularization = RegularizationLoss()
             # We compute the violation on the entire test set with the current model
-            unfairness_test = criterion_regularization.violation_with_dataset(
+            unfairness_test, max_group = criterion_regularization.violation_with_dataset(
                 model=model,
                 dataset=test_loader,
                 device=train_parameters.device,
                 average_probabilities=average_probabilities,
+                return_group=True,
             )
 
         # if losses is on gpu we need to move it back to cpu
@@ -455,6 +457,7 @@ class Learning:
             y_true,
             y_pred,
             colors,
+            max_group,
         )
 
     @staticmethod
@@ -518,14 +521,16 @@ class Learning:
             counter_predictions[color].append(prediction)
             counter_true_predictions[color].append(true_value.item())
 
+        max_group = None
         if train_parameters.metric == "disparity":
             criterion_regularization = RegularizationLoss()
             # We compute the violation on the entire test set with the current model
-            unfairness_test = criterion_regularization.violation_with_dataset_2(
+            unfairness_test, max_group = criterion_regularization.violation_with_dataset_2(
                 model=model,
                 dataset=test_loader,
                 device=train_parameters.device,
                 average_probabilities=average_probabilities,
+                return_group=True,
             )
 
         # if losses is on gpu we need to move it back to cpu
@@ -548,8 +553,7 @@ class Learning:
             recall,
             unfairness_test,
             y_true,
-            y_pred,
-            colors,
+            max_group,
         )
 
     @staticmethod
@@ -613,14 +617,16 @@ class Learning:
             counter_predictions[color].append(prediction)
             counter_true_predictions[color].append(true_value.item())
 
+        max_group = None
         if train_parameters.metric == "disparity":
             criterion_regularization = RegularizationLoss()
             # We compute the violation on the entire test set with the current model
-            unfairness_test = criterion_regularization.violation_with_dataset_3(
+            unfairness_test, max_group = criterion_regularization.violation_with_dataset_3(
                 model=model,
                 dataset=test_loader,
                 device=train_parameters.device,
                 average_probabilities=average_probabilities,
+                return_group=True,
             )
 
         # if losses is on gpu we need to move it back to cpu
@@ -645,6 +651,7 @@ class Learning:
             y_true,
             y_pred,
             colors,
+            max_group,
         )
 
     @staticmethod

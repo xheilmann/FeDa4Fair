@@ -28,6 +28,7 @@ class RegularizationLoss(nn.Module):
         average_probabilities: dict = None,
         wandb_run=None,
         batch=None,
+        return_group: bool = False,
     ) -> torch.tensor:
         """
         This function computes the regularization term.
@@ -59,6 +60,8 @@ class RegularizationLoss(nn.Module):
                 of the missing sensitive attributes. This is None in centralised learning
             wandb_run (wandb.Run): the wandb run we're using to log the metrics
             batch (int): the number of the batch we're considering
+            return_group (bool): If True, returns the group (target, sensitive_attribute)
+                that caused the maximum violation. Defaults to False.
 
         Example:
             >>> sensitive_attribute_list = torch.tensor([1, 1, -1, -1, 1, -1])
@@ -172,6 +175,13 @@ class RegularizationLoss(nn.Module):
         mask[index] = 1
         res = torch.sum(mask * fairness_violations)
 
+        if return_group:
+            target_idx = index // len(possible_sensitive_attributes)
+            z_idx = index % len(possible_sensitive_attributes)
+            max_target = possible_targets[target_idx]
+            max_z = possible_sensitive_attributes[z_idx]
+            return res, (max_target, max_z)
+
         return res
 
     def violation_with_dataset(
@@ -180,6 +190,7 @@ class RegularizationLoss(nn.Module):
         dataset: torch.utils.data.DataLoader,
         average_probabilities: dict,
         device: torch.device,
+        return_group: bool = False,
     ) -> torch.tensor:
         """
         When we want to compute the disparity metric on the entire dataset
@@ -200,6 +211,8 @@ class RegularizationLoss(nn.Module):
                 average probabilities of the other clients to estimate the probabilities
                 of the missing sensitive attributes. This is None in centralised learning
             device (torch.device): the device we're using to train the model
+            return_group (bool): If True, returns the group (target, sensitive_attribute)
+                that caused the maximum violation. Defaults to False.
 
         Returns:
             float: the disparity metric computed on the dataset
@@ -233,6 +246,7 @@ class RegularizationLoss(nn.Module):
             sensitive_attributes,
             target_list,
             average_probabilities=average_probabilities,
+            return_group=return_group,
         )
 
     def violation_with_dataset_2(
@@ -241,6 +255,7 @@ class RegularizationLoss(nn.Module):
         dataset: torch.utils.data.DataLoader,
         average_probabilities: dict,
         device: torch.device,
+        return_group: bool = False,
     ) -> torch.tensor:
         """
         When we want to compute the disparity metric on the entire dataset
@@ -261,6 +276,8 @@ class RegularizationLoss(nn.Module):
                 average probabilities of the other clients to estimate the probabilities
                 of the missing sensitive attributes. This is None in centralised learning
             device (torch.device): the device we're using to train the model
+            return_group (bool): If True, returns the group (target, sensitive_attribute)
+                that caused the maximum violation. Defaults to False.
 
         Returns:
             float: the disparity metric computed on the dataset
@@ -294,6 +311,7 @@ class RegularizationLoss(nn.Module):
             sensitive_attributes,
             target_list,
             average_probabilities=average_probabilities,
+            return_group=return_group,
         )
 
     def violation_with_dataset_3(
@@ -302,6 +320,7 @@ class RegularizationLoss(nn.Module):
         dataset: torch.utils.data.DataLoader,
         average_probabilities: dict,
         device: torch.device,
+        return_group: bool = False,
     ) -> torch.tensor:
         """
         When we want to compute the disparity metric on the entire dataset
@@ -322,6 +341,8 @@ class RegularizationLoss(nn.Module):
                 average probabilities of the other clients to estimate the probabilities
                 of the missing sensitive attributes. This is None in centralised learning
             device (torch.device): the device we're using to train the model
+            return_group (bool): If True, returns the group (target, sensitive_attribute)
+                that caused the maximum violation. Defaults to False.
 
         Returns:
             float: the disparity metric computed on the dataset
@@ -355,6 +376,7 @@ class RegularizationLoss(nn.Module):
             sensitive_attributes,
             target_list,
             average_probabilities=average_probabilities,
+            return_group=return_group,
         )
 
     def compute_violation_with_argmax(

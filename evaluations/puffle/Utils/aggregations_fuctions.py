@@ -237,6 +237,16 @@ class AggregationFunctions:
                     f"Test Node {node_name} - Disp. Dataset": disparity_dataset,
                     "FL Round": server_round,
                 }
+                
+                max_group = metric.get("max_group_test" if not train_parameters.sweep else "max_group_validation")
+                if max_group:
+                    print(f"Client {node_name} Max Group: Target={max_group[0]}, Z={max_group[1]}")
+                    agg_metrics[f"Max Group Client {node_name}"] = {
+                        "client_id": node_name,
+                        "max_y": max_group[0],
+                        "max_z": max_group[1],
+                    }
+
                 if wandb_run:
                     wandb_run.log(agg_metrics)
             (

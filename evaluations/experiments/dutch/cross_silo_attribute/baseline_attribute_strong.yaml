@@ -1,4 +1,4 @@
-program:  ../../puffle/main.py
+program:  ../../../puffle/main.py
 method: bayes
 metric:
   name: Custom_metric

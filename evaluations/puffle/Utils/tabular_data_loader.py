@@ -839,6 +839,8 @@ def prepare_tabular_data(
             }
 
             Z_full = dutch_df["sex_binary"].values.astype(np.float32)
+            W_full = dutch_df["Marital_status"].values.astype(np.float32)
+            
 
             X_full, _, Y_full = dataset_to_numpy(
                 dutch_df, dutch_df_feature_columns, metadata_dutch, num_sensitive_features=1
@@ -848,14 +850,17 @@ def prepare_tabular_data(
                 X_train_raw = X_full[:len_train]
                 Z_train_raw = Z_full[:len_train]
                 Y_train_raw = Y_full[:len_train]
+                W_train_raw = W_full[:len_train]
 
                 X_test = X_full[len_train:]
                 Z_test = Z_full[len_train:]
                 Y_test = Y_full[len_train:]
+                W_test = W_full[len_train:]
             else:
                 X_train_raw = X_full
                 Z_train_raw = Z_full
                 Y_train_raw = Y_full
+                W_train_raw = W_full
 
             client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
             if not os.path.exists(client_dir):
@@ -871,10 +876,13 @@ def prepare_tabular_data(
                     Y_val,
                     Z_train,
                     Z_val,
+                    W_train,
+                    W_val,
                 ) = train_test_split(
                     X_train_raw,
                     Y_train_raw,
                     Z_train_raw,
+                    W_train_raw,
                     test_size=0.2,
                     random_state=validation_seed,
                 )
@@ -883,15 +891,17 @@ def prepare_tabular_data(
                     x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
                     z=Z_val,
                     y=Y_val,
+                    w=W_val,
                 )
                 torch.save(val_dataset, f"{client_dir}/val.pt")
             else:
-                X_train, Y_train, Z_train = X_train_raw, Y_train_raw, Z_train_raw
+                X_train, Y_train, Z_train, W_train = X_train_raw, Y_train_raw, Z_train_raw, W_train_raw
 
             train_dataset = TabularDataset(
                 x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
                 z=Z_train,
                 y=Y_train,
+                w=W_train,
             )
 
             random.seed(seed)
@@ -905,6 +915,7 @@ def prepare_tabular_data(
                     x=np.hstack((X_test, np.ones((X_test.shape[0], 1)))).astype(np.float32),
                     z=Z_test,
                     y=Y_test,
+                    w=W_test,
                 )
                 torch.save(test_dataset, f"{client_dir}/test.pt")
 

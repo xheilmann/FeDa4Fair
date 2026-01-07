@@ -18,6 +18,6 @@ run_sweep_and_agent () {
   uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 20
 }
 
-run_sweep_and_agent "baseline_silo_attribute_mild"
-run_sweep_and_agent "baseline_silo_attribute_medium"
-run_sweep_and_agent "baseline_silo_attribute_strong"
+run_sweep_and_agent "baseline_device_attribute_mild"
+run_sweep_and_agent "baseline_device_attribute_medium"
+run_sweep_and_agent "baseline_device_attribute_strong"

@@ -7,6 +7,7 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
 from pathlib import Path
 
 # Add puffle to python path to import TabularDataset
@@ -45,8 +46,15 @@ def load_data(file_path):
          z = np.array(z)
     elif isinstance(z, torch.Tensor):
         z = z.numpy()
+
+    w = getattr(dataset, "sensitive_features_2", None)
+    if w is not None:
+        if isinstance(w, list):
+             w = np.array(w)
+        elif isinstance(w, torch.Tensor):
+            w = w.numpy()
         
-    return X, y, z
+    return X, y, z, w
 
 def calculate_fairness_metrics(y_true, y_pred, z):
     # Ensure inputs are numpy arrays
@@ -113,7 +121,7 @@ def calculate_fairness_metrics(y_true, y_pred, z):
         "fpr_by_group": {str(k): float(v) for k, v in fpr_by_group.items()}
     }
 
-def train_and_eval(X_train, y_train, X_test, y_test, z_test, model_type):
+def train_and_eval(X_train, y_train, X_test, y_test, z_test, w_test, model_type, sensitive_feature, second_sensitive_feature):
     if model_type == "lr":
         model = LogisticRegression(max_iter=1000)
     elif model_type == "xgb":
@@ -129,15 +137,21 @@ def train_and_eval(X_train, y_train, X_test, y_test, z_test, model_type):
     precision = precision_score(y_test, y_pred, average='macro')
     recall = recall_score(y_test, y_pred, average='macro')
     
-    fairness = calculate_fairness_metrics(y_test, y_pred, z_test)
+    fairness_z = calculate_fairness_metrics(y_test, y_pred, z_test)
     
-    return {
+    metrics = {
         "accuracy": float(acc),
         "f1_score": float(f1),
         "precision": float(precision),
         "recall": float(recall),
-        **fairness
+        f"{sensitive_feature}_fairness": fairness_z
     }
+
+    if w_test is not None and second_sensitive_feature:
+        fairness_w = calculate_fairness_metrics(y_test, y_pred, w_test)
+        metrics[f"{second_sensitive_feature}_fairness"] = fairness_w
+    
+    return metrics
 
 def main():
     parser = argparse.ArgumentParser(description="Train local models")
@@ -146,12 +160,18 @@ def main():
     parser.add_argument("--scenario", type=str, default=None, help="Scenario name (e.g. medium, mild, strong). If provided, results are nested under this key.")
     parser.add_argument("--dataset_name", type=str, default="dutch_prepared", help="Dataset name for prepare_tabular_data")
     parser.add_argument("--num_nodes", type=int, default=50, help="Number of nodes/clients")
-    parser.add_argument("--cross_silo", type=bool, default=True, help="Cross silo flag")
+    parser.add_argument("--cross_silo", type=str, default="True", help="Cross silo flag") # Changed type to str to handle shell input easier
     parser.add_argument("--splitted_data_dir", type=str, default="federated", help="Directory for splitted data")
     parser.add_argument("--output_dir", type=str, default="results", help="Directory to save results")
+    parser.add_argument("--sensitive_feature", type=str, default="sex_binary", help="Name of the first sensitive feature")
+    parser.add_argument("--second_sensitive_feature", type=str, default="Marital_status", help="Name of the second sensitive feature")
+    parser.add_argument("--target", type=str, default="occupation_binary", help="Name of the target variable")
     
     args = parser.parse_args()
     
+    # Handle boolean string
+    cross_silo = args.cross_silo.lower() == "true"
+
     print(f"Preparing data for {args.dataset_type} {f'({args.scenario})' if args.scenario else ''}...")
     try:
         # We call prepare_tabular_data to ensure .pt files exist
@@ -165,7 +185,7 @@ def main():
             ratio_unfairness=(0,0), # dummy
             do_iid_split=False,
             splitted_data_dir=args.splitted_data_dir,
-            cross_silo=args.cross_silo,
+            cross_silo=cross_silo,
             sweep=False,
             seed=42,
             validation_seed=42
@@ -207,18 +227,35 @@ def main():
         
     for client_dir in client_dirs:
         client_id = client_dir.name
-        print(f"Processing client {client_id}...")
+        # print(f"Processing client {client_id}...")
         
         train_path = client_dir / "train.pt"
         test_path = client_dir / "test.pt"
         
-        if not train_path.exists() or not test_path.exists():
-            print(f"  Missing train.pt or test.pt for client {client_id}, skipping.")
+        if not train_path.exists():
+            print(f"  Missing train.pt for client {client_id}, skipping.")
             continue
             
         try:
-            X_train, y_train, z_train = load_data(train_path)
-            X_test, y_test, z_test = load_data(test_path)
+            if test_path.exists():
+                X_train, y_train, z_train, w_train = load_data(train_path)
+                X_test, y_test, z_test, w_test = load_data(test_path)
+            else:
+                # Split train.pt
+                X_all, y_all, z_all, w_all = load_data(train_path)
+                if len(y_all) < 5:
+                    print(f"  Client {client_id} has too few samples ({len(y_all)}), skipping.")
+                    continue
+                
+                if w_all is not None:
+                    X_train, X_test, y_train, y_test, z_train, z_test, w_train, w_test = train_test_split(
+                        X_all, y_all, z_all, w_all, test_size=0.2, random_state=42
+                    )
+                else:
+                    X_train, X_test, y_train, y_test, z_train, z_test = train_test_split(
+                        X_all, y_all, z_all, test_size=0.2, random_state=42
+                    )
+                    w_train, w_test = None, None
             
             if len(np.unique(y_train)) < 2:
                  print(f"  Client {client_id} has only one class in training data, skipping.")
@@ -228,12 +265,12 @@ def main():
             
             # Train Logistic Regression
             # print(f"  Training LR...")
-            lr_metrics = train_and_eval(X_train, y_train, X_test, y_test, z_test, "lr")
+            lr_metrics = train_and_eval(X_train, y_train, X_test, y_test, z_test, w_test, "lr", args.sensitive_feature, args.second_sensitive_feature)
             client_results["lr"] = lr_metrics
             
             # Train XGBoost
             # print(f"  Training XGB...")
-            xgb_metrics = train_and_eval(X_train, y_train, X_test, y_test, z_test, "xgb")
+            xgb_metrics = train_and_eval(X_train, y_train, X_test, y_test, z_test, w_test, "xgb", args.sensitive_feature, args.second_sensitive_feature)
             client_results["xgb"] = xgb_metrics
             
             current_results[client_id] = client_results

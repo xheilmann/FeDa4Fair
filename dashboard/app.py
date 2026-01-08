@@ -76,6 +76,20 @@ US_STATES = [
     "PR",
 ]
 
+class ValueReplacementPreprocessor:
+    """Quick utility to replace e.g. string label values"""
+
+    def __init__(self, column: str, mapping: dict):
+        self.column = column
+        self.mapping = mapping
+
+    def __call__(self, dataset_dict):
+        def replace(example):
+            value = example[self.column]
+            return {self.column: self.mapping.get(value, value)}
+
+        return dataset_dict.map(replace)
+
 st.sidebar.header("Dataset Configuration")
 
 MAX_GROUPS_FOR_LETTERS = 26
@@ -102,7 +116,7 @@ if dataset_name in ["ACSIncome", "ACSEmployment"]:
     default_states = US_STATES if select_all else ["CA"]
     selected_states = st.sidebar.multiselect("Select States to Load", US_STATES, default=default_states)
 elif dataset_name == "Other (Hugging Face)":
-    dataset_name = st.sidebar.text_input("HF Dataset Name", "adult")
+    dataset_name = st.sidebar.text_input("HF Dataset Name", "scikit-learn/adult-census-income")
     subset = st.sidebar.text_input("Subset (Optional)", None)
 
     split_mode = st.sidebar.radio("Split Selection", ["Specific Split(s)", "Merge All Splits"])
@@ -112,6 +126,8 @@ elif dataset_name == "Other (Hugging Face)":
         split = st.sidebar.text_input("Split (e.g., 'train', 'train+test')", "train")
 
     label_name = st.sidebar.text_input("Label Column", "income")
+    positive_outcome = st.sidebar.text_input("Positive Label", ">50K")
+    negative_outcome = st.sidebar.text_input("Negative Label", "<=50K")
     sens_attr = st.sidebar.text_input("Sensitive Attribute", "sex")
     sensitive_attributes = [sens_attr]
     year = horizon = None
@@ -355,6 +371,8 @@ if "ACS" in dataset_name:
     all_possible_atts = [a for a in all_possible_atts if a != "sex_binary"]
     if not all_possible_atts:
         all_possible_atts = ["SEX"]  # Fallback for ACS
+elif "adult" in dataset_name:
+    all_possible_atts = ["sex", "marital.status"]
 elif not all_possible_atts:
     all_possible_atts = ["sex_binary"]  # Fallback for generic
 
@@ -424,6 +442,11 @@ if st.button("Load and Evaluate"):
                 states_to_load = None
 
             client_names = None
+            if "positive_outcome" in locals():
+                d = {positive_outcome: 1, negative_outcome: 0}
+                preprocessor = ValueReplacementPreprocessor(label_name, d)
+            else:
+                preprocessor = None
             fds = FairFederatedDataset(
                 dataset=dataset_name,
                 subset=subset if "subset" in locals() else None,
@@ -444,8 +467,10 @@ if st.button("Load and Evaluate"):
                 sample_cap=sample_cap if sample_cap > 0 else None,
                 fl_setting=fl_setting,
                 perc_train_val_test=perc_train_test,
+                preprocessor=preprocessor,
             )
             fds.prepare()
+            part = fds.load_partition(0)
 
             # Iterative Mitigation Loop
             if inject_bias and any(g.get("mitigate", False) for g in group_configs):

@@ -1,48 +1,83 @@
-
 """
 Creation script for Cross-Device Value Imbalanced Benchmarking Datasets.
 Dataset: lucacorbucci/Dutch_census_binary_marital_status
 Scenario: Cross-Device (150 clients)
 Target DP Levels: Mild (0.15), Medium (0.25), Strong (0.35)
 """
-
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from fairlearn.metrics import selection_rate, MetricFrame
 
 from FeDa4Fair.dataset import FairFederatedDataset
-from FeDa4Fair.metrics.fairness import compute_multi_fairness
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 
+def add_proxies(dataset_dict):
+    """Add proxy columns so models can learn bias when sensitive attributes are dropped."""
+    for split in dataset_dict.keys():
+        dataset_dict[split] = dataset_dict[split].map(
+            lambda x: {"Sex_Proxy": x["sex_binary"], "Marital_Proxy": x["Marital_status"]},
+            batched=False
+        )
+    return dataset_dict
 
 def create_benchmarks():
     num_clients = 150
     output_base = "datasets/dutch/cross_device_value"
+    
+    if not os.path.exists(output_base):
+        os.makedirs(output_base)
 
     levels = {
         "mild": {
-            "drop_mean": 0.4, "flip_mean": 0.15, "mitigate_base": True, "target": 0.15, "value": 0
+            "drop_mean": 0.2, "drop_std": 0.05,
+            "flip_mean_0": 0.6, "flip_mean_1": 0.2, "flip_std": 0.02,
+            "target": 0.15
         },
         "medium": {
-            "drop_mean": 0.3, "flip_mean": 0.1, "mitigate_base": False, "target": 0.25, "value": 0
+            "drop_mean": 0.2, "drop_std": 0.05,
+            "flip_mean_0": 0.75, "flip_mean_1": 0.4, "flip_std": 0.02,
+            "target": 0.25
         },
         "strong": {
-            "drop_mean": 0.8, "flip_mean": 0.3, "mitigate_base": False, "target": 0.35, "value": 1
+            "drop_mean": 0.2, "drop_std": 0.05,
+            "flip_mean_0": 0.9, "flip_mean_1": 0.6, "flip_std": 0.02,
+            "target": 0.35
         }
     }
 
     for level_name, config in levels.items():
         print(f"Creating {level_name} benchmark (Target DP ~{config['target']})...")
 
+        half_clients = num_clients // 2
+        
         group_configs = [
             {
-                "group_id": level_name,
-                "num_clients": num_clients,
+                "group_id": "value_0_bias",
+                "num_clients": half_clients,
                 "configs": [
                     {
                         "attribute": "sex_binary",
-                        "value": config["value"],
-                        "drop_mean": config["drop_mean"], "drop_std": 0.05,
-                        "flip_mean": config["flip_mean"], "flip_std": 0.02,
-                        "mitigate": config["mitigate_base"]
+                        "value": 0,
+                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_0"], "flip_std": config["flip_std"],
+                        "mitigate": False
+                    }
+                ]
+            },
+            {
+                "group_id": "value_1_bias",
+                "num_clients": num_clients - half_clients,
+                "configs": [
+                    {
+                        "attribute": "sex_binary",
+                        "value": 1,
+                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_1"], "flip_std": config["flip_std"],
+                        "mitigate": False
                     }
                 ]
             }
@@ -59,42 +94,82 @@ def create_benchmarks():
             modification_dict=mod_dict,
             fl_setting="cross-device",
             perc_train_val_test=[0.8, 0.2],
-            path=f"{output_base}/{level_name}"
+            path=f"{output_base}/{level_name}",
+            preprocessor=add_proxies
         )
 
         fds.prepare()
 
         # Evaluation
         print(f"Evaluating {level_name} benchmark...")
-        results = compute_multi_fairness(
-            partitioner=fds.partitioners["train"],
-            partitioner_test=fds.partitioners["train"],
-            model=LogisticRegression(max_iter=1000, solver="liblinear"),
-            sens_atts=["sex_binary"],
-            fairness_metric="DP",
-            label_name="occupation_binary",
-            fds=fds,
-            split="train"
-        )
+        
+        # Manual loop to collect Selection Rates and Accuracy
+        partition_stats = []
+        
+        num_parts = fds.partitioners["train"].num_partitions
+        for pid in range(num_parts):
+            # Load
+            partition = fds.load_partition(pid, split="train")
+            df = partition.to_pandas()
+            
+            # Train Model
+            cols_to_drop = ["sex_binary", "occupation_binary"]
+            X = df.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include=["number", "bool"])
+            y = df["occupation_binary"]
+            
+            model = LogisticRegression(max_iter=1000, solver="liblinear")
+            model.fit(X, y)
+            y_pred = model.predict(X)
+            
+            # Stats
+            acc = accuracy_score(y, y_pred)
+            mf = MetricFrame(metrics=selection_rate, y_true=y, y_pred=y_pred, sensitive_features=df["sex_binary"])
+            sr_by_group = mf.by_group
+            
+            partition_stats.append({
+                "Partition ID": pid,
+                "Accuracy": acc,
+                "SR_0": sr_by_group.get(0, 0),
+                "SR_1": sr_by_group.get(1, 0),
+                "DP": abs(sr_by_group.get(0, 0) - sr_by_group.get(1, 0))
+            })
 
-        results_eo = compute_multi_fairness(
-            partitioner=fds.partitioners["train"],
-            partitioner_test=fds.partitioners["train"],
-            model=LogisticRegression(max_iter=1000, solver="liblinear"),
-            sens_atts=["sex_binary"],
-            fairness_metric="EO",
-            label_name="occupation_binary",
-            fds=fds,
-            split="train"
-        )
+        stats_df = pd.DataFrame(partition_stats).set_index("Partition ID")
 
-        avg_dp = results["sex_binary_DP"].mean()
-        avg_eo = results_eo["sex_binary_EO"].mean()
-        print(f"Results for {level_name}: Avg DP={avg_dp:.4f}, Avg EO={avg_eo:.4f}")
+        # Plot Selection Rates (Two bars per client)
+        fig_sr, ax_sr = plt.subplots(figsize=(18, 6))
+        stats_df[["SR_0", "SR_1"]].plot(kind="bar", ax=ax_sr, color=["red", "blue"], width=0.8)
+        ax_sr.set_title(f"Selection Rates by Group ({level_name})")
+        ax_sr.set_ylabel("Selection Rate")
+        ax_sr.set_xlabel("Partition ID")
+        ax_sr.legend(["Group 0 (Female)", "Group 1 (Male)"])
+        ax_sr.grid(axis='y', linestyle='--', alpha=0.7)
+        # Set x-ticks to be less crowded
+        n = len(stats_df)
+        ax_sr.set_xticks(range(0, n, 5))
+        ax_sr.set_xticklabels(range(0, n, 5))
+        
+        fig_sr.savefig(f"{output_base}/{level_name}_SelectionRates.png")
+        plt.close(fig_sr)
 
+        # Plot Accuracy
+        fig_acc, ax_acc = plt.subplots(figsize=(12, 6))
+        stats_df["Accuracy"].plot(kind="bar", ax=ax_acc, color="green")
+        ax_acc.set_title(f"Local Model Accuracy ({level_name})")
+        ax_acc.set_ylabel("Accuracy")
+        ax_acc.set_xlabel("Partition ID")
+        ax_acc.set_xticks(range(0, n, 5))
+        ax_acc.set_xticklabels(range(0, n, 5))
+        fig_acc.savefig(f"{output_base}/{level_name}_Accuracy.png")
+        plt.close(fig_acc)
+
+        # Print Avg DP
+        avg_dp = stats_df["DP"].mean()
+        print(f"  sex_binary: Avg DP={avg_dp:.4f}")
+
+        # Save CSV
         eval_path = f"{output_base}/{level_name}_evaluation.csv"
-        results["sex_binary_EO"] = results_eo["sex_binary_EO"]
-        results.to_csv(eval_path)
+        stats_df.to_csv(eval_path)
         print(f"Evaluation saved to {eval_path}\n")
 
 if __name__ == "__main__":

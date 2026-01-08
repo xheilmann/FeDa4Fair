@@ -9,20 +9,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-from fairlearn.metrics import selection_rate, MetricFrame
 
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
-
-def add_proxies(dataset_dict):
-    """Add proxy columns so models can learn bias when sensitive attributes are dropped."""
-    for split in dataset_dict.keys():
-        dataset_dict[split] = dataset_dict[split].map(
-            lambda x: {"Sex_Proxy": x["sex_binary"], "Marital_Proxy": x["Marital_status"]},
-            batched=False
-        )
-    return dataset_dict
+from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
+from FeDa4Fair.metrics.fairness import compute_multi_fairness
 
 def create_benchmarks():
     num_clients = 150
@@ -94,8 +85,7 @@ def create_benchmarks():
             modification_dict=mod_dict,
             fl_setting="cross-device",
             perc_train_val_test=[0.8, 0.2],
-            path=f"{output_base}/{level_name}",
-            preprocessor=add_proxies
+            path=f"{output_base}/{level_name}"
         )
 
         fds.prepare()
@@ -103,73 +93,101 @@ def create_benchmarks():
         # Evaluation
         print(f"Evaluating {level_name} benchmark...")
         
-        # Manual loop to collect Selection Rates and Accuracy
-        partition_stats = []
+        sens_atts = ["sex_binary"]
         
-        num_parts = fds.partitioners["train"].num_partitions
-        for pid in range(num_parts):
-            # Load
-            partition = fds.load_partition(pid, split="train")
-            df = partition.to_pandas()
-            
-            # Train Model
-            cols_to_drop = ["sex_binary", "occupation_binary"]
-            X = df.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include=["number", "bool"])
-            y = df["occupation_binary"]
-            
-            model = LogisticRegression(max_iter=1000, solver="liblinear")
-            model.fit(X, y)
-            y_pred = model.predict(X)
-            
-            # Stats
-            acc = accuracy_score(y, y_pred)
-            mf = MetricFrame(metrics=selection_rate, y_true=y, y_pred=y_pred, sensitive_features=df["sex_binary"])
-            sr_by_group = mf.by_group
-            
-            partition_stats.append({
-                "Partition ID": pid,
-                "Accuracy": acc,
-                "SR_0": sr_by_group.get(0, 0),
-                "SR_1": sr_by_group.get(1, 0),
-                "DP": abs(sr_by_group.get(0, 0) - sr_by_group.get(1, 0))
-            })
-
-        stats_df = pd.DataFrame(partition_stats).set_index("Partition ID")
-
-        # Plot Selection Rates (Two bars per client)
-        fig_sr, ax_sr = plt.subplots(figsize=(18, 6))
-        stats_df[["SR_0", "SR_1"]].plot(kind="bar", ax=ax_sr, color=["red", "blue"], width=0.8)
-        ax_sr.set_title(f"Selection Rates by Group ({level_name})")
-        ax_sr.set_ylabel("Selection Rate")
-        ax_sr.set_xlabel("Partition ID")
-        ax_sr.legend(["Group 0 (Female)", "Group 1 (Male)"])
-        ax_sr.grid(axis='y', linestyle='--', alpha=0.7)
-        # Set x-ticks to be less crowded
-        n = len(stats_df)
-        ax_sr.set_xticks(range(0, n, 5))
-        ax_sr.set_xticklabels(range(0, n, 5))
+        # Calculate DATA Bias (model=None)
+        results_dp = compute_multi_fairness(
+            partitioner=fds.partitioners["train"],
+            partitioner_test=fds.partitioners["train"],
+            model=None, 
+            sens_atts=sens_atts,
+            fairness_metric="DP",
+            label_name="occupation_binary",
+            fds=fds,
+            split="train",
+            size_unit="attribute-value"
+        )
         
-        fig_sr.savefig(f"{output_base}/{level_name}_SelectionRates.png")
-        plt.close(fig_sr)
+        # Custom Plot
+        fig_dp, ax_dp = plt.subplots(figsize=(16, 6))
+        att = "sex_binary"
+        cols = results_dp.columns
+        c_toward_0 = next((c for c in cols if c.startswith(f"{att}_") and ("_0.0_1.0" in c or "_0_1" in c)), None)
+        c_toward_1 = next((c for c in cols if c.startswith(f"{att}_") and ("_1.0_0.0" in c or "_1_0" in c)), None)
+        
+        if c_toward_0 and c_toward_1:
+            df_plot = pd.DataFrame({
+                "Bias Toward 0 (Red)": results_dp[c_toward_0].clip(lower=0),
+                "Bias Toward 1 (Blue)": results_dp[c_toward_1].clip(lower=0)
+            }, index=results_dp.index)
+            
+            df_plot.plot(kind="bar", ax=ax_dp, color=["red", "blue"], width=0.8)
+            ax_dp.set_title(f"Data Demographic Parity Distribution ({level_name})")
+            ax_dp.set_ylabel("DP Difference (Data Bias)")
+            ax_dp.set_xlabel("Partition ID")
+            ax_dp.grid(axis='y', linestyle='--', alpha=0.7)
+            # Reduce x ticks density
+            n = len(df_plot)
+            ax_dp.set_xticks(range(0, n, 5))
+            ax_dp.set_xticklabels(range(0, n, 5))
+            fig_dp.savefig(f"{output_base}/{level_name}_DP.png")
+        else:
+            print(f"Warning: Could not find DP columns. Cols: {cols}")
+        plt.close(fig_dp)
 
-        # Plot Accuracy
-        fig_acc, ax_acc = plt.subplots(figsize=(12, 6))
-        stats_df["Accuracy"].plot(kind="bar", ax=ax_acc, color="green")
-        ax_acc.set_title(f"Local Model Accuracy ({level_name})")
-        ax_acc.set_ylabel("Accuracy")
-        ax_acc.set_xlabel("Partition ID")
-        ax_acc.set_xticks(range(0, n, 5))
-        ax_acc.set_xticklabels(range(0, n, 5))
-        fig_acc.savefig(f"{output_base}/{level_name}_Accuracy.png")
-        plt.close(fig_acc)
+        # Plot Accuracy (Model)
+        results_model = compute_multi_fairness(
+            partitioner=fds.partitioners["train"],
+            partitioner_test=fds.partitioners["train"],
+            model=LogisticRegression(max_iter=1000, solver="liblinear"),
+            sens_atts=sens_atts,
+            fairness_metric="DP",
+            label_name="occupation_binary",
+            fds=fds,
+            split="train",
+            size_unit="attribute"
+        )
 
-        # Print Avg DP
-        avg_dp = stats_df["DP"].mean()
-        print(f"  sex_binary: Avg DP={avg_dp:.4f}")
+        if "Accuracy" in results_model.columns:
+            fig_acc, ax_acc = plt.subplots(figsize=(12, 6))
+            results_model["Accuracy"].plot(kind="bar", ax=ax_acc, color="green")
+            ax_acc.set_title(f"Local Model Accuracy ({level_name})")
+            ax_acc.set_ylabel("Accuracy")
+            ax_acc.set_xlabel("Partition ID")
+            ax_acc.set_xticks(range(0, n, 5))
+            ax_acc.set_xticklabels(range(0, n, 5))
+            fig_acc.savefig(f"{output_base}/{level_name}_Accuracy.png")
+            plt.close(fig_acc)
 
-        # Save CSV
+        # compute EO (Model)
+        fig_eo, _, results_eo = plot_multi_attribute_fairness(
+            partitioner=fds.partitioners["train"],
+            partitioner_test=fds.partitioners["train"],
+            model=LogisticRegression(max_iter=1000, solver="liblinear"),
+            sens_atts=sens_atts,
+            fairness_metric="EO",
+            label_name="occupation_binary",
+            fds=fds,
+            split="train",
+            size_unit="value",
+            value_colors={0.0: "red", 1.0: "blue"}
+        )
+        fig_eo.savefig(f"{output_base}/{level_name}_EO.png")
+        plt.close(fig_eo)
+
+        results = results_dp.copy()
+        results["Accuracy"] = results_model["Accuracy"]
+        for col in results_eo.columns:
+            if col not in results.columns:
+                results[col] = results_eo[col]
+        
+        if c_toward_0 and c_toward_1:
+            max_dp = results[[c_toward_0, c_toward_1]].max(axis=1)
+            avg_val = max_dp.mean()
+            print(f"  {att} (Data Bias): Avg DP={avg_val:.4f}")
+
         eval_path = f"{output_base}/{level_name}_evaluation.csv"
-        stats_df.to_csv(eval_path)
+        results.to_csv(eval_path)
         print(f"Evaluation saved to {eval_path}\n")
 
 if __name__ == "__main__":

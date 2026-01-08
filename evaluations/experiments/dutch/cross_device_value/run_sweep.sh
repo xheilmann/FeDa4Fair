@@ -18,6 +18,6 @@ run_sweep_and_agent () {
   uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 20
 }
 
-run_sweep_and_agent "baseline_silo_value_medium"
-run_sweep_and_agent "puffle_silo_value_medium"
-run_sweep_and_agent "reweighing_silo_value_medium"
+run_sweep_and_agent "baseline_device_value_medium"
+run_sweep_and_agent "puffle_device_value_medium"
+run_sweep_and_agent "reweighing_device_value_medium"

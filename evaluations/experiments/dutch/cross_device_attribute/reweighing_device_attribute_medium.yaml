@@ -18,7 +18,6 @@ parameters:
     max: 0.1
   optimizer:
     values: ["adam", "sgd"]
-  
 
 command:
   - ${env}
@@ -46,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_device_attribute/mild/
+  - ../../../../datasets/dutch/cross_device_attribute/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_device_attribute/mild/
+  - ../../../../datasets/dutch/cross_device_attribute/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -71,3 +70,5 @@ command:
   - federated
   - --ratio_unfair_nodes 
   - 0.5
+  - --reweighing
+  - True

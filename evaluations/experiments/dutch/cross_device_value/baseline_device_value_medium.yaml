@@ -18,7 +18,6 @@ parameters:
     max: 0.1
   optimizer:
     values: ["adam", "sgd"]
-  
 
 command:
   - ${env}
@@ -46,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_device_attribute/strong/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_device_attribute/strong/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --seed 
   - 41 
   - --wandb 

@@ -1,4 +1,4 @@
-program:  ../../puffle/main.py
+program:  ../../../puffle/main.py
 method: bayes
 metric:
   name: Custom_metric
@@ -21,7 +21,6 @@ parameters:
   regularization_lambda:
     min: 0.05
     max: 0.9
-  
 
 command:
   - ${env}
@@ -39,9 +38,9 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 50
+  - 150
   - --sampled_clients 
-  - 0.3
+  - 0.2
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
@@ -49,9 +48,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_attribute/strong/
+  - ../../../../datasets/dutch/cross_device_attribute/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_attribute/strong/
+  - ../../../../datasets/dutch/cross_device_attribute/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -59,23 +58,21 @@ command:
   - --sweep
   - True
   - --training_nodes 
-  - 1
+  - 0.6
   - --validation_nodes 
-  - 1
+  - 0.20
   - --test_nodes 
-  - 1
+  - 0.20
   - --tabular_data 
   - True
+  - --update_lambda
+  - False
   - --metric
   - disparity
   - --splitted_data_dir
   - federated
   - --ratio_unfair_nodes 
   - 0.5
-  - --cross_silo
-  - True
-  - --update_lambda
-  - False
   - --regularization_mode
   - fixed
   - --regularization

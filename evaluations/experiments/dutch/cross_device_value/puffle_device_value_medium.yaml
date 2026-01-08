@@ -1,4 +1,4 @@
-program:  ../../../../puffle/main.py
+program:  ../../../puffle/main.py
 method: bayes
 metric:
   name: Custom_metric
@@ -11,14 +11,16 @@ parameters:
     min: 1
     max: 5
   batch_size:
-    min: 64
-    max: 256
+    min: 128
+    max: 512
   lr:
     min: 0.0001
     max: 0.1
   optimizer:
     values: ["adam", "sgd"]
-  
+  regularization_lambda:
+    min: 0.05
+    max: 0.9
 
 command:
   - ${env}
@@ -36,9 +38,9 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 50
+  - 150
   - --sampled_clients 
-  - 0.3
+  - 0.2
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
@@ -46,9 +48,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_value/mild/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_value/mild/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -71,3 +73,11 @@ command:
   - federated
   - --ratio_unfair_nodes 
   - 0.5
+  - --regularization_mode
+  - fixed
+  - --regularization
+  - True
+  - --target 
+  - 0.05
+  - --sensitive_attribute
+  - SEX

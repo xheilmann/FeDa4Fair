@@ -18,7 +18,6 @@ parameters:
     max: 0.1
   optimizer:
     values: ["adam", "sgd"]
-  
 
 command:
   - ${env}
@@ -36,9 +35,9 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 50
+  - 150
   - --sampled_clients 
-  - 0.3
+  - 0.2
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
@@ -46,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_attribute/mild/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_attribute/mild/
+  - ../../../../datasets/dutch/cross_device_value/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -56,11 +55,11 @@ command:
   - --sweep
   - True
   - --training_nodes 
-  - 1
+  - 0.6
   - --validation_nodes 
-  - 1
+  - 0.20
   - --test_nodes 
-  - 1
+  - 0.20
   - --tabular_data 
   - True
   - --update_lambda
@@ -71,5 +70,5 @@ command:
   - federated
   - --ratio_unfair_nodes 
   - 0.5
-  - --cross_silo
+  - --reweighing
   - True

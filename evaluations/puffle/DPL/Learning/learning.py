@@ -50,6 +50,7 @@ class Learning:
         wandb_run=None,
         sigma_update_lambda: float = None,
         epoch: int = 0,
+        reweighing_weights: dict = None,
     ) -> dict:
         """
         This function is used to train the private model.
@@ -220,7 +221,24 @@ class Learning:
                 # Now we can compute the output of the model and the classic loss
                 outputs = model(data)
                 history_lambda.append(train_parameters.regularization_lambda)
-                classic_loss = criterion(outputs, target)
+                
+                if reweighing_weights is not None:
+                    # Per-sample loss
+                    per_sample_loss = nn.CrossEntropyLoss(reduction="none")(outputs, target)
+                    
+                    # Compute weights for current batch
+                    batch_weights = []
+                    for z, y in zip(sensitive_feature, target):
+                        w = reweighing_weights.get((z.item(), y.item()), 1.0)
+                        batch_weights.append(w)
+                    
+                    batch_weights = torch.tensor(batch_weights).to(train_parameters.device)
+                    
+                    # Weighted loss
+                    weighted_loss = per_sample_loss * batch_weights
+                    classic_loss = weighted_loss.mean()
+                else:
+                    classic_loss = criterion(outputs, target)
 
                 # The classic loss is multiplied with (1 - lambda) because we want to
                 # weight this loss with (1 - lambda) and the regularization term with lambda

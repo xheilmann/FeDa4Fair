@@ -103,6 +103,48 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
         print(f"Client {self.cid} has {len(train_loader.dataset)} samples")
 
+        reweighing_weights = None
+        if self.train_parameters.reweighing:
+            counts = {}
+            total_samples = 0
+            for _, sens_1, sens_2, _, target in train_loader:
+                if self.train_parameters.sensitive_attribute == "SEX":
+                    sensitive_features = sens_1
+                elif self.train_parameters.sensitive_attribute == "MAR":
+                    sensitive_features = sens_2
+                else:
+                    sensitive_features = sens_1
+
+                for z, y in zip(sensitive_features, target):
+                    z_item = z.item()
+                    y_item = y.item()
+                    key = (z_item, y_item)
+                    counts[key] = counts.get(key, 0) + 1
+                    total_samples += 1
+
+            prob_z = {}
+            prob_y = {}
+            prob_zy = {}
+            unique_z = set(k[0] for k in counts.keys())
+            unique_y = set(k[1] for k in counts.keys())
+
+            for z in unique_z:
+                n_z = sum(counts.get((z, y), 0) for y in unique_y)
+                prob_z[z] = n_z / total_samples
+
+            for y in unique_y:
+                n_y = sum(counts.get((z, y), 0) for z in unique_z)
+                prob_y[y] = n_y / total_samples
+
+            reweighing_weights = {}
+            for k, count in counts.items():
+                z, y = k
+                prob_zy = count / total_samples
+                if prob_zy > 0:
+                    reweighing_weights[k] = (prob_z[z] * prob_y[y]) / prob_zy
+                else:
+                    reweighing_weights[k] = 1.0
+
         self.delta = (1 / len(train_loader.dataset)) / 3
 
         if self.train_parameters.epsilon_lambda is not None:
@@ -245,6 +287,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 node_id=self.cid,
                 average_probabilities=average_probabilities,
                 sigma_update_lambda=sigma_update_lambda,
+                reweighing_weights=reweighing_weights,
             )
 
             metrics["Max Disparity Train Before Local Epoch"] = max_disparity_train_before_local_epoch

@@ -42,3 +42,4 @@ class TrainParameters:
     sensitive_attribute: str = None
     dataset_name: str = None
     cross_silo: bool = False
+    reweighing: bool = False

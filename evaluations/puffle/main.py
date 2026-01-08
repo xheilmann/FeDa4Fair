@@ -205,6 +205,8 @@ parser.add_argument("--f1", type=bool, default=False)
 parser.add_argument("--comparison", type=bool, default=False)
 parser.add_argument("--switch_dataset", type=int, default=None)
 
+parser.add_argument("--reweighing", type=bool, default=False)  # If we want to use the reweighing approach
+
 parser.add_argument("--sensitive_attribute", type=str, default="SEX")
 
 
@@ -289,6 +291,7 @@ if __name__ == "__main__":
         sensitive_attribute=args.sensitive_attribute,
         dataset_name=dataset_name,
         cross_silo=args.cross_silo,
+        reweighing=args.reweighing,
     )
 
     if args.tabular_data:

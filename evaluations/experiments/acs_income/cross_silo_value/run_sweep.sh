@@ -1,4 +1,4 @@
-PROJECT_NAME="Fair_Fed_Dataset" # swap out globally
+PROJECT_NAME="Feda4Fair_facct" # swap out globally
 
 run_sweep_and_agent () {
   # Set the SWEEP_NAME variable
@@ -19,6 +19,5 @@ run_sweep_and_agent () {
 }
 
 # run_sweep_and_agent "baseline_attribute"
-# run_sweep_and_agent "baseline_value"
 # run_sweep_and_agent "puffle_attribute"
-run_sweep_and_agent "puffle_value"
+run_sweep_and_agent "reweighing_silo_value_income"

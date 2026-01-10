@@ -113,6 +113,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cross_silo = args.cross_silo
     folder = args.folder_name
+    if not folder.endswith("/"):
+        folder = folder + "/"
 
     unfair_dfs = []
 

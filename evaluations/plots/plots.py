@@ -445,6 +445,237 @@ def local_client_fairness_plot(
     else:
         plt.show()
 
+def scatter_fairness_plot(
+    df1: pd.DataFrame,
+    client_column: str = "Partition ID",
+    fairness_column_Y: str = "RAC1P_DP",
+    fairness_column_X: str = "RAC1P_DP",
+    title: str = "Fairness Comparison",
+    figsize: tuple = (6, 6),
+    ylabel: str = "Fairness Metric Y",
+    xlabel: str = "Fairness Metric X",
+    title_font_size: int = 25,
+    label_font_size: int = 25,
+    ticks_font_size: int = 20,
+    unfairness_distribution: dict = None,
+    legend_labels: dict = None,
+    legend_filename: str = "fairness_plot_legend.png",
+    save_path: str = None,
+) -> plt.Figure:
+    """
+    Plot a scatter comparison of two fairness metrics from the same DataFrame,
+    coloring points based on state lists, with the legend saved separately.
+    """
+    # assert df1[client_column].is_unique, "The client ID column must be unique."
+
+    fairness_x = df1[fairness_column_X]
+    fairness_y = df1[fairness_column_Y]
+    clients = df1[client_column]
+
+    min_val = min(fairness_x.min(), fairness_y.min())
+    max_val = max(fairness_x.max(), fairness_y.max())
+    padding = 0.05 * (max_val - min_val) if max_val != min_val else 0.1
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Define colors for the two groups
+    race_color = '#D81B60'  # Vivid orange
+    sex_color = '#1E88E5'   # Blue
+    
+    race_label = legend_labels.get("race", "Race-Related States") if legend_labels else "Race-Related States"
+    sex_label = legend_labels.get("sex", "Sex-Related States") if legend_labels else "Sex-Related States"
+
+    # Lists to store data for each group
+    race_x = []
+    race_y = []
+    sex_x = []
+    sex_y = []
+
+    if unfairness_distribution:
+        race_states = unfairness_distribution.get("race_state", [])
+        sex_states = unfairness_distribution.get("sex_states", [])
+
+        for i, client in enumerate(clients):
+            client_str = str(client)
+            is_race = client_str in race_states
+            is_sex = client_str in sex_states
+            
+            if not is_race and not is_sex:
+                 base_client = client_str.split('_')[0]
+                 is_race = base_client in race_states
+                 is_sex = base_client in sex_states
+            
+            if is_race:
+                race_x.append(fairness_x.iloc[i])
+                race_y.append(fairness_y.iloc[i])
+            elif is_sex:
+                sex_x.append(fairness_x.iloc[i])
+                sex_y.append(fairness_y.iloc[i])
+            else:
+                # We are not including the 'other' states
+                pass
+    else:
+        # If no unfairness_distribution is provided, plot all points with a default color
+        ax.scatter(
+            fairness_x,
+            fairness_y,
+            facecolors='#56B4E9',
+            edgecolors='black',
+            marker='o',
+            s=200,
+            linewidths=1.2,
+            alpha=0.8,
+        )
+        ax.plot(
+            [min_val - padding, max_val + padding],
+            [min_val - padding, max_val + padding],
+            linestyle="dotted",
+            color="gray",
+            linewidth=2
+        )
+        ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+        ax.set_xlim(min_val - padding, max_val + padding)
+        ax.set_ylim(min_val - padding, max_val + padding)
+        ax.set_xlabel(xlabel, fontsize=label_font_size)
+        ax.set_ylabel(ylabel, fontsize=label_font_size)
+        ax.set_title(title, fontsize=title_font_size)
+        ax.grid(True)
+        
+        if save_path:
+             plt.tight_layout()
+             plt.savefig(save_path, bbox_inches='tight', dpi=150)
+             plt.close(fig)
+        else:
+             plt.tight_layout()
+             plt.show()
+        return fig
+
+    # Scatter plot for race-related states
+    ax.scatter(
+        race_x,
+        race_y,
+        facecolors=race_color,
+        edgecolors='black',
+        marker='o',
+        s=200,
+        linewidths=1.2,
+        alpha=0.8,
+        label=race_label
+    )
+
+    # Scatter plot for sex-related states
+    ax.scatter(
+        sex_x,
+        sex_y,
+        facecolors=sex_color,
+        edgecolors='black',
+        marker='o',
+        s=200,
+        linewidths=1.2,
+        alpha=0.8,
+        label=sex_label
+    )
+
+    ax.plot(
+        [min_val - padding, max_val + padding],
+        [min_val - padding, max_val + padding],
+        linestyle="dotted",
+        color="gray",
+        linewidth=2
+    )
+
+    ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+    ax.set_xlim(min_val - padding, max_val + padding)
+    ax.set_ylim(min_val - padding, max_val + padding)
+    ax.set_xlabel(xlabel, fontsize=label_font_size)
+    ax.set_ylabel(ylabel, fontsize=label_font_size)
+    ax.set_title(title, fontsize=title_font_size)
+    ax.grid(True)
+
+    if save_path:
+        # Create a separate figure for the legend
+        fig_legend = plt.figure(figsize=(6, 1))
+        ax_legend = fig_legend.add_subplot(111)
+
+        # Create custom patches for the legend
+        race_patch = mpatches.Patch(facecolor=race_color, edgecolor='black', label=race_label)
+        sex_patch = mpatches.Patch(facecolor=sex_color, edgecolor='black', label=sex_label)
+
+        # Add the legend to the separate axes
+        ax_legend.legend(handles=[race_patch, sex_patch], fontsize=24, loc='center', frameon=False, ncol=2)
+        ax_legend.axis('off')  # Turn off the axes for the legend
+
+        fig_legend.tight_layout()
+        legend_path = os.path.join(os.path.dirname(save_path), legend_filename)
+        fig_legend.savefig(legend_path, bbox_inches='tight', dpi=150)
+        plt.close(fig_legend)
+
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=150)
+        plt.close(fig)
+    else:
+        plt.tight_layout()
+        plt.show()
+
+    return fig
+
+def bar_plot_value_distribution(df, attribute, title, save_path=None):
+    """
+    Creates a bar plot of unfairness for each client, colored by which value is leading to the maximum value.
+    """
+    df_plot = df.copy()
+    
+    if 'Value' not in df_plot.columns:
+        colors = '#56B4E9' # Default blue
+    else:
+        # Define a palette
+        # 0: red, 1: blue, 2: green, 3: orange
+        palette = {0: 'red', 1: 'blue', 2: 'green', 3: 'orange'}
+        colors = [palette.get(int(float(v)), 'gray') for v in df_plot['Value']]
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    
+    # Sort by dataset name for consistent x-axis
+    try:
+        df_plot['dataset_int'] = df_plot['dataset'].astype(int)
+        df_plot = df_plot.sort_values('dataset_int')
+    except:
+        df_plot = df_plot.sort_values('dataset')
+
+    # Use plt.bar directly for more control over colors
+    ax.bar(df_plot['dataset'].astype(str), df_plot[attribute], color=colors, edgecolor='black', linewidth=0.5)
+    
+    ax.set_title(title, fontsize=24, pad=20)
+    ax.set_xlabel('Client ID', fontsize=20, labelpad=15)
+    ax.set_ylabel('Dem. Disparity', fontsize=20, labelpad=15)
+    
+    # Ticks
+    n = len(df_plot)
+    if n > 50:
+        ax.set_xticks(range(0, n, 10))
+        ax.set_xticklabels(df_plot['dataset'].iloc[::10].astype(str), rotation=45)
+    else:
+        ax.set_xticks(range(n))
+        ax.set_xticklabels(df_plot['dataset'].astype(str), rotation=90)
+    
+    ax.tick_params(axis='both', which='major', labelsize=16)
+
+    # Add legend
+    import matplotlib.patches as mpatches
+    patches = [
+        mpatches.Patch(color='red', label='Group 0'),
+        mpatches.Patch(color='blue', label='Group 1')
+    ]
+    ax.legend(handles=patches, loc='upper right', fontsize=18)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    if save_path:
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=150)
+        plt.close(fig)
+    else:
+        plt.show()
+
 # --- Data Loading ---
 
 def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node", dataset_name=""):
@@ -623,6 +854,14 @@ def load_local_results(file_path):
         df = pd.read_csv(file_path)
         if "model" not in df.columns:
             df["model"] = "LocalModel"
+        
+        # Try to extract Value if missing
+        if "Value" not in df.columns:
+            if "value_DP_SEX" in df.columns:
+                 df["Value"] = df["value_DP_SEX"].apply(lambda x: x.split("_")[-1] if isinstance(x, str) else x)
+            elif "value_DP_RACE" in df.columns:
+                 df["Value"] = df["value_DP_RACE"].apply(lambda x: x.split("_")[-1] if isinstance(x, str) else x)
+        
         return df
     
     raise ValueError(f"Unsupported file type: {file_path}")
@@ -808,6 +1047,28 @@ def main():
         else:
             print(f"Skipping Sex scatter plot for {model} (DP_SEX missing)")
 
+        # Attribute Bias Distribution (Scatter DP_RACE vs DP_SEX for Local Models)
+        if "DP_RACE" in model_df.columns and "DP_SEX" in model_df.columns:
+            try:
+                plot_path = os.path.join(base_output_dir, f"attribute_bias_dist_{safe_model_name}.pdf")
+                
+                scatter_fairness_plot(
+                    df1=model_df,
+                    client_column="dataset",
+                    fairness_column_X="DP_RACE",
+                    fairness_column_Y="DP_SEX",
+                    ylabel="Dem. Disparity SEX",
+                    xlabel="Dem. Disparity RACE", # or MARITAL for Dutch
+                    title="Attribute Bias Distribution",
+                    unfairness_distribution=states_unfairness,
+                    legend_labels=legend_labels,
+                    save_path=plot_path,
+                    legend_filename=f"attribute_bias_legend_{safe_model_name}.pdf"
+                )
+                print(f"Saved Attribute Bias Distribution Plot: {plot_path}")
+            except Exception as e:
+                print(f"Error creating attribute bias distribution plot for {model}: {e}")
+
         # C) Value Plots (if applicable)
         # Check if we can/should generate value plots
         generate_value_plots = False
@@ -867,6 +1128,17 @@ def main():
                 except Exception as e:
                     print(f"Error creating value distribution plot (Sex) for {model}: {e}")
 
+                try:
+                    bar_plot_value_distribution(
+                        model_df_with_val, 
+                        attribute="DP_SEX", 
+                        title="Value Based Distribution (Sex)", 
+                        save_path=os.path.join(base_output_dir, f"value_based_dist_sex_{safe_model_name}.pdf")
+                    )
+                    print(f"Saved Value Based Distribution Plot (Sex) for {model}")
+                except Exception as e:
+                    print(f"Error creating value based distribution plot (Sex) for {model}: {e}")
+
             if "DP_RACE" in model_df_with_val.columns:
                 try:
                     create_value_plot(
@@ -880,6 +1152,17 @@ def main():
                     print(f"Saved Value Distribution Plot (Race) for {model}")
                 except Exception as e:
                     print(f"Error creating value distribution plot (Race) for {model}: {e}")
+
+                try:
+                    bar_plot_value_distribution(
+                        model_df_with_val, 
+                        attribute="DP_RACE", 
+                        title="Value Based Distribution (Race/Mar)", 
+                        save_path=os.path.join(base_output_dir, f"value_based_dist_race_{safe_model_name}.pdf")
+                    )
+                    print(f"Saved Value Based Distribution Plot (Race) for {model}")
+                except Exception as e:
+                    print(f"Error creating value based distribution plot (Race) for {model}: {e}")
 
             # 2. Value Change Arrows (Local -> FL)
             # Needs 'Value' in fl_df

@@ -27,7 +27,7 @@ command:
   - ${program}
   - ${args}
   - --dataset
-  - celeba
+  - celeba_prepared
   - --num_rounds
   - 10
   - --num_client_cpus

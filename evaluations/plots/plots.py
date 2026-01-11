@@ -620,7 +620,10 @@ def load_local_results(file_path):
             return pd.DataFrame(data)
             
     elif file_path.endswith(".csv"):
-        return pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
+        if "model" not in df.columns:
+            df["model"] = "LocalModel"
+        return df
     
     raise ValueError(f"Unsupported file type: {file_path}")
 

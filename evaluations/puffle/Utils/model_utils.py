@@ -96,6 +96,8 @@ class ModelUtils:
         """
         if dataset == "celeba":
             return CelebaNet()
+        if dataset == "celeba_prepared":
+            return CelebaNet()
         if dataset == "dutch":
             return LinearClassificationNet(input_size=11, output_size=2)
         if dataset == "dutch_prepared":

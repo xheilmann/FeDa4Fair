@@ -1,4 +1,6 @@
+import io
 import os
+from typing import Callable
 
 import pandas as pd
 import torchvision
@@ -76,6 +78,71 @@ class CelebaDataset(Dataset):
 
         return (
             img,
+            self.sensitive_attributes[index],
+            self.targets[index],
+        )
+
+    def __len__(self) -> int:
+        """
+        This function returns the size of the dataset.
+
+        Returns
+        -------
+            int: size of the dataset
+
+        """
+        return self.n_samples
+
+
+class CelebaPreparedDataset(Dataset):
+    """Definition of the dataset used for the Celeba Dataset."""
+
+    def __init__(
+        self,
+        images: list,
+        labels: list,
+        sensitive_attributes: list,
+        transform: Callable | None = None,
+    ) -> None:
+        """
+        Initialization of the dataset.
+
+        Args:
+        ----
+            images (list): List of images.
+            labels (list): List of labels.
+            sensitive_attributes (list): List of sensitive attributes.
+            transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
+
+        """
+        smiling_dict = {False: 0, True: 1}
+        targets = [smiling_dict[item] for item in labels]
+        self.targets = targets
+        self.sensitive_attributes = [smiling_dict[item] for item in sensitive_attributes]
+        self.samples = images
+        self.n_samples = len(images)
+        self.transform = transform
+        self.indexes = range(len(self.samples))
+
+    def __getitem__(self, index: int):
+        """
+        Returns a sample from the dataset.
+
+        Args:
+            index (int): index of the sample we want to retrieve
+
+        Returns:
+        -------
+            _type_: sample we want to retrieve
+
+        """
+        if self.transform:
+            img = self.transform(img)
+
+        return (
+            img,
+            self.sensitive_attributes[index],
+            self.sensitive_attributes[index],
             self.sensitive_attributes[index],
             self.targets[index],
         )

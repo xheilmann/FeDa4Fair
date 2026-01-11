@@ -27,7 +27,7 @@ command:
   - ${program}
   - ${args}
   - --dataset
-  - celeba
+  - celeba_prepared
   - --num_rounds
   - 10
   - --num_client_cpus
@@ -45,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/celeba/cross_silo_value_final/FL_data/
+  - ../../../../datasets/celeba/cross_silo_value/medium/FL_data/
   - --dataset_path 
-  - ../../../../datasets/celeba/cross_silo_value_final/
+  - ../../../../datasets/celeba/cross_silo_value/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -63,7 +63,7 @@ command:
   - --test_nodes
   - 1
   - --tabular_data 
-  - False
+  - True
   - --update_lambda
   - False
   - --metric

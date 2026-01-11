@@ -45,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/celeba/cross_device_attribute_final/FL_data/
+  - ../../../../datasets/celeba/cross_device_attribute/medium/FL_data/
   - --dataset_path 
-  - ../../../../datasets/celeba/cross_device_attribute_final/
+  - ../../../../datasets/celeba/cross_device_attribute/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -59,14 +59,10 @@ command:
   - --validation_nodes 
   - 0
   - --tabular_data 
-  - False
+  - True
   - --update_lambda
   - False
   - --metric
   - disparity
   - --splitted_data_dir
   - federated
-  - --partition_type
-  - non_iid
-  - --alpha
-  - 10000000

@@ -36,7 +36,7 @@ command:
   - ${program}
   - ${args}
   - --dataset
-  - celeba
+  - celeba_prepared
   - --num_rounds
   - 10
   - --num_client_cpus
@@ -54,9 +54,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/celeba/cross_device_value_final/FL_data/
+  - ../../../../datasets/celeba/cross_device_value/medium/FL_data/
   - --dataset_path 
-  - ../../../../datasets/celeba/cross_device_value_final/
+  - ../../../../datasets/celeba/cross_device_value/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -68,7 +68,7 @@ command:
   - --validation_nodes 
   - 0
   - --tabular_data 
-  - False
+  - True
   - --update_lambda
   - True
   - --metric

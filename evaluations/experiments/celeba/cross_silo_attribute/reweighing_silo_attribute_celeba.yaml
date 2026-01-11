@@ -1,0 +1,80 @@
+program:  ../../../puffle/main.py
+method: bayes
+metric:
+  name: Custom_metric
+  goal: maximize
+early_terminate:
+  type: hyperband
+  min_iter: 5
+parameters:
+  epochs:
+    min: 1
+    max: 5
+  batch_size:
+    min: 128
+    max: 512
+  lr:
+    min: 0.0001
+    max: 0.1
+  optimizer:
+    values: ["adam", "sgd"]
+
+command:
+  - ${env}
+  - uv 
+  - run 
+  - python
+  - ${program}
+  - ${args}
+  - --dataset
+  - celeba
+  - --num_rounds
+  - 10
+  - --num_client_cpus
+  - 1
+  - --num_client_gpus
+  - 0.05
+  - --pool_size
+  - 10
+  - --sampled_clients 
+  - 1.0
+  - --sampled_clients_test 
+  - 1.0
+  - --sampled_clients_validation 
+  - 1.0
+  - --debug
+  - False
+  - --base_path
+  - ../../../../datasets/celeba/cross_silo_attribute_final/FL_data/
+  - --dataset_path 
+  - ../../../../datasets/celeba/cross_silo_attribute_final/
+  - --seed 
+  - 41 
+  - --wandb 
+  - True 
+  - --sweep
+  - True
+  - --train_csv
+  - train
+  - --validation_nodes 
+  - 1
+  - --training_nodes
+  - 1
+  - --test_nodes
+  - 1
+  - --tabular_data 
+  - False
+  - --update_lambda
+  - False
+  - --metric
+  - disparity
+  - --splitted_data_dir
+  - federated
+  - --partition_type
+  - non_iid
+  - --alpha
+  - 10000000
+  - --reweighing
+  - True
+  - --cross_silo
+  - True

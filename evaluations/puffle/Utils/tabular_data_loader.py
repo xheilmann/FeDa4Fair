@@ -928,71 +928,102 @@ def prepare_tabular_data(
 
     elif dataset_name == "celeba_prepared":
         for client_name in range(num_nodes):
-            path_train = f"{dataset_path}/train_{client_name}.csv"
-            if not os.path.exists(path_train):
-                print(f"Warning: Client {client_name} file not found at {path_train}")
-                continue
-            
-            df = pd.read_csv(path_train)
-            
-            # Extract lists
-            labels = df["Smiling"].tolist()
-            sensitive_attributes = df["Male"].tolist()
-            
-            # Extract images from bytes
-            # Assuming the 'image' column contains string representation of dicts if loaded from CSV
-            # But user prompt implies `client_0["image"]` access returns objects with "bytes" key
-            # If standard CSV, it's likely a string. 
-            # However, adapting to user snippet:
-            # image_bytes = [image_path["bytes"] for image_path in client_0["image"]]
-            
-            # We will use eval() if it's a string, or direct access if it's somehow preserved (unlikely in CSV)
-            # The safest approach for "csv" storing bytes is that it might be a parquet or the col is parseable.
-            
-            image_bytes = []
-            for item in df["image"]:
-                if isinstance(item, str):
-                    try:
-                        # Attempt to parse string representation of dict
-                        # Using ast.literal_eval is safer than eval, but user didn't specify import. 
-                        # We will assume it works or use eval with caution if structure is simple.
-                        # Actually, 'bytes' in string repr of a dict is messy (b'...'). 
-                        # IF the file is truly CSV, this path is fragile. 
-                        # But adhering to instructions:
-                        parsed_item = eval(item) 
-                        image_bytes.append(parsed_item["bytes"])
-                    except:
-                        # Fallback or error
-                        print(f"Error parsing image column for client {client_name}")
-                        pass
-                else:
-                    # Maybe it's already a dict (e.g. if pd read it differently? unlikely for CSV)
-                    image_bytes.append(item["bytes"])
-
-            images = [Image.open(io.BytesIO(img_byte)).convert("RGB") for img_byte in image_bytes]
-
-            transform = transforms.Compose(
-                [
-                    transforms.Resize((64, 64)),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                ],
-            )
-
-            train_dataset = CelebaPreparedDataset(
-                images=images,
-                labels=labels,
-                sensitive_attributes=sensitive_attributes,
-                transform=transform
-            )
-
             client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
             if not os.path.exists(client_dir):
                 os.makedirs(client_dir)
-            
             os.system(f"rm -rf {client_dir}/*.pt")
-            
-            torch.save(train_dataset, f"{client_dir}/train.pt")
+
+            transform = transforms.Compose([
+                transforms.Resize((64, 64)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ])
+
+            datasets_to_process = []
+            if cross_silo:
+                datasets_to_process.append(("train", f"{dataset_path}/train_train_{client_name}.csv"))
+                datasets_to_process.append(("test", f"{dataset_path}/train_test_{client_name}.csv"))
+            else:
+                datasets_to_process.append(("train", f"{dataset_path}/train_{client_name}.csv"))
+
+            processed_data = {}
+
+            for split_name, csv_path in datasets_to_process:
+                if not os.path.exists(csv_path):
+                    print(f"Warning: File {csv_path} not found.")
+                    processed_data[split_name] = None
+                    continue
+
+                df = pd.read_csv(csv_path)
+                
+                labels = df["Smiling"].tolist()
+                sensitive_attributes = df["Male"].tolist()
+                
+                image_bytes = []
+                for item in df["image"]:
+                    if isinstance(item, str):
+                        try:
+                            parsed_item = eval(item) 
+                            image_bytes.append(parsed_item["bytes"])
+                        except:
+                            pass
+                    else:
+                        image_bytes.append(item["bytes"])
+
+                images = [Image.open(io.BytesIO(img_byte)).convert("RGB") for img_byte in image_bytes]
+                
+                processed_data[split_name] = {
+                    "images": images,
+                    "labels": labels,
+                    "sensitive": sensitive_attributes
+                }
+
+            # Handle Train/Val Split (Sweep)
+            if processed_data.get("train") is not None:
+                train_data = processed_data["train"]
+                
+                if sweep:
+                    (
+                        X_train, X_val, 
+                        y_train, y_val, 
+                        z_train, z_val
+                    ) = train_test_split(
+                        train_data["images"], 
+                        train_data["labels"], 
+                        train_data["sensitive"],
+                        test_size=0.2, 
+                        random_state=validation_seed
+                    )
+                    
+                    val_dataset = CelebaPreparedDataset(
+                        images=X_val, labels=y_val, sensitive_attributes=z_val, transform=transform
+                    )
+                    torch.save(val_dataset, f"{client_dir}/val.pt")
+                    
+                    # Update train
+                    train_data["images"] = X_train
+                    train_data["labels"] = y_train
+                    train_data["sensitive"] = z_train
+
+                # Save Train
+                train_dataset = CelebaPreparedDataset(
+                    images=train_data["images"], 
+                    labels=train_data["labels"], 
+                    sensitive_attributes=train_data["sensitive"], 
+                    transform=transform
+                )
+                torch.save(train_dataset, f"{client_dir}/train.pt")
+
+            # Save Test
+            if processed_data.get("test") is not None:
+                test_data = processed_data["test"]
+                test_dataset = CelebaPreparedDataset(
+                    images=test_data["images"], 
+                    labels=test_data["labels"], 
+                    sensitive_attributes=test_data["sensitive"], 
+                    transform=transform
+                )
+                torch.save(test_dataset, f"{client_dir}/test.pt")
 
         fed_dir = f"{dataset_path}/{splitted_data_dir}"
         return fed_dir, None

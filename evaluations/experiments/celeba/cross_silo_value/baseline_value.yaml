@@ -70,3 +70,5 @@ command:
   - federated
   - --ratio_unfair_nodes 
   - 0.5
+  - --cross_silo
+  - True

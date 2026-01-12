@@ -81,3 +81,5 @@ command:
   - 0.05
   - --sensitive_attribute
   - SEX
+  - --cross_silo
+  - True

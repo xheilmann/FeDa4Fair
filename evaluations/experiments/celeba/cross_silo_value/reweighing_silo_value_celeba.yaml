@@ -72,3 +72,5 @@ command:
   - 0.5
   - --reweighing
   - True
+  - --cross_silo
+  - True

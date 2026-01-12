@@ -19,14 +19,8 @@ parameters:
   optimizer:
     values: ["adam", "sgd"]
   regularization_lambda:
-    min: 0.0
-    max: 2.0
-  alpha_target_lambda:
-    min: 0.0
-    max: 2.0
-  epsilon:
-    min: 0.0
-    max: 2.0
+    min: 0.05
+    max: 0.9
 
 command:
   - ${env}
@@ -44,9 +38,9 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 10
+  - 50
   - --sampled_clients 
-  - 1.0
+  - 0.2
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
@@ -63,31 +57,27 @@ command:
   - True 
   - --sweep
   - True
-  - --train_csv
-  - train
+  - --training_nodes 
+  - 0.6
   - --validation_nodes 
-  - 1
-  - --training_nodes
-  - 1
-  - --test_nodes
-  - 1
+  - 0.20
+  - --test_nodes 
+  - 0.20
   - --tabular_data 
   - True
   - --update_lambda
-  - True
+  - False
   - --metric
   - disparity
   - --splitted_data_dir
   - federated
-  - --partition_type
-  - non_iid
-  - --alpha
-  - 10000000
+  - --ratio_unfair_nodes 
+  - 0.5
+  - --regularization_mode
+  - fixed
   - --regularization
   - True
-  - --regularization_mode
-  - tunable
-  - --target
-  - 0.0
-  - --cross_silo
-  - True
+  - --target 
+  - 0.05
+  - --sensitive_attribute
+  - SEX

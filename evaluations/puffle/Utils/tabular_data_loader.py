@@ -978,9 +978,23 @@ def prepare_tabular_data(
                 df = pd.read_csv(csv_path)
                 
                 labels = df["Smiling"].tolist()
-                sensitive_attributes = df["Male"].tolist()
-                second_sensitive_attributes = df["hair_color"].tolist()
                 
+                # Extract potential sensitive attributes
+                male_attr = df["Male"].tolist()
+                # Use hair_color if available, otherwise 0s
+                hair_attr = df["hair_color"].tolist() if "hair_color" in df.columns else [0] * len(labels)
+                
+                # Determine which is main (z) and which is second (w) based on experiment type
+                # Heuristic: check if path contains "value" (for value-based fairness) vs "attribute"
+                is_value_experiment = "value" in dataset_path.lower()
+                
+                if is_value_experiment:
+                    sensitive_attributes = hair_attr
+                    second_sensitive_attributes = male_attr
+                else:
+                    sensitive_attributes = male_attr
+                    second_sensitive_attributes = hair_attr
+
                 image_ids = []
                 # Use image_id to look up bytes
                 if "image_id" in df.columns:
@@ -994,7 +1008,7 @@ def prepare_tabular_data(
                     "image_ids": image_ids,
                     "labels": labels,
                     "sensitive": sensitive_attributes,
-                    "second_sensitive": second_sensitive_attributes,
+                    "second_sensitive": second_sensitive_attributes
                 }
 
             # Handle Train/Val Split (Sweep)
@@ -1017,7 +1031,12 @@ def prepare_tabular_data(
                     )
                     
                     val_dataset = CelebaPreparedDataset(
-                        image_ids=X_val, images_dict=img_map, labels=y_val, sensitive_attributes=z_val, second_sensitive_attributes=w_val, transform=transform
+                        image_ids=X_val, 
+                        images_dict=img_map, 
+                        labels=y_val, 
+                        sensitive_attributes=z_val, 
+                        second_sensitive_attributes=w_val,
+                        transform=transform
                     )
                     torch.save(val_dataset, f"{client_dir}/val.pt")
                     
@@ -1032,7 +1051,7 @@ def prepare_tabular_data(
                     image_ids=train_data["image_ids"], 
                     images_dict=img_map,
                     labels=train_data["labels"], 
-                    sensitive_attributes=train_data["sensitive"], 
+                    sensitive_attributes=train_data["sensitive"],
                     second_sensitive_attributes=train_data["second_sensitive"],
                     transform=transform
                 )

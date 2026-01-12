@@ -104,7 +104,7 @@ class CelebaPreparedDataset(Dataset):
         images_dict: dict,
         labels: list,
         sensitive_attributes: list,
-        second_sensitive_attributes: list,
+        second_sensitive_attributes: list = None,
         transform: Callable | None = None,
     ) -> None:
         """
@@ -116,14 +116,24 @@ class CelebaPreparedDataset(Dataset):
             images_dict (dict): Dictionary mapping image IDs to base64 encoded images.
             labels (list): List of labels.
             sensitive_attributes (list): List of sensitive attributes.
+            second_sensitive_attributes (list, optional): List of second sensitive attributes.
             transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
 
         """
-        smiling_dict = {False: 0, True: 1}
-        targets = [smiling_dict[item] for item in labels]
-        self.targets = targets
-        self.sensitive_attributes = [smiling_dict[item] for item in sensitive_attributes]
-        self.second_sensitive_attributes = second_sensitive_attributes
+        smiling_dict = {False: 0, True: 1, -1: 0, 1: 1, 0: 0}
+        
+        self.targets = [smiling_dict.get(item, item) for item in labels]
+        
+        # Safely map sensitive attributes if they match the dict, otherwise keep them
+        self.sensitive_attributes = [smiling_dict.get(item, item) for item in sensitive_attributes]
+        
+        if second_sensitive_attributes is not None:
+            self.second_sensitive_attributes = [smiling_dict.get(item, item) for item in second_sensitive_attributes]
+        else:
+            self.second_sensitive_attributes = [0] * len(image_ids)
+            
+        self.third_sensitive_attributes = [0] * len(image_ids)
+        
         self.samples = image_ids
         self.images_dict = images_dict
         self.n_samples = len(image_ids)
@@ -159,7 +169,7 @@ class CelebaPreparedDataset(Dataset):
             img,
             self.sensitive_attributes[index],
             self.second_sensitive_attributes[index],
-            self.sensitive_attributes[index],
+            self.third_sensitive_attributes[index],
             self.targets[index],
         )
 

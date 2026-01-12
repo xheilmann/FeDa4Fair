@@ -980,26 +980,17 @@ def prepare_tabular_data(
                 labels = df["Smiling"].tolist()
                 sensitive_attributes = df["Male"].tolist()
                 
-                images = []
+                image_ids = []
                 # Use image_id to look up bytes
                 if "image_id" in df.columns:
-                    for img_id in df["image_id"]:
-                        img_id_str = str(img_id)
-                        if img_id_str in img_map:
-                            b64_str = img_map[img_id_str]
-                            img_bytes = base64.b64decode(b64_str)
-                            images.append(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
-                        else:
-                            # Handle missing image?
-                            print(f"Warning: Image ID {img_id} not found in dictionary.")
-                            # Create dummy or skip?
-                            images.append(Image.new("RGB", (64, 64)))
+                    image_ids = df["image_id"].tolist()
                 else:
                     print(f"Error: 'image_id' column missing in {csv_path}")
-                    images = [Image.new("RGB", (64, 64)) for _ in labels]
-
+                    # Handle error or empty list?
+                    # If empty, dataset will be empty/invalid
+                
                 processed_data[split_name] = {
-                    "images": images,
+                    "image_ids": image_ids,
                     "labels": labels,
                     "sensitive": sensitive_attributes
                 }
@@ -1014,7 +1005,7 @@ def prepare_tabular_data(
                         y_train, y_val, 
                         z_train, z_val
                     ) = train_test_split(
-                        train_data["images"], 
+                        train_data["image_ids"], 
                         train_data["labels"], 
                         train_data["sensitive"],
                         test_size=0.2, 
@@ -1022,18 +1013,19 @@ def prepare_tabular_data(
                     )
                     
                     val_dataset = CelebaPreparedDataset(
-                        images=X_val, labels=y_val, sensitive_attributes=z_val, transform=transform
+                        image_ids=X_val, images_dict=img_map, labels=y_val, sensitive_attributes=z_val, transform=transform
                     )
                     torch.save(val_dataset, f"{client_dir}/val.pt")
                     
                     # Update train
-                    train_data["images"] = X_train
+                    train_data["image_ids"] = X_train
                     train_data["labels"] = y_train
                     train_data["sensitive"] = z_train
 
                 # Save Train
                 train_dataset = CelebaPreparedDataset(
-                    images=train_data["images"], 
+                    image_ids=train_data["image_ids"], 
+                    images_dict=img_map,
                     labels=train_data["labels"], 
                     sensitive_attributes=train_data["sensitive"], 
                     transform=transform
@@ -1044,7 +1036,8 @@ def prepare_tabular_data(
             if processed_data.get("test") is not None:
                 test_data = processed_data["test"]
                 test_dataset = CelebaPreparedDataset(
-                    images=test_data["images"], 
+                    image_ids=test_data["image_ids"], 
+                    images_dict=img_map,
                     labels=test_data["labels"], 
                     sensitive_attributes=test_data["sensitive"], 
                     transform=transform

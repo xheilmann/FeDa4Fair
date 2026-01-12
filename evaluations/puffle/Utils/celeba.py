@@ -1,3 +1,4 @@
+import base64
 import io
 import os
 from typing import Callable
@@ -99,7 +100,8 @@ class CelebaPreparedDataset(Dataset):
 
     def __init__(
         self,
-        images: list,
+        image_ids: list,
+        images_dict: dict,
         labels: list,
         sensitive_attributes: list,
         transform: Callable | None = None,
@@ -109,7 +111,8 @@ class CelebaPreparedDataset(Dataset):
 
         Args:
         ----
-            images (list): List of images.
+            image_ids (list): List of image IDs.
+            images_dict (dict): Dictionary mapping image IDs to base64 encoded images.
             labels (list): List of labels.
             sensitive_attributes (list): List of sensitive attributes.
             transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
@@ -119,8 +122,9 @@ class CelebaPreparedDataset(Dataset):
         targets = [smiling_dict[item] for item in labels]
         self.targets = targets
         self.sensitive_attributes = [smiling_dict[item] for item in sensitive_attributes]
-        self.samples = images
-        self.n_samples = len(images)
+        self.samples = image_ids
+        self.images_dict = images_dict
+        self.n_samples = len(image_ids)
         self.transform = transform
         self.indexes = range(len(self.samples))
 
@@ -136,6 +140,16 @@ class CelebaPreparedDataset(Dataset):
             _type_: sample we want to retrieve
 
         """
+        img_id = str(self.samples[index])
+        
+        if img_id in self.images_dict:
+            b64_str = self.images_dict[img_id]
+            img_bytes = base64.b64decode(b64_str)
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        else:
+            # Fallback for missing images
+            img = Image.new("RGB", (64, 64))
+
         if self.transform:
             img = self.transform(img)
 

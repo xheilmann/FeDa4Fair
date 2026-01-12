@@ -118,7 +118,9 @@ def create_value_plot(
     font_size_ticks: int = 22,
     file_name: str = None,
     save: bool = False,
-    save_path: str = None
+    save_path: str = None,
+    custom_labels: dict = None,
+    jitter_amount: float = 0.1
 ):
     fig, ax = plt.subplots(figsize=(6, 6))
     
@@ -126,9 +128,13 @@ def create_value_plot(
     marker_face_color = '#56B4E9'  # Blue from ColorBrewer Set2
     marker_edge_color = 'black'    # Black edges for visibility
 
-    for val in df['Value'].unique():
-        y_vals = df[df['Value'] == val][attribute]
-        x_vals = [int(float(val))] * len(y_vals)
+    unique_vals = sorted(df['Value'].unique())
+    for val in unique_vals:
+        subset = df[df['Value'] == val]
+        y_vals = subset[attribute]
+        x_base = int(float(val))
+        jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
+        x_vals = [x_base + j for j in jitter]
         plt.scatter(
             x_vals,
             y_vals,
@@ -136,16 +142,21 @@ def create_value_plot(
             edgecolors=marker_edge_color,
             marker='o',
             s=200,
-            linewidths=1.2
+            linewidths=1.2,
+            alpha=0.7
         )
 
     plt.xlabel('Sensitive Group Value', fontsize=font_size_labels)
     plt.ylabel(y_label, fontsize=font_size_labels)
     plt.title(title, fontsize=font_size_title)
 
-    max_val = int(float(max(df['Value'])))
-    labels = list(range(1, max_val + 1))
-    plt.xticks(ticks=labels, labels=labels, fontsize=font_size_ticks)
+    if custom_labels:
+        ticks = sorted(custom_labels.keys())
+        labels = [custom_labels[t] for t in ticks]
+        plt.xticks(ticks=ticks, labels=labels, fontsize=font_size_ticks)
+    else:
+        plt.xticks(ticks=unique_vals, labels=[str(int(float(v))) for v in unique_vals], fontsize=font_size_ticks)
+    
     plt.yticks(fontsize=font_size_ticks)
     plt.grid(True)
 
@@ -172,7 +183,8 @@ def visualize_value_change(
     initial_state: str = "",
     jitter_amount: float = 0.1,
     legend_filename: str = "value_change_legend.pdf",
-    save_path: str = None
+    save_path: str = None,
+    custom_labels: dict = None
 ) -> plt.Figure:
     """
     Visualizes the change in a specified sensitive column across different value
@@ -202,7 +214,8 @@ def visualize_value_change(
     jittered_positions_df2 = {}
 
     # Plot the initial state with jitter
-    for val in sorted(df1[value_col].unique()):
+    unique_vals = sorted(df1[value_col].unique())
+    for val in unique_vals:
         subset = df1[df1[value_col] == val]
         y_vals = subset[sensitive_col].astype(float)
         x_base = int(float(val))
@@ -264,10 +277,14 @@ def visualize_value_change(
                           length_includes_head=True,
                           zorder=1)
 
-    # Customize the x-axis ticks based on the range in df1
-    max_val_df1 = int(float(df1[value_col].max()))
-    labels = list(range(1, max_val_df1 + 1))
-    plt.xticks(ticks=labels, labels=labels, fontsize=ticks_font_size)
+    # Customize the x-axis ticks
+    if custom_labels:
+        ticks = sorted(custom_labels.keys())
+        labels = [custom_labels[t] for t in ticks]
+        plt.xticks(ticks=ticks, labels=labels, fontsize=ticks_font_size)
+    else:
+        plt.xticks(ticks=unique_vals, labels=[str(int(float(v))) for v in unique_vals], fontsize=ticks_font_size)
+
     plt.yticks(fontsize=ticks_font_size)
     plt.xlabel('Sensitive Group Value', fontsize=font_size)
     plt.ylabel(y_label, fontsize=font_size)
@@ -1058,7 +1075,7 @@ def main():
                     fairness_column_X="DP_RACE",
                     fairness_column_Y="DP_SEX",
                     ylabel="Dem. Disparity SEX",
-                    xlabel="Dem. Disparity RACE", # or MARITAL for Dutch
+                    xlabel="Dem. Disparity MAR", # or MARITAL for Dutch
                     title="Attribute Bias Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
@@ -1116,13 +1133,18 @@ def main():
             # 1. Value Distribution (Local)
             if "DP_SEX" in model_df_with_val.columns:
                 try:
+                    custom_xticklabels = None
+                    if args.dataset_name and "dutch" in args.dataset_name.lower():
+                         custom_xticklabels = {0: "Female", 1: "Male"}
+
                     create_value_plot(
                         model_df_with_val, 
                         y_label="Dem. Disparity", 
                         title="Value Bias Distribution (Sex)", 
                         attribute="DP_SEX", 
                         save=True,
-                        save_path=os.path.join(base_output_dir, f"value_dist_sex_{safe_model_name}.pdf")
+                        save_path=os.path.join(base_output_dir, f"value_dist_sex_{safe_model_name}.pdf"),
+                        custom_labels=custom_xticklabels
                     )
                     print(f"Saved Value Distribution Plot (Sex) for {model}")
                 except Exception as e:
@@ -1170,6 +1192,10 @@ def main():
             # Sex
             if "DP_SEX" in model_df_with_val.columns and "DP_SEX" in fl_df.columns:
                 try:
+                    custom_xticklabels = None
+                    if args.dataset_name and "dutch" in args.dataset_name.lower():
+                         custom_xticklabels = {0: "Female", 1: "Male"}
+
                     visualize_value_change(
                         df1=model_df_with_val,
                         df2=fl_df,
@@ -1179,7 +1205,8 @@ def main():
                         y_label="Dem. Disparity",
                         initial_state=model,
                         legend_filename=f"arrow_legend_sex_{safe_model_name}.pdf",
-                        save_path=os.path.join(base_output_dir, f"arrow_sex_{safe_model_name}.pdf")
+                        save_path=os.path.join(base_output_dir, f"arrow_sex_{safe_model_name}.pdf"),
+                        custom_labels=custom_xticklabels
                     )
                     print(f"Saved Arrow Plot (Sex) for {model}")
                 except Exception as e:

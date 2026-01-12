@@ -1,12 +1,17 @@
-"Creation script for Cross-Silo Attribute Imbalanced Benchmarking Datasets for CelebA.
+"""
+Creation script for Cross-Silo Attribute Imbalanced Benchmarking Datasets for CelebA.
 Dataset: flwrlabs/celeba
 Scenario: Cross-Silo (50 clients)
 Target DP Level: Medium (0.30)
-"
+"""
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import io
+import os
+import json
+import base64
 from datasets import load_dataset, concatenate_datasets
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
@@ -26,17 +31,40 @@ def add_hair_color(df):
 def create_benchmarks():
     num_clients = 50
     output_base = "datasets/celeba/cross_silo_attribute"
+    img_dict_path = "datasets/celeba/celeba_img_dict.json"
     
     # 1. Load and Preprocess Data
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
     
-    # Drop image column to speed up processing and avoid timeouts
-    if "image" in ds_dict["train"].column_names:
-        print("Dropping 'image' column for efficiency...")
-        ds_dict = ds_dict.remove_columns("image")
-
     ds_merged = concatenate_datasets(list(ds_dict.values()))
+    
+    print("Adding image IDs...")
+    ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
+
+    # Check if image dict exists
+    if not os.path.exists(img_dict_path):
+        print(f"Creating image dictionary at {img_dict_path}...")
+        img_map = {}
+        for item in ds_merged:
+            idx = item['image_id']
+            img = item['image']
+            b = io.BytesIO()
+            img.save(b, format="PNG")
+            b64_str = base64.b64encode(b.getvalue()).decode('utf-8')
+            img_map[idx] = b64_str
+        
+        print("Saving JSON...")
+        os.makedirs(os.path.dirname(img_dict_path), exist_ok=True)
+        with open(img_dict_path, "w") as f:
+            json.dump(img_map, f)
+        print("JSON saved.")
+        del img_map
+    else:
+        print(f"Image dictionary found at {img_dict_path}, skipping creation.")
+
+    print("Dropping image column...")
+    ds_merged = ds_merged.remove_columns("image")
     
     print("Converting to Pandas for preprocessing...")
     df = ds_merged.to_pandas()

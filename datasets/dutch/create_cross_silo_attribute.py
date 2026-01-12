@@ -2,7 +2,7 @@
 Creation script for Cross-Silo Attribute Imbalanced Benchmarking Datasets.
 Dataset: lucacorbucci/Dutch_census_binary_marital_status
 Scenario: Cross-Silo (50 clients)
-Target DP Levels: Mild (0.15), Medium (0.25), Strong (0.35)
+Target DP Levels: Medium (0.30)
 """
 import os
 import pandas as pd
@@ -21,20 +21,10 @@ def create_benchmarks():
         os.makedirs(output_base)
 
     levels = {
-        "mild": {
-            "drop_mean": 0.2, "drop_std": 0.05,
-            "flip_mean_sex": 0.4, "flip_mean_mar": 0.2, "flip_std": 0.02,
-            "target": 0.15
-        },
         "medium": {
-            "drop_mean": 0.2, "drop_std": 0.05,
-            "flip_mean_sex": 0.95, "flip_mean_mar": 0.5, "flip_std": 0.02,
-            "target": 0.25
-        },
-        "strong": {
-            "drop_mean": 0.2, "drop_std": 0.05,
-            "flip_mean_sex": 0.98, "flip_mean_mar": 0.7, "flip_std": 0.02,
-            "target": 0.35
+            "drop_mean": 0.5, "drop_std": 0.05,
+            "flip_mean_sex": 0.4, "flip_mean_mar": 0.4, "flip_std": 0.02,
+            "target": 0.30
         }
     }
 

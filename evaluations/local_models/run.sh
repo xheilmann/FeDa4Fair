@@ -52,23 +52,15 @@ run_training() {
 # Dutch Datasets
 # Attribute Cross-Silo
 run_training "$DATASETS_DIR/dutch/cross_silo_attribute/medium" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "medium" "sex_binary" "Marital_status" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_silo_attribute/mild" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "mild" "sex_binary" "Marital_status" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_silo_attribute/strong" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "strong" "sex_binary" "Marital_status" "occupation_binary"
 
 # Value Cross-Silo
 run_training "$DATASETS_DIR/dutch/cross_silo_value/medium" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "medium" "sex_binary" "" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_silo_value/mild" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "mild" "sex_binary" "" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_silo_value/strong" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "strong" "sex_binary" "" "occupation_binary"
 
 # Attribute Cross-Device
 run_training "$DATASETS_DIR/dutch/cross_device_attribute/medium" "dutch_cross_device_attribute" "dutch_prepared" 150 "False" "medium" "sex_binary" "Marital_status" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_device_attribute/mild" "dutch_cross_device_attribute" "dutch_prepared" 150 "False" "mild" "sex_binary" "Marital_status" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_device_attribute/strong" "dutch_cross_device_attribute" "dutch_prepared" 150 "False" "strong" "sex_binary" "Marital_status" "occupation_binary"
 
 # Value Cross-Device
 run_training "$DATASETS_DIR/dutch/cross_device_value/medium" "dutch_cross_device_value" "dutch_prepared" 150 "False" "medium" "sex_binary" "" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_device_value/mild" "dutch_cross_device_value" "dutch_prepared" 150 "False" "mild" "sex_binary" "" "occupation_binary"
-run_training "$DATASETS_DIR/dutch/cross_device_value/strong" "dutch_cross_device_value" "dutch_prepared" 150 "False" "strong" "sex_binary" "" "occupation_binary"
 
 
 echo "Done."

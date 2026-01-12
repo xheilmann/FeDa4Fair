@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -927,6 +928,26 @@ def prepare_tabular_data(
         return fed_dir, None
 
     elif dataset_name == "celeba_prepared":
+        # Load image dict once
+        # dataset_path is like .../datasets/celeba/cross_device_attribute/medium
+        # json is at .../datasets/celeba/celeba_img_dict.json
+        # We need to go up from 'medium' (parent) then 'cross_device_attribute' (parent) -> celeba
+        # Check if dataset_path ends with slash or not
+        clean_path = dataset_path.rstrip("/")
+        celeba_root = os.path.dirname(os.path.dirname(clean_path))
+        json_path = os.path.join(celeba_root, "celeba_img_dict.json")
+        
+        if not os.path.exists(json_path):
+             # Fallback or error? Try direct path if relative logic fails
+             # Maybe user passed base_path differently.
+             # Let's try to assume standard structure.
+             print(f"Warning: Image dictionary not found at {json_path}")
+             img_map = {}
+        else:
+             print(f"Loading image dictionary from {json_path}...")
+             with open(json_path, "r") as f:
+                 img_map = json.load(f)
+
         for client_name in range(num_nodes):
             client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
             if not os.path.exists(client_dir):
@@ -959,19 +980,24 @@ def prepare_tabular_data(
                 labels = df["Smiling"].tolist()
                 sensitive_attributes = df["Male"].tolist()
                 
-                image_bytes = []
-                for item in df["image"]:
-                    if isinstance(item, str):
-                        try:
-                            parsed_item = eval(item) 
-                            image_bytes.append(parsed_item["bytes"])
-                        except:
-                            pass
-                    else:
-                        image_bytes.append(item["bytes"])
+                images = []
+                # Use image_id to look up bytes
+                if "image_id" in df.columns:
+                    for img_id in df["image_id"]:
+                        img_id_str = str(img_id)
+                        if img_id_str in img_map:
+                            b64_str = img_map[img_id_str]
+                            img_bytes = base64.b64decode(b64_str)
+                            images.append(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+                        else:
+                            # Handle missing image?
+                            print(f"Warning: Image ID {img_id} not found in dictionary.")
+                            # Create dummy or skip?
+                            images.append(Image.new("RGB", (64, 64)))
+                else:
+                    print(f"Error: 'image_id' column missing in {csv_path}")
+                    images = [Image.new("RGB", (64, 64)) for _ in labels]
 
-                images = [Image.open(io.BytesIO(img_byte)).convert("RGB") for img_byte in image_bytes]
-                
                 processed_data[split_name] = {
                     "images": images,
                     "labels": labels,

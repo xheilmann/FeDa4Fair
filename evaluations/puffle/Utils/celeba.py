@@ -104,6 +104,7 @@ class CelebaPreparedDataset(Dataset):
         images_dict: dict,
         labels: list,
         sensitive_attributes: list,
+        second_sensitive_attributes: list,
         transform: Callable | None = None,
     ) -> None:
         """
@@ -122,6 +123,7 @@ class CelebaPreparedDataset(Dataset):
         targets = [smiling_dict[item] for item in labels]
         self.targets = targets
         self.sensitive_attributes = [smiling_dict[item] for item in sensitive_attributes]
+        self.second_sensitive_attributes = second_sensitive_attributes
         self.samples = image_ids
         self.images_dict = images_dict
         self.n_samples = len(image_ids)
@@ -156,7 +158,7 @@ class CelebaPreparedDataset(Dataset):
         return (
             img,
             self.sensitive_attributes[index],
-            self.sensitive_attributes[index],
+            self.second_sensitive_attributes[index],
             self.sensitive_attributes[index],
             self.targets[index],
         )

@@ -979,6 +979,7 @@ def prepare_tabular_data(
                 
                 labels = df["Smiling"].tolist()
                 sensitive_attributes = df["Male"].tolist()
+                second_sensitive_attributes = df["hair_color"].tolist()
                 
                 image_ids = []
                 # Use image_id to look up bytes
@@ -992,7 +993,8 @@ def prepare_tabular_data(
                 processed_data[split_name] = {
                     "image_ids": image_ids,
                     "labels": labels,
-                    "sensitive": sensitive_attributes
+                    "sensitive": sensitive_attributes,
+                    "second_sensitive": second_sensitive_attributes,
                 }
 
             # Handle Train/Val Split (Sweep)
@@ -1003,17 +1005,19 @@ def prepare_tabular_data(
                     (
                         X_train, X_val, 
                         y_train, y_val, 
-                        z_train, z_val
+                        z_train, z_val,
+                        w_train, w_val
                     ) = train_test_split(
                         train_data["image_ids"], 
                         train_data["labels"], 
                         train_data["sensitive"],
+                        train_data["second_sensitive"],
                         test_size=0.2, 
                         random_state=validation_seed
                     )
                     
                     val_dataset = CelebaPreparedDataset(
-                        image_ids=X_val, images_dict=img_map, labels=y_val, sensitive_attributes=z_val, transform=transform
+                        image_ids=X_val, images_dict=img_map, labels=y_val, sensitive_attributes=z_val, second_sensitive_attributes=w_val, transform=transform
                     )
                     torch.save(val_dataset, f"{client_dir}/val.pt")
                     
@@ -1021,6 +1025,7 @@ def prepare_tabular_data(
                     train_data["image_ids"] = X_train
                     train_data["labels"] = y_train
                     train_data["sensitive"] = z_train
+                    train_data["second_sensitive"] = w_train
 
                 # Save Train
                 train_dataset = CelebaPreparedDataset(
@@ -1028,6 +1033,7 @@ def prepare_tabular_data(
                     images_dict=img_map,
                     labels=train_data["labels"], 
                     sensitive_attributes=train_data["sensitive"], 
+                    second_sensitive_attributes=train_data["second_sensitive"],
                     transform=transform
                 )
                 torch.save(train_dataset, f"{client_dir}/train.pt")
@@ -1040,6 +1046,7 @@ def prepare_tabular_data(
                     images_dict=img_map,
                     labels=test_data["labels"], 
                     sensitive_attributes=test_data["sensitive"], 
+                    second_sensitive_attributes=test_data["second_sensitive"],
                     transform=transform
                 )
                 torch.save(test_dataset, f"{client_dir}/test.pt")

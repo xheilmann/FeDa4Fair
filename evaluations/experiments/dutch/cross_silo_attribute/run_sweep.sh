@@ -1,4 +1,4 @@
-PROJECT_NAME="Feda4Fair_facct" # swap out globally
+PROJECT_NAME="Feda4Fair_facct_DUTCH" # swap out globally
 
 run_sweep_and_agent () {
   # Set the SWEEP_NAME variable

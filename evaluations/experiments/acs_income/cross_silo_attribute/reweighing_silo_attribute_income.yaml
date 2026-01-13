@@ -36,7 +36,7 @@ command:
   - --num_client_gpus
   - 0.05
   - --pool_size
-  - 111
+  - 51
   - --sampled_clients 
   - 0.3
   - --sampled_clients_test 

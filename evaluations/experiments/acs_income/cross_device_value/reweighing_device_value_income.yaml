@@ -41,7 +41,7 @@ command:
   - --sampled_clients_test 
   - 1.0
   - --sampled_clients_validation 
-  - 0
+  - 1.0
   - --debug
   - False
   - --base_path
@@ -55,9 +55,9 @@ command:
   - --sweep
   - True
   - --training_nodes 
-  - 0.8
+  - 0.6
   - --validation_nodes 
-  - 0
+  - 0.2
   - --test_nodes 
   - 0.2
   - --tabular_data 

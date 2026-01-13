@@ -1,0 +1,11 @@
+
+# Device Value
+
+# Baseline 
+uv run python ../../../puffle/main.py --run_name Baseline_device_value --project_name Feda4Fair_results_facct_dutch  --batch_size=282 --epochs=4 --lr=0.0971341691494077 --optimizer=adam --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 150 --sampled_clients 0.2 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_device_value/medium/ --dataset_path ../../../../datasets/dutch/cross_device_value/medium/ --seed 41 --wandb True --training_nodes 0.8 --validation_nodes 0 --test_nodes 0.2 --tabular_data True --update_lambda False --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5
+
+# Puffle 
+uv run python ../../../puffle/main.py --run_name Puffle_device_value --project_name Feda4Fair_results_facct_dutch   --batch_size=140 --epochs=1 --lr=0.0962191136283892 --optimizer=adam --regularization_lambda=0.8585107092617548 --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 150 --sampled_clients 0.2 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_device_value/medium/ --dataset_path ../../../../datasets/dutch/cross_device_value/medium/ --seed 41 --wandb True --training_nodes 0.8 --validation_nodes 0 --test_nodes 0.2 --tabular_data True --update_lambda False --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5 --regularization_mode fixed --regularization True --target 0.05 --sensitive_attribute SEX
+
+# Reweighing
+uv run python ../../../puffle/main.py --run_name Rew_device_value --project_name Feda4Fair_results_facct_dutch  --batch_size=135 --epochs=5 --lr=0.0742491153190012 --optimizer=adam --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 150 --sampled_clients 0.2 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_device_value/medium/ --dataset_path ../../../../datasets/dutch/cross_device_value/medium/ --seed 41 --wandb True --training_nodes 0.8 --validation_nodes 0 --test_nodes 0.2 --tabular_data True --update_lambda False --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5 --reweighing True

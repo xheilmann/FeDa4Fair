@@ -1,0 +1,31 @@
+[project]
+name = "evaluations"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.12"
+
+dependencies = [
+    "datasets>=3.1.0",
+    "fairlearn>=0.12.0",
+    "flwr[simulation]",
+    "flwr-datasets>=0.5.0",
+    "folktables>=0.0.12",
+    "numpy<=2.0",
+    "pandas>=2.2.3",
+    "pip>=25.1.1",
+    "ruff>=0.11.2",
+    "scipy>=1.12.0",
+    "torch==2.5.1",
+    "torchvision==0.20.1",
+    "xgboost>=3.0.0",
+    "ipywidgets>=8.1.7",
+    "streamlit>=1.31.0",
+    "plotly>=6.5.0",
+    "opacus>=1.5.4",
+    "wandb>=0.23.1",
+    "setuptools>=80.9.0",
+]
+
+[tool.uv.sources]
+flwr = { git = "https://github.com/lucacorbucci/flower" }

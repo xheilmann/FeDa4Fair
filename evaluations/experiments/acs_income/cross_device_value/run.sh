@@ -1,0 +1,29 @@
+uv run python ../../../puffle/main.py \
+--batch_size=2024 \
+--run_name baseline_value_cross_device \
+--project_name Feda4Fair_facct \
+--node_shuffle_seed 102314557 \
+--epochs=3 \
+--lr=0.07060108200773238 \
+--optimizer=adam \
+--dataset income_cross_device \
+--num_rounds 10 \
+--num_client_cpus 1 \
+--num_client_gpus 0.05 \
+--pool_size 100 \
+--sampled_clients 0.22 \
+--sampled_clients_test 1 \
+--sampled_clients_validation 0 \
+--debug False \
+--base_path ../../../../datasets/acs_income/cross_device_value_final/FL_data/ \
+--dataset_path ../../../../datasets/acs_income/cross_device_value_final/FL_data/ \
+--seed 41 \
+--wandb True \
+--training_nodes 0.8 \
+--validation_nodes 0 \
+--test_nodes 0.2 \
+--tabular_data True \
+--update_lambda False \
+--metric disparity \
+--splitted_data_dir federated \
+--ratio_unfair_nodes 0.5

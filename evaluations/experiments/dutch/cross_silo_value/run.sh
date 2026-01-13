@@ -1,0 +1,11 @@
+
+# Silo Value 
+
+# Baseline 
+uv run python ../../../puffle/main.py --run_name Baseline_silo_attribute --project_name Feda4Fair_results_facct_dutch  --batch_size=406 --epochs=5 --lr=0.034660177649142 --optimizer=adam --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 50 --sampled_clients 0.3 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_silo_value/medium/ --dataset_path ../../../../datasets/dutch/cross_silo_value/medium/ --seed 41 --wandb True --training_nodes 1 --validation_nodes 0 --test_nodes 1 --tabular_data True --update_lambda False --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5 --cross_silo True
+
+# Puffle 
+uv run python ../../../puffle/main.py --run_name Puffle_silo_attribute --project_name Feda4Fair_results_facct_dutch  --batch_size=478 --epochs=5 --lr=0.05349851076538084 --optimizer=adam --regularization_lambda=0.815104432941625 --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 50 --sampled_clients 0.3 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_silo_value/medium/ --dataset_path ../../../../datasets/dutch/cross_silo_value/medium/ --seed 41 --wandb True --training_nodes 1 --validation_nodes 0 --test_nodes 1 --tabular_data True --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5 --cross_silo True --update_lambda False --regularization_mode fixed --regularization True --target 0.05 --sensitive_attribute SEX
+
+# Reweighing
+uv run python ../../../puffle/main.py --run_name Rew_silo_attribute --project_name Feda4Fair_results_facct_dutch  --batch_size=324 --epochs=5 --lr=0.08660520380869265 --optimizer=adam --dataset dutch_prepared --num_rounds 10 --num_client_cpus 1 --num_client_gpus 0.05 --pool_size 50 --sampled_clients 0.3 --sampled_clients_test 1 --sampled_clients_validation 0 --debug False --base_path ../../../../datasets/dutch/cross_silo_value/medium/ --dataset_path ../../../../datasets/dutch/cross_silo_value/medium/ --seed 41 --wandb True --training_nodes 1 --validation_nodes 0 --test_nodes 1 --tabular_data True --update_lambda False --metric disparity --splitted_data_dir federated --ratio_unfair_nodes 0.5 --cross_silo True --reweighing True

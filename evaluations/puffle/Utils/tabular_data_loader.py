@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 import os
 import random
@@ -8,9 +10,12 @@ import numpy as np
 import pandas as pd
 import torch
 from matplotlib.pyplot import figure
+from PIL import Image
 from scipy.io import arff
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
+from torchvision import transforms
+from Utils.celeba import CelebaPreparedDataset
 from Utils.dutch import TabularDataset
 from Utils.utils import Utils
 
@@ -916,6 +921,152 @@ def prepare_tabular_data(
                     z=Z_test,
                     y=Y_test,
                     w=W_test,
+                )
+                torch.save(test_dataset, f"{client_dir}/test.pt")
+
+        fed_dir = f"{dataset_path}/{splitted_data_dir}"
+        return fed_dir, None
+
+    elif dataset_name == "celeba_prepared":
+        # Load image dict once
+        # dataset_path is like .../datasets/celeba/cross_device_attribute/medium
+        # json is at .../datasets/celeba/celeba_img_dict.json
+        # We need to go up from 'medium' (parent) then 'cross_device_attribute' (parent) -> celeba
+        # Check if dataset_path ends with slash or not
+        clean_path = dataset_path.rstrip("/")
+        celeba_root = os.path.dirname(os.path.dirname(clean_path))
+        json_path = os.path.join(celeba_root, "celeba_img_dict.json")
+        
+        if not os.path.exists(json_path):
+             # Fallback or error? Try direct path if relative logic fails
+             # Maybe user passed base_path differently.
+             # Let's try to assume standard structure.
+             print(f"Warning: Image dictionary not found at {json_path}")
+             img_map = {}
+        else:
+             print(f"Loading image dictionary from {json_path}...")
+             with open(json_path, "r") as f:
+                 img_map = json.load(f)
+
+        for client_name in range(num_nodes):
+            client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
+            if not os.path.exists(client_dir):
+                os.makedirs(client_dir)
+            os.system(f"rm -rf {client_dir}/*.pt")
+
+            transform = transforms.Compose([
+                transforms.Resize((64, 64)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ])
+
+            datasets_to_process = []
+            if cross_silo:
+                datasets_to_process.append(("train", f"{dataset_path}/train_train_{client_name}.csv"))
+                datasets_to_process.append(("test", f"{dataset_path}/train_test_{client_name}.csv"))
+            else:
+                datasets_to_process.append(("train", f"{dataset_path}/train_{client_name}.csv"))
+
+            processed_data = {}
+
+            for split_name, csv_path in datasets_to_process:
+                if not os.path.exists(csv_path):
+                    print(f"Warning: File {csv_path} not found.")
+                    processed_data[split_name] = None
+                    continue
+
+                df = pd.read_csv(csv_path)
+                
+                labels = df["Smiling"].tolist()
+                
+                # Extract potential sensitive attributes
+                male_attr = df["Male"].tolist()
+                # Use hair_color if available, otherwise 0s
+                hair_attr = df["hair_color"].tolist() if "hair_color" in df.columns else [0] * len(labels)
+                
+                # Determine which is main (z) and which is second (w) based on experiment type
+                # Heuristic: check if path contains "value" (for value-based fairness) vs "attribute"
+                is_value_experiment = "value" in dataset_path.lower()
+                
+                if is_value_experiment:
+                    sensitive_attributes = hair_attr
+                    second_sensitive_attributes = male_attr
+                else:
+                    sensitive_attributes = male_attr
+                    second_sensitive_attributes = hair_attr
+
+                image_ids = []
+                # Use image_id to look up bytes
+                if "celeb_id" in df.columns:
+                    image_ids = df["celeb_id"].tolist()
+                else:
+                    print(f"Error: 'celeb_id' column missing in {csv_path}")
+                    # Handle error or empty list?
+                    # If empty, dataset will be empty/invalid
+                
+                processed_data[split_name] = {
+                    "image_ids": image_ids,
+                    "labels": labels,
+                    "sensitive": sensitive_attributes,
+                    "second_sensitive": second_sensitive_attributes
+                }
+
+            # Handle Train/Val Split (Sweep)
+            if processed_data.get("train") is not None:
+                train_data = processed_data["train"]
+                
+                if sweep:
+                    (
+                        X_train, X_val, 
+                        y_train, y_val, 
+                        z_train, z_val,
+                        w_train, w_val
+                    ) = train_test_split(
+                        train_data["image_ids"], 
+                        train_data["labels"], 
+                        train_data["sensitive"],
+                        train_data["second_sensitive"],
+                        test_size=0.2, 
+                        random_state=validation_seed
+                    )
+                    
+                    val_dataset = CelebaPreparedDataset(
+                        image_ids=X_val, 
+                        images_dict=img_map, 
+                        labels=y_val, 
+                        sensitive_attributes=z_val, 
+                        second_sensitive_attributes=w_val,
+                        transform=transform
+                    )
+                    torch.save(val_dataset, f"{client_dir}/val.pt")
+                    
+                    # Update train
+                    train_data["image_ids"] = X_train
+                    train_data["labels"] = y_train
+                    train_data["sensitive"] = z_train
+                    train_data["second_sensitive"] = w_train
+
+                # Save Train
+                train_dataset = CelebaPreparedDataset(
+                    image_ids=train_data["image_ids"], 
+                    images_dict=img_map,
+                    labels=train_data["labels"], 
+                    sensitive_attributes=train_data["sensitive"],
+                    second_sensitive_attributes=train_data["second_sensitive"],
+                    transform=transform
+                )
+                torch.save(train_dataset, f"{client_dir}/train.pt")
+
+            # Save Test
+            if processed_data.get("test") is not None:
+                test_data = processed_data["test"]
+                test_dataset = CelebaPreparedDataset(
+                    image_ids=test_data["image_ids"], 
+                    images_dict=img_map,
+                    labels=test_data["labels"], 
+                    sensitive_attributes=test_data["sensitive"], 
+                    second_sensitive_attributes=test_data["second_sensitive"],
+                    transform=transform
                 )
                 torch.save(test_dataset, f"{client_dir}/test.pt")
 

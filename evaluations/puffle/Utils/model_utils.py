@@ -96,14 +96,18 @@ class ModelUtils:
         """
         if dataset == "celeba":
             return CelebaNet()
+        if dataset == "celeba_prepared":
+            return CelebaNet()
         if dataset == "dutch":
             return LinearClassificationNet(input_size=11, output_size=2)
         if dataset == "dutch_prepared":
             return LinearClassificationNet(input_size=11, output_size=2)
         if dataset == "income":
             return LinearClassificationNet(input_size=49, output_size=2)
-        if dataset == "income_NO_RACE" or dataset == "income_cross_device":
+        if dataset == "income_NO_RACE":
             return LinearClassificationNet(input_size=41, output_size=2)
+        if dataset == "income_cross_device":
+            return LinearClassificationNet(input_size=43, output_size=2)
         if dataset == "employment":
             return LinearClassificationNet(input_size=88, output_size=2)
         if dataset == "employment_NO_RACE":

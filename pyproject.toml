@@ -22,6 +22,7 @@ dependencies = [
     "streamlit>=1.31.0",
     "ty>=0.0.4",
     "plotly>=6.5.0",
+    "wandb>=0.23.1",
 ]
 
 [tool.uv]

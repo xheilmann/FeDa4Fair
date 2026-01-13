@@ -1,4 +1,4 @@
-PROJECT_NAME="Feda4Fair_facct" # swap out globally
+PROJECT_NAME="Feda4Fair_facct_DUTCH" # swap out globally
 
 run_sweep_and_agent () {
   # Set the SWEEP_NAME variable
@@ -18,6 +18,6 @@ run_sweep_and_agent () {
   uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 20
 }
 
-run_sweep_and_agent "baseline_value_mild"
-run_sweep_and_agent "baseline_value_medium"
-run_sweep_and_agent "baseline_value_strong"
+run_sweep_and_agent "baseline_silo_value_medium"
+run_sweep_and_agent "puffle_silo_value_medium"
+run_sweep_and_agent "reweighing_silo_value_medium"

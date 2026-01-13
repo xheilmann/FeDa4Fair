@@ -1,2 +1,0 @@
-CUDA_VISIBLE_DEVICES=7 sh run_sweep_attribute.sh
-CUDA_VISIBLE_DEVICES=7 sh run_sweep_value.sh

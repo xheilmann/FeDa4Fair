@@ -22,8 +22,10 @@ run_training() {
     DATASET_NAME=$3
     NUM_NODES=$4
     CROSS_SILO=$5
-    
     SCENARIO=$6
+    SENSITIVE_FEATURE=$7
+    SECOND_SENSITIVE_FEATURE=$8
+    TARGET=$9
     
     echo "------------------------------------------------"
     echo "Dataset: $DATASET_TYPE ($SCENARIO)"
@@ -35,6 +37,9 @@ run_training() {
         --dataset_name \"$DATASET_NAME\" \
         --num_nodes \"$NUM_NODES\" \
         --cross_silo \"$CROSS_SILO\" \
+        --sensitive_feature \"$SENSITIVE_FEATURE\" \
+        --second_sensitive_feature \"$SECOND_SENSITIVE_FEATURE\" \
+        --target \"$TARGET\" \
         --output_dir \"$SCRIPT_DIR/results\""
 
     if [ -n "$SCENARIO" ]; then
@@ -45,23 +50,17 @@ run_training() {
 }
 
 # Dutch Datasets
-# Attribute
-run_training "$DATASETS_DIR/dutch/cross_silo_attribute/medium" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "medium"
-run_training "$DATASETS_DIR/dutch/cross_silo_attribute/mild" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "mild"
-run_training "$DATASETS_DIR/dutch/cross_silo_attribute/strong" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "strong"
+# Attribute Cross-Silo
+run_training "$DATASETS_DIR/dutch/cross_silo_attribute/medium" "dutch_cross_silo_attribute" "dutch_prepared" 50 "True" "medium" "sex_binary" "Marital_status" "occupation_binary"
 
-# Value
-run_training "$DATASETS_DIR/dutch/cross_silo_value/medium" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "medium"
-run_training "$DATASETS_DIR/dutch/cross_silo_value/mild" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "mild"
-run_training "$DATASETS_DIR/dutch/cross_silo_value/strong" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "strong"
+# Value Cross-Silo
+run_training "$DATASETS_DIR/dutch/cross_silo_value/medium" "dutch_cross_silo_value" "dutch_prepared" 50 "True" "medium" "sex_binary" "" "occupation_binary"
 
-# ACS Income (Cross Device)
-# Attribute
-run_training "$DATASETS_DIR/acs_income/cross_device_attribute_final/FL_data" "acs_income_cross_device_attribute" "income_cross_device" 111 "False" ""
-run_training "$DATASETS_DIR/acs_income/cross_silo_attribute_final/FL_data" "acs_income_cross_silo_attribute" "income_cross_silo" 111 "False" ""
+# Attribute Cross-Device
+run_training "$DATASETS_DIR/dutch/cross_device_attribute/medium" "dutch_cross_device_attribute" "dutch_prepared" 150 "False" "medium" "sex_binary" "Marital_status" "occupation_binary"
 
-# Value
-run_training "$DATASETS_DIR/acs_income/cross_device_value_final/FL_data" "acs_income_cross_device_value" "income_cross_device" 51 "False" ""
-run_training "$DATASETS_DIR/acs_income/cross_silo_value_final/FL_data" "acs_income_cross_silo_value" "income_cross_silo" 51 "False" ""
+# Value Cross-Device
+run_training "$DATASETS_DIR/dutch/cross_device_value/medium" "dutch_cross_device_value" "dutch_prepared" 150 "False" "medium" "sex_binary" "" "occupation_binary"
+
 
 echo "Done."

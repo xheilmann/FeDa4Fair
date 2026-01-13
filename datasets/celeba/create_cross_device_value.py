@@ -2,121 +2,212 @@
 Creation script for Cross-Device Value Imbalanced Benchmarking Datasets for CelebA.
 Dataset: flwrlabs/celeba
 Scenario: Cross-Device (150 clients)
-Target DP Levels: Mild, Medium, Strong
+Target DP Level: Medium (0.30)
 """
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import io
+import os
+import json
+import base64
+from datasets import load_dataset, concatenate_datasets
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
+from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
 
-def compute_dataset_dp(fds, split):
-    dps = []
-    partitioner = fds.partitioners[split]
-    if isinstance(partitioner, int):
-        num_clients = partitioner
-    else:
-        num_clients = partitioner.num_partitions
+def add_hair_color_multi(df):
+    """
+    Adds 'hair_color' column with multiple values.
+    0: Black_Hair
+    1: Blond_Hair
+    2: Brown_Hair
+    3: Gray_Hair
+    4: Other
+    """
+    c_black = (df['Black_Hair'] == 1) | (df['Black_Hair'] == True)
+    c_blond = (df['Blond_Hair'] == 1) | (df['Blond_Hair'] == True)
+    c_brown = (df['Brown_Hair'] == 1) | (df['Brown_Hair'] == True)
+    c_gray = (df['Gray_Hair'] == 1) | (df['Gray_Hair'] == True)
 
-    print(f"Computing DP for {num_clients} clients...")
+    conditions = [c_black, c_blond, c_brown, c_gray]
+    choices = [0, 1, 2, 3]
     
-    for cid in range(num_clients):
-        try:
-            partition = fds.load_partition(cid, split)
-            df = partition.to_pandas()
-            
-            sens = df["Male"]
-            label = df["Smiling"]
-            
-            s1_mask = (sens == True) | (sens == 1) | (sens == "true") | (sens == "True")
-            s0_mask = (sens == False) | (sens == 0) | (sens == "false") | (sens == "False")
-            
-            if s1_mask.sum() == 0 or s0_mask.sum() == 0:
-                continue
-                
-            p_y1_s1 = label[s1_mask].mean()
-            p_y1_s0 = label[s0_mask].mean()
-            
-            dp = abs(p_y1_s1 - p_y1_s0)
-            dps.append(dp)
-        except Exception as e:
-            print(f"Error computing DP for client {cid}: {e}")
-            continue
-        
-    if not dps:
-        return 0.0
-    return sum(dps) / len(dps)
+    df['hair_color'] = np.select(conditions, choices, default=4)
+    return df
 
 def create_benchmarks():
     num_clients = 150
     output_base = "datasets/celeba/cross_device_value"
+    img_dict_path = "datasets/celeba/celeba_img_dict.json"
+    
+    print("Loading CelebA dataset...")
+    ds_dict = load_dataset("flwrlabs/celeba")
+    
+    ds_merged = concatenate_datasets(list(ds_dict.values()))
+    
+    print("Adding image IDs...")
+    ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
 
-    levels = {
-        "mild": {
-            "drop_mean": 0.4, "flip_mean": 0.15, "mitigate_base": True, "target": 0.15, "value": False
-        },
-        "medium": {
-            "drop_mean": 0.3, "flip_mean": 0.1, "mitigate_base": False, "target": 0.25, "value": False
-        },
-        "strong": {
-            "drop_mean": 0.8, "flip_mean": 0.3, "mitigate_base": False, "target": 0.35, "value": True
-        }
-    }
-
-    results_summary = []
-
-    for level_name, config in levels.items():
-        print(f"Creating {level_name} benchmark (Target DP ~{config['target']})...")
-
-        group_configs = [
-            {
-                "group_id": level_name,
-                "num_clients": num_clients,
-                "configs": [
-                    {
-                        "attribute": "Male",
-                        "value": config["value"],
-                        "drop_mean": config["drop_mean"], "drop_std": 0.05,
-                        "flip_mean": config["flip_mean"], "flip_std": 0.02,
-                        "mitigate": config["mitigate_base"]
-                    }
-                ]
-            }
-        ]
-
-        mod_dict = generate_multiobjective_bias(num_clients, group_configs)
-
-        fds = FairFederatedDataset(
-            dataset="flwrlabs/celeba",
-            split="all",
-            partitioners={"train": num_clients},
-            label_name="Smiling",
-            sensitive_attributes=["Male"],
-            modification_dict=mod_dict,
-            fl_setting="cross-device",
-            perc_train_val_test=[0.8, 0.2],
-            path=f"{output_base}/{level_name}"
-        )
-
-        fds.prepare()
-
-        print(f"Evaluating {level_name} benchmark...")
-        avg_dp = compute_dataset_dp(fds, "train")
-        print(f"Results for {level_name}: Avg Dataset DP={avg_dp:.4f}")
-
-        results_summary.append({
-            "level": level_name,
-            "avg_dp": avg_dp
-        })
+    # Check if image dict exists
+    if not os.path.exists(img_dict_path):
+        print(f"Creating image dictionary at {img_dict_path}...")
+        img_map = {}
+        for item in ds_merged:
+            idx = item['image_id']
+            img = item['image']
+            b = io.BytesIO()
+            img.save(b, format="PNG")
+            b64_str = base64.b64encode(b.getvalue()).decode('utf-8')
+            img_map[idx] = b64_str
         
-        eval_df = pd.DataFrame([{"level": level_name, "avg_dp": avg_dp}])
-        eval_path = f"{output_base}/{level_name}_evaluation.csv"
-        eval_df.to_csv(eval_path, index=False)
-        print(f"Evaluation saved to {eval_path}\n")
+        print("Saving JSON...")
+        os.makedirs(os.path.dirname(img_dict_path), exist_ok=True)
+        with open(img_dict_path, "w") as f:
+            json.dump(img_map, f)
+        print("JSON saved.")
+        del img_map
+    else:
+        print(f"Image dictionary found at {img_dict_path}, skipping creation.")
 
-    print("Summary:")
-    for res in results_summary:
-        print(res)
+    print("Dropping image column...")
+    ds_merged = ds_merged.remove_columns("image")
+    
+    print("Converting to Pandas for preprocessing...")
+    df = ds_merged.to_pandas()
+    
+    print("Adding 'hair_color' attribute (multi-value)...")
+    df = add_hair_color_multi(df)
+    
+    counts = df['hair_color'].value_counts()
+    print("Hair Color Counts:\n", counts)
+    
+    named_counts = counts[counts.index.isin([0, 1, 2, 3])]
+    val_max = named_counts.idxmax()
+    val_min = named_counts.idxmin()
+    
+    print(f"Targeting Max Present: {val_max} (Count: {named_counts[val_max]})")
+    print(f"Targeting Min Present: {val_min} (Count: {named_counts[val_min]})")
+
+    level_name = "medium"
+    print(f"Creating {level_name} benchmark (Target DP ~0.30)...")
+
+    half_clients = num_clients // 2
+    
+    # Tuned parameters: 0.35 flip
+    config = {
+        "drop_mean": 0.3, "drop_std": 0.05,
+        "flip_mean": 0.35, "flip_std": 0.02,
+        "target": 0.30
+    }
+    
+    group_configs = [
+        {
+            "group_id": "unfair_min_value",
+            "num_clients": half_clients,
+            "configs": [
+                {
+                    "attribute": "hair_color",
+                    "value": val_min,
+                    "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
+                    "flip_mean": config["flip_mean"], "flip_std": config["flip_std"],
+                    "mitigate": False
+                }
+            ]
+        },
+        {
+            "group_id": "unfair_max_value",
+            "num_clients": num_clients - half_clients,
+            "configs": [
+                {
+                    "attribute": "hair_color",
+                    "value": val_max,
+                    "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
+                    "flip_mean": config["flip_mean"], "flip_std": config["flip_std"],
+                    "mitigate": False
+                }
+            ]
+        }
+    ]
+
+    mod_dict = generate_multiobjective_bias(num_clients, group_configs)
+
+    fds = FairFederatedDataset(
+        dataset="flwrlabs/celeba",
+        preloaded_data=df,
+        split="all",
+        partitioners={"train": num_clients},
+        label_name="Smiling",
+        sensitive_attributes=["hair_color"],
+        modification_dict=mod_dict,
+        fl_setting="cross-device",
+        perc_train_val_test=[0.8, 0.2],
+        path=f"{output_base}/{level_name}"
+    )
+
+    fds.prepare()
+
+    print(f"Evaluating {level_name} benchmark...")
+    
+    sens_atts = ["hair_color"]
+    train_key = "train_train" if "train_train" in fds.partitioners else "train"
+
+    fig, ax, results_dp_values = plot_multi_attribute_fairness(
+        partitioner=fds.partitioners[train_key],
+        partitioner_test=fds.partitioners[train_key],
+        model=None,
+        sens_atts=sens_atts,
+        fairness_metric="DP",
+        label_name="Smiling",
+        fds=fds,
+        split=train_key,
+        size_unit="value"
+    )
+    plt.close(fig)
+    
+    hair_cols = [c for c in results_dp_values.columns if "hair_color" in c]
+    max_dp_per_client = results_dp_values[hair_cols].max(axis=1)
+    idxmax_per_client = results_dp_values[hair_cols].idxmax(axis=1)
+
+    def get_color(col_name):
+        if not isinstance(col_name, str): return "gray"
+        if "_0_" in col_name or col_name.endswith("_0"): return "red"
+        if "_1_" in col_name or col_name.endswith("_1"): return "blue"
+        if "_2_" in col_name or col_name.endswith("_2"): return "green"
+        if "_3_" in col_name or col_name.endswith("_3"): return "orange"
+        return "gray"
+
+    colors = idxmax_per_client.apply(get_color)
+    
+    fig_custom, ax_custom = plt.subplots(figsize=(16, 6))
+    max_dp_per_client.plot(kind="bar", ax=ax_custom, color=colors)
+    ax_custom.set_title(f"Max Unfairness (DP) per Client by Value ({level_name})")
+    ax_custom.set_xlabel("Client ID")
+    ax_custom.set_ylabel("Max DP across Hair Colors")
+    
+    n = len(max_dp_per_client)
+    ax_custom.set_xticks(range(0, n, 10))
+    ax_custom.set_xticklabels(range(0, n, 10))
+    
+    from matplotlib.lines import Line2D
+    custom_lines = [
+        Line2D([0], [0], color="red", lw=4),
+        Line2D([0], [0], color="blue", lw=4),
+        Line2D([0], [0], color="green", lw=4),
+        Line2D([0], [0], color="orange", lw=4)
+    ]
+    ax_custom.legend(custom_lines, ['Black (0)', 'Blond (1)', 'Brown (2)', 'Gray (3)'])
+
+    fig_custom.savefig(f"{output_base}/{level_name}_MaxDP.png")
+    plt.close(fig_custom)
+
+    results_dp_values["Max_DP"] = max_dp_per_client
+    eval_path = f"{output_base}/{level_name}_evaluation.csv"
+    results_dp_values.to_csv(eval_path)
+    print(f"Evaluation saved to {eval_path}\n")
+    
+    print(f"Average Max DP across clients: {max_dp_per_client.mean():.4f}")
 
 if __name__ == "__main__":
     create_benchmarks()

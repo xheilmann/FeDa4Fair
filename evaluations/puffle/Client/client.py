@@ -594,7 +594,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "third_counters": third_counters,
                 # "max_disparity_dataset": max_disparity_dataset,
                 "f1_score": f1score,
-                "y_true": y_true,
+                # "y_true": y_true,
                 "max_group_test": max_group,
                 "max_group_test_second": max_group_2,
                 "max_group_test_third": max_group_3,

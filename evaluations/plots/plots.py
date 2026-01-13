@@ -209,9 +209,9 @@ def visualize_value_change(
     arrow_linewidth = 1.5
     arrow_color = 'gray'
 
-    # Store jittered positions
-    jittered_positions_df1 = {}
-    jittered_positions_df2 = {}
+    # Store jittered positions: {dataset_id: (x, y)}
+    pos_map_df1 = {}
+    pos_map_df2 = {}
 
     # Plot the initial state with jitter
     unique_vals = sorted(df1[value_col].unique())
@@ -221,7 +221,11 @@ def visualize_value_change(
         x_base = int(float(val))
         jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
         x_vals = [x_base + j for j in jitter]
-        jittered_positions_df1[int(float(val))] = list(zip(subset['dataset'].values, x_vals, y_vals.values))
+        
+        # Store positions
+        for i, dataset_id in enumerate(subset['dataset']):
+            pos_map_df1[dataset_id] = (x_vals[i], y_vals.values[i])
+            
         plt.scatter(
             x_vals,
             y_vals,
@@ -242,7 +246,11 @@ def visualize_value_change(
         x_base = int(float(val))
         jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
         x_vals = [x_base + j for j in jitter]
-        jittered_positions_df2[int(float(val))] = list(zip(subset['dataset'].values, x_vals, y_vals.values))
+        
+        # Store positions
+        for i, dataset_id in enumerate(subset['dataset']):
+            pos_map_df2[dataset_id] = (x_vals[i], y_vals.values[i])
+
         plt.scatter(
             x_vals,
             y_vals,
@@ -254,19 +262,16 @@ def visualize_value_change(
             alpha=0.8
         )
 
-    # Draw arrows based on the 'dataset' identifier and different 'Value'
+    # Draw arrows based on the 'dataset' identifier
     for index, row in merged_df.iterrows():
         dataset_id = row['dataset']
-        val1_orig = str(row[f'{value_col}_df1'])
-        val2_orig = str(row[f'{value_col}_df2'])
         
-        if int(float(val1_orig)) in jittered_positions_df1 and int(float(val2_orig)) in jittered_positions_df2 and val1_orig != val2_orig:
-            initial_matches = [match for match in jittered_positions_df1[int(float(val1_orig))] if match[0] == dataset_id]
-            final_matches = [match for match in jittered_positions_df2[int(float(val2_orig))] if match[0] == dataset_id]
+        if dataset_id in pos_map_df1 and dataset_id in pos_map_df2:
+            initial_x, initial_y = pos_map_df1[dataset_id]
+            final_x, final_y = pos_map_df2[dataset_id]
 
-            if initial_matches and final_matches:
-                initial_x, initial_y = initial_matches[0][1], initial_matches[0][2]
-                final_x, final_y = final_matches[0][1], final_matches[0][2]
+            # Only draw arrow if there is a significant change in position
+            if abs(initial_x - final_x) > 0.01 or abs(initial_y - final_y) > 0.001:
                 plt.arrow(initial_x, initial_y, final_x - initial_x, final_y - initial_y,
                           head_width=arrow_head_width,
                           head_length=arrow_head_length,
@@ -977,6 +982,13 @@ def main():
         model_df = local_df[local_df["model"] == model]
         safe_model_name = model.replace(" ", "_").lower()
         
+        # Pretty Print Model Name for Titles
+        display_model_name = model
+        if model == "LogisticRegression":
+            display_model_name = "Logistic Regression"
+        elif model == "XGBoost":
+            display_model_name = "XGBoost" # Already good, but being explicit
+        
         # A) Difference Histogram
         try:
             diff_df = compute_differences(model_df, fl_df)
@@ -994,7 +1006,7 @@ def main():
                 bar_plot_differences(
                     diff_df, 
                     list(diff_df["dataset"]), 
-                    title=f"{model} - {fl_method_label} Unfairness Difference", 
+                    title=f"{display_model_name} - {fl_method_label} Unfairness Difference", 
                     y_axis="Dem. Disparity Difference",
                     save=True,
                     fig_path=plot_path
@@ -1021,7 +1033,7 @@ def main():
                     df1=model_df,
                     df2=fl_df,
                     fairness_column="DP_RACE",
-                    ylabel=f"{model} Dem. Disparity",
+                    ylabel=f"{display_model_name} Dem. Disparity",
                     xlabel=f"{fl_method_label} Dem. Disparity",
                     title="MAR Unfairness Distribution" if args.dataset_name and "dutch" in args.dataset_name.lower() else "RACE Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
@@ -1049,7 +1061,7 @@ def main():
                     df1=model_df,
                     df2=fl_df,
                     fairness_column="DP_SEX",
-                    ylabel=f"{model} Dem. Disparity",
+                    ylabel=f"{display_model_name} Dem. Disparity",
                     xlabel=f"{fl_method_label} Dem. Disparity",
                     title="SEX Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
@@ -1233,8 +1245,111 @@ def main():
                     print(f"Error creating arrow plot (Race) for {model}: {e}")
             else:
                  print(f"Skipping Arrow Plot (Race) for {model}. Missing cols.")
+        # D) Bias Direction Change Arrows (Dynamic X-axis based on Bias Sign)
+        # This visualizes if the model flips bias against a different group (e.g. 0 to 1)
+        
+        # Sex
+        if "DP_SEX" in model_df.columns and "DP_SEX" in fl_df.columns:
+            try:
+                # Create copies to avoid modifying originals for other plots
+                local_dir_df = model_df.copy()
+                fl_dir_df = fl_df.copy()
+                
+                # Define Bias Direction: 0 if DP < 0, 1 if DP >= 0
+                local_dir_df["Bias_Direction"] = (local_dir_df["DP_SEX"] >= 0).astype(int)
+                fl_dir_df["Bias_Direction"] = (fl_dir_df["DP_SEX"] >= 0).astype(int)
+                
+                custom_labels = {0: "Favors Group 0 (-)", 1: "Favors Group 1 (+)"}
+                if args.dataset_name and "dutch" in args.dataset_name.lower():
+                     custom_labels = {0: "Favors Female (-)", 1: "Favors Male (+)"}
+
+                visualize_value_change(
+                    df1=local_dir_df,
+                    df2=fl_dir_df,
+                    sensitive_col="DP_SEX",
+                    value_col="Bias_Direction",
+                    title=f"Change in Bias Direction (Sex)",
+                    y_label="Dem. Disparity",
+                    initial_state=display_model_name,
+                    legend_filename=f"arrow_bias_dir_legend_sex_{safe_model_name}.pdf",
+                    save_path=os.path.join(base_output_dir, f"arrow_bias_dir_sex_{safe_model_name}.pdf"),
+                    custom_labels=custom_labels
+                )
+                print(f"Saved Bias Direction Arrow Plot (Sex) for {model}")
+            except Exception as e:
+                print(f"Error creating bias direction arrow plot (Sex) for {model}: {e}")
+
+        # Race
+        if "DP_RACE" in model_df.columns and "DP_RACE" in fl_df.columns:
+            try:
+                local_dir_df = model_df.copy()
+                fl_dir_df = fl_df.copy()
+                
+                # Define Bias Direction: 0 if DP < 0, 1 if DP >= 0
+                local_dir_df["Bias_Direction"] = (local_dir_df["DP_RACE"] >= 0).astype(int)
+                fl_dir_df["Bias_Direction"] = (fl_dir_df["DP_RACE"] >= 0).astype(int)
+                
+                custom_labels = {0: "Favors Group 0 (-)", 1: "Favors Group 1 (+)"}
+
+                visualize_value_change(
+                    df1=local_dir_df,
+                    df2=fl_dir_df,
+                    sensitive_col="DP_RACE",
+                    value_col="Bias_Direction",
+                    title=f"Change in Bias Direction (Race/Mar)",
+                    y_label="Dem. Disparity",
+                    initial_state=display_model_name,
+                    legend_filename=f"arrow_bias_dir_legend_race_{safe_model_name}.pdf",
+                    save_path=os.path.join(base_output_dir, f"arrow_bias_dir_race_{safe_model_name}.pdf"),
+                    custom_labels=custom_labels
+                )
+                print(f"Saved Bias Direction Arrow Plot (Race) for {model}")
+            except Exception as e:
+                print(f"Error creating bias direction arrow plot (Race) for {model}: {e}")
         else:
              print(f"Skipping Value Plots for {model}. 'Value' column not found in FL results.")
+
+        # E) Dominant Bias Change Arrows (Did the primary source of bias shift?)
+        # X-Axis: Sex Dominant vs Race Dominant
+        # Y-Axis: Max(abs(DP_SEX), abs(DP_RACE))
+        
+        if "DP_SEX" in model_df.columns and "DP_RACE" in fl_df.columns and "DP_SEX" in fl_df.columns and "DP_RACE" in model_df.columns:
+            try:
+                local_dom_df = model_df.copy()
+                fl_dom_df = fl_df.copy()
+                
+                # Calculate Max and Dominant for Local
+                local_dom_df["Abs_Sex"] = local_dom_df["DP_SEX"].abs()
+                local_dom_df["Abs_Race"] = local_dom_df["DP_RACE"].abs()
+                local_dom_df["Max_Unfairness"] = local_dom_df[["Abs_Sex", "Abs_Race"]].max(axis=1)
+                # 0 for Sex, 1 for Race
+                local_dom_df["Dominant_Source"] = np.where(local_dom_df["Abs_Sex"] >= local_dom_df["Abs_Race"], 0, 1)
+                
+                # Calculate Max and Dominant for FL
+                fl_dom_df["Abs_Sex"] = fl_dom_df["DP_SEX"].abs()
+                fl_dom_df["Abs_Race"] = fl_dom_df["DP_RACE"].abs()
+                fl_dom_df["Max_Unfairness"] = fl_dom_df[["Abs_Sex", "Abs_Race"]].max(axis=1)
+                fl_dom_df["Dominant_Source"] = np.where(fl_dom_df["Abs_Sex"] >= fl_dom_df["Abs_Race"], 0, 1)
+                
+                custom_labels = {0: "Sex Dominant", 1: "Race/Mar Dominant"}
+                
+                visualize_value_change(
+                    df1=local_dom_df,
+                    df2=fl_dom_df,
+                    sensitive_col="Max_Unfairness",
+                    value_col="Dominant_Source",
+                    title=f"Change in Dominant Bias Source",
+                    y_label="Max Dem. Disparity",
+                    initial_state=display_model_name,
+                    legend_filename=f"arrow_dominant_legend_{safe_model_name}.pdf",
+                    save_path=os.path.join(base_output_dir, f"arrow_dominant_bias_{safe_model_name}.pdf"),
+                    custom_labels=custom_labels
+                )
+                print(f"Saved Dominant Bias Arrow Plot for {model}")
+            except Exception as e:
+                print(f"Error creating dominant bias arrow plot for {model}: {e}")
+
+    # End of Main Loop
 
 if __name__ == "__main__":
     main()

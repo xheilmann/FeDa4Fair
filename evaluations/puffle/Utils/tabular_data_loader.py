@@ -997,10 +997,10 @@ def prepare_tabular_data(
 
                 image_ids = []
                 # Use image_id to look up bytes
-                if "image_id" in df.columns:
-                    image_ids = df["image_id"].tolist()
+                if "celeb_id" in df.columns:
+                    image_ids = df["celeb_id"].tolist()
                 else:
-                    print(f"Error: 'image_id' column missing in {csv_path}")
+                    print(f"Error: 'celeb_id' column missing in {csv_path}")
                     # Handle error or empty list?
                     # If empty, dataset will be empty/invalid
                 

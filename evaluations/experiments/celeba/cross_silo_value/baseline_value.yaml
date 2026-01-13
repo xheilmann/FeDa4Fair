@@ -39,9 +39,9 @@ command:
   - --sampled_clients 
   - 0.2
   - --sampled_clients_test 
-  - 1.0
+  - 0.2
   - --sampled_clients_validation 
-  - 1.0
+  - 0.5
   - --debug
   - False
   - --base_path
@@ -62,8 +62,6 @@ command:
   - 0.20
   - --tabular_data 
   - True
-  - --update_lambda
-  - False
   - --metric
   - disparity
   - --splitted_data_dir

@@ -480,7 +480,7 @@ def plot_multi_attribute_fairness(
         The figure, axis, and combined DataFrame with results.
 
     """
-    from FeDa4Fair.metrics.fairness import compute_multi_fairness
+    from FeDa4Fair.metrics.fairness import compute_multi_fairness  # noqa: PLC0415
 
     combined_df = compute_multi_fairness(
         partitioner=partitioner,

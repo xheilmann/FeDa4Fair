@@ -31,6 +31,81 @@ class TestDataUtils(unittest.TestCase):
         self.assertAlmostEqual(rate1, 0.5, delta=0.01)
         self.assertEqual(len(balanced_df), 100)  # 50 from each group
 
+    def test_balance_data_with_integer_labels(self):
+        """balance_data should work correctly when labels are integers (0/1),
+        not just booleans."""
+        data = {
+            "sens": [0] * 100 + [1] * 100,
+            "label": [1] * 75 + [0] * 25 + [1] * 25 + [0] * 75,  # integers, not booleans
+        }
+        df = pd.DataFrame(data)
+
+        balanced_df, removed_count = balance_data(df, "sens", "label")
+
+        # After balancing: min positive = 25, min negative = 25
+        s0 = balanced_df[balanced_df["sens"] == 0]
+        s1 = balanced_df[balanced_df["sens"] == 1]
+
+        # Both groups should have equal positive counts
+        self.assertEqual(s0["label"].sum(), s1["label"].sum())
+        # Both groups should have equal sizes
+        self.assertEqual(len(s0), len(s1))
+        # Total should be 100 (25 pos + 25 neg per group)
+        self.assertEqual(len(balanced_df), 100)
+        # removed_count should be positive
+        self.assertGreater(removed_count, 0)
+
+    def test_drop_data_with_integer_labels(self):
+        """drop_data should only drop rows where label == 1, 
+        not all truthy values."""
+        from FeDa4Fair.utils.data_utils import drop_data
+        data = {
+            "sens": [1] * 50 + [2] * 50,
+            "label": [0, 1] * 50,  # integer labels
+        }
+        df = pd.DataFrame(data)
+        original_len = len(df)
+
+        result = drop_data(df, 0.5, "sens", 1, "label")
+
+        # Should only affect rows where sens==1 AND label==1 (25 rows)
+        # Drop 50% -> 12 or 13 dropped
+        dropped = original_len - len(result)
+        self.assertGreater(dropped, 0)
+        self.assertLessEqual(dropped, 25)  # Can't drop more than matching rows
+        
+    def test_drop_data_with_integer_labels_count(self):
+        from FeDa4Fair.utils.data_utils import drop_data
+        data = {
+            "sens": [1] * 50 + [2] * 50,
+            "label": [0, 1] * 50,  # integer labels
+        }
+        df = pd.DataFrame(data)
+        original_len = len(df)
+        
+        result = drop_data(df, 0.5, "sens", 1, "label")
+        dropped = original_len - len(result)
+        # Exact calculation: 25 matching rows * 0.5 = 12
+        self.assertEqual(dropped, 12)
+
+    def test_flip_data_with_integer_labels(self):
+        """flip_data should correctly flip integer labels from 1 to 0."""
+        from FeDa4Fair.utils.data_utils import flip_data
+        data = {
+            "sens": [1] * 50 + [2] * 50,
+            "label": [0, 1] * 50,  # integer labels
+        }
+        df = pd.DataFrame(data)
+        original_positive_count = df[df["label"] == 1].shape[0]
+
+        result = flip_data(df.copy(), 0.5, "sens", 1, "label")
+
+        # Some labels that were 1 should now be 0
+        new_positive_count = result[result["label"] == 1].shape[0]
+        self.assertLess(new_positive_count, original_positive_count)
+        # Length should not change
+        self.assertEqual(len(result), len(df))
+
     def test_generate_modification_dict_iid(self):
         num_clients = 5
         mod_dict = generate_modification_dict(

@@ -163,6 +163,8 @@ class FairFederatedDataset(FederatedDataset):
         preloaded_data: dict[str, pd.DataFrame] | None = None,
         client_names: list[str] | None = None,
         sample_cap: int | None = None,
+        auto_evaluate: bool = False,
+        auto_save: bool = False,
         **load_dataset_kwargs: Any,
     ) -> None:
         # Initialize states only if using ACS datasets or if states are explicitly provided
@@ -199,6 +201,10 @@ class FairFederatedDataset(FederatedDataset):
         self._client_names = client_names
         self._total_removed_samples = 0
         self._sample_cap = sample_cap
+        self.auto_evaluate = auto_evaluate
+        self.auto_save = auto_save
+
+        self._validate_modification_dict()
 
         # Infer label for known datasets if not provided
         if self._label is None:
@@ -213,6 +219,23 @@ class FairFederatedDataset(FederatedDataset):
         if self._label is None:
             return ""
         return str(self._label)
+
+    def _validate_modification_dict(self) -> None:
+        """Validate the format of the modification_dict."""
+        if self._modification_dict is None:
+            return
+
+        for key, mods in self._modification_dict.items():
+            if not isinstance(key, (str, int)):
+                msg = f"modification_dict keys must be strings or ints, got {type(key)}"
+                raise TypeError(msg)
+            if not isinstance(mods, dict):
+                msg = f"modification_dict values must be dictionaries, got {type(mods)} for key {key}"
+                raise TypeError(msg)
+            for col_name, config in mods.items():
+                if not isinstance(config, dict):
+                    msg = f"modification config must be a dictionary, got {type(config)} for column {col_name}"
+                    raise TypeError(msg)
 
     def prepare(self) -> None:
         """Explicitly trigger dataset preparation."""
@@ -420,12 +443,13 @@ class FairFederatedDataset(FederatedDataset):
             self._event["load_split"] = dict.fromkeys(available_splits, False)
 
         # Run initial evaluation if needed (and if tabular/compatible)
-        try:
-            # Check if evaluation is possible (requires label and sensitive attribute)
-            if self._label and (self._sensitive_attributes or self._dataset_name in ["ACSIncome", "ACSEmployment"]):
-                self.evaluate(self._path)
-        except Exception as e:  # noqa: BLE001
-            warnings.warn(f"Could not perform initial fairness evaluation: {e}", stacklevel=2)
+        if self.auto_evaluate:
+            try:
+                # Check if evaluation is possible (requires label and sensitive attribute)
+                if self._label and (self._sensitive_attributes or self._dataset_name in ["ACSIncome", "ACSEmployment"]):
+                    self.evaluate(self._path)
+            except Exception as e:  # noqa: BLE001
+                warnings.warn(f"Could not perform initial fairness evaluation: {e}", stacklevel=2)
 
         if self._sensitive_attributes is not None:
             warnings.warn(
@@ -434,7 +458,7 @@ class FairFederatedDataset(FederatedDataset):
                 stacklevel=2,
             )
 
-        if self._path is not None:
+        if self.auto_save and self._path is not None:
             self.save_dataset(self._path)
 
     @staticmethod

@@ -73,7 +73,7 @@ def drop_data(
     if column2 is not None and value2 is not None:
         condition &= df[column2] == value2
 
-    matching_rows = df[condition & (df[label_column])]
+    matching_rows = df[condition & (df[label_column].astype(bool))]
     num_to_drop = int(len(matching_rows) * percentage)
     rows_to_drop = matching_rows.sample(n=num_to_drop, random_state=42).index
 
@@ -134,7 +134,7 @@ def flip_data(
     if column2 is not None and value2 is not None:
         condition &= df[column2] == value2
 
-    matching_rows = df[condition & (df[label_column])]
+    matching_rows = df[condition & (df[label_column].astype(bool))]
     num_to_flip = int(len(matching_rows) * percentage)
 
     if num_to_flip == 0:
@@ -171,8 +171,8 @@ def balance_data(
     neg_counts = {}
     for group in groups:
         group_df = df[df[column1] == group]
-        pos_counts[group] = int(group_df[label_column].sum())
-        neg_counts[group] = len(group_df) - pos_counts[group]
+        pos_counts[group] = int((group_df[label_column].astype(bool)).sum())
+        neg_counts[group] = int((~group_df[label_column].astype(bool)).sum())
 
     # Target: use the minimum count found across all groups for both classes
     target_pos = min(pos_counts.values())
@@ -180,8 +180,8 @@ def balance_data(
 
     rows_to_keep = []
     for group in groups:
-        group_indices_pos = df[(df[column1] == group) & (df[label_column])].index.tolist()
-        group_indices_neg = df[(df[column1] == group) & (~df[label_column])].index.tolist()
+        group_indices_pos = df[(df[column1] == group) & (df[label_column].astype(bool))].index.tolist()
+        group_indices_neg = df[(df[column1] == group) & (~df[label_column].astype(bool))].index.tolist()
 
         # Randomly sample to match target counts
         rng = np.random.default_rng(42)

@@ -57,20 +57,20 @@ def create_cross_silo_data(
     path_str = str(path)
     datasets = _get_initial_datasets(fairness_level, path_str)
 
-    df, fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
+    df, _fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
     df.to_csv(f"{path_str}data_stats/crosssilo_{fairness_level}_0.0.csv", index=False)
 
     all_modifications = []
     for dr in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         df = pd.read_csv(f"{path_str}data_stats/crosssilo_{fairness_level}_{np.round(dr - 0.1, 2)}.csv")
-        states, partitioners, modification_dict, silo_modifications = _determine_modifications(df, dr, fairness_level)
+        states, _partitioners, modification_dict, silo_modifications = _determine_modifications(df, dr, fairness_level)
         all_modifications.extend(silo_modifications)
 
         if len(states) <= 1:
             break
 
         datasets = _apply_silo_modifications(states, modification_dict, fairness_level, path_str)
-        df, fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
+        df, _fig = evaluate_models_on_datasets(datasets, n_jobs=3, fairness_level=fairness_level)
         df.to_csv(f"{path_str}data_stats/crosssilo_{fairness_level}_{dr}.csv", index=False)
 
     all_modifications_df = pd.DataFrame(all_modifications, columns=["state", "drop_rate", "attribute", "value"])  # type: ignore[arg-type]
@@ -92,7 +92,8 @@ def _get_initial_datasets(fairness_level, path_str):
         msg = "States must be defined for ACS dataset."
         raise ValueError(msg)
     for state in ffds._states:
-        data = ffds.load_partition(0, state).to_pandas()
+        split_name = f"{state}_train" if ffds._fl_setting == "cross-silo" else state
+        data = ffds.load_partition(0, split_name).to_pandas()
         if isinstance(data, pd.DataFrame):
             datasets = preprocess_data_cross_silo(data, datasets, fairness_level, state)
     return datasets
@@ -122,10 +123,13 @@ def _get_attribute_modifications(entry, df_entry, dr):
     sex_dp = df_entry["DP_SEX"].values
     count = sum(1 for i in range(len(df_entry)) if sex_dp[i] > race_dp[i])
 
-    if count == 2 or count != 0:  # Combined count == 2 and 'else' case from original
+    if count == 2:
         min_val = np.min(sex_dp)
-        if count == 2 and min_val >= 0.09:
+        if min_val >= 0.09:
             return None
+        attr = "SEX"
+    elif count > 0:  # count == 1
+        min_val = np.min(sex_dp)
         attr = "SEX"
     else:  # count == 0
         min_val = np.min(race_dp)
@@ -169,7 +173,8 @@ def _apply_silo_modifications(states, modification_dict, fairness_level, path_st
         msg = "States must be defined for ACS dataset."
         raise ValueError(msg)
     for state in ffds._states:
-        data = ffds.load_partition(0, state).to_pandas()
+        split_name = f"{state}_train" if ffds._fl_setting == "cross-silo" else state
+        data = ffds.load_partition(0, split_name).to_pandas()
         if isinstance(data, pd.DataFrame):
             datasets = preprocess_data_cross_silo(data, datasets, fairness_level, state)
     return datasets
@@ -199,7 +204,7 @@ def preprocess_data_cross_silo(
 
     """
     target1 = data1["PINCP"]
-    data1.drop(inplace=True, columns=["PINCP"])
+    data1 = data1.drop(columns=["PINCP"])
     if fairness_level == "attribute":
         X_train1, X_test1, y_train1, y_test1 = train_test_split(
             data1, target1, test_size=0.2, random_state=42, stratify=data1[["SEX", "RAC1P"]]
@@ -207,8 +212,8 @@ def preprocess_data_cross_silo(
     else:
         X_train1, X_test1, y_train1, y_test1 = train_test_split(data1, target1, test_size=0.2, random_state=42)
     sf_data1 = {"SEX": X_test1["SEX"].values, "RACE": X_test1["RAC1P"].values, "MAR": X_test1["MAR"].values}
-    X_train1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
-    X_test1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
+    X_train1 = X_train1.drop(columns=["MAR", "SEX", "RAC1P"])
+    X_test1 = X_test1.drop(columns=["MAR", "SEX", "RAC1P"])
     datasets.append((state, X_train1.values, y_train1.values, X_test1.values, y_test1.values, sf_data1))
     return datasets
 
@@ -222,7 +227,7 @@ def create_cross_device_data(
     path_str = str(path)
     datasets_all = _load_silo_datasets(fairness_level, split_number, path_str)
 
-    df, fig = evaluate_models_on_datasets(datasets_all, n_jobs=3, fairness_level=fairness_level)
+    df, _fig = evaluate_models_on_datasets(datasets_all, n_jobs=3, fairness_level=fairness_level)
     df.to_csv(f"{path_str}data_stats/crossdevice_{fairness_level}.csv", index=False)
 
     states = _filter_states_by_fairness(df, fairness_level)
@@ -312,7 +317,7 @@ def preprocess_datasets(
         data1 = split_datasets[i]
         data1.to_csv(f"{path}data/cross-device-{fairness_level}/{file[:2]}_{i}.csv")
         target1 = data1["PINCP"]
-        data1.drop(inplace=True, columns=["PINCP"])
+        data1 = data1.drop(columns=["PINCP"])
         if fairness_level == "attribute":
             X_train1, X_test1, y_train1, y_test1 = train_test_split(
                 data1, target1, test_size=0.2, random_state=42, stratify=data1[["SEX", "RAC1P"]]
@@ -321,7 +326,7 @@ def preprocess_datasets(
             X_train1, X_test1, y_train1, y_test1 = train_test_split(data1, target1, test_size=0.2, random_state=42)
 
         sf_data1 = {"SEX": X_test1["SEX"].values, "RACE": X_test1["RAC1P"].values, "MAR": X_test1["MAR"].values}
-        X_train1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
-        X_test1.drop(inplace=True, columns=["MAR", "SEX", "RAC1P"])
+        X_train1 = X_train1.drop(columns=["MAR", "SEX", "RAC1P"])
+        X_test1 = X_test1.drop(columns=["MAR", "SEX", "RAC1P"])
         datasets.append((f"{file[:2]}_{i}", X_train1.values, y_train1.values, X_test1.values, y_test1.values, sf_data1))
     return datasets

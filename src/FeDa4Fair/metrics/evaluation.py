@@ -179,7 +179,7 @@ def evaluate_fairness(
 
     eff_sens_columns = sens_columns
     if intersectional_fairness is not None:
-        eff_sens_columns = [f"{intersectional_fairness}"]
+        eff_sens_columns = ["_".join(intersectional_fairness)]
 
     for sens_att in eff_sens_columns:
         fig, axes, df_list = plot_comparison_fairness_distribution(

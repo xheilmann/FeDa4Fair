@@ -447,7 +447,7 @@ class SimpleCNN(nn.Module):
         return self.fc2(x)
 
 
-def test_image(net, testloader, device, sensitive_attribute_name="sensitive"):
+def test_image(net, testloader, device, sensitive_attribute_name="sensitive"):  # noqa: PT028
     """Validate the network on the entire test set for image data."""
     criterion = torch.nn.CrossEntropyLoss()
     correct, loss = 0, 0.0

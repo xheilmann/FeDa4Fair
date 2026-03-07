@@ -306,7 +306,16 @@ class Utils:
     def get_dataset(path_to_data: Path, cid: str, partition: str, dataset: str):
         # generate path to cid's data
         path_to_data = path_to_data / cid / (partition + ".pt")
-        if dataset == "dutch" or dataset=="dutch_prepared" or dataset == "income" or dataset == "income_NO_RACE" or dataset == "income_cross_device" or dataset == "employment" or dataset == "employment_NO_RACE" or dataset == "celeba_prepared":
+        if (
+            dataset == "dutch"
+            or dataset == "dutch_prepared"
+            or dataset == "income"
+            or dataset == "income_NO_RACE"
+            or dataset == "income_cross_device"
+            or dataset == "employment"
+            or dataset == "employment_NO_RACE"
+            or dataset == "celeba_prepared"
+        ):
             return torch.load(path_to_data)
         return TorchVision_FL(
             path_to_data,

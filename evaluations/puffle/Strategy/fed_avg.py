@@ -122,10 +122,7 @@ class FedAvg(Strategy):
         """
         super().__init__()
 
-        if (
-            min_fit_clients > min_available_clients
-            or min_evaluate_clients > min_available_clients
-        ):
+        if min_fit_clients > min_available_clients or min_evaluate_clients > min_available_clients:
             log(WARNING, WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW)
 
         self.fed_dir = fed_dir
@@ -173,17 +170,13 @@ class FedAvg(Strategy):
         num_clients = int(num_available_clients * self.fraction_test)
         return max(num_clients, self.min_evaluate_clients), self.min_available_clients
 
-    def initialize_parameters(
-        self, client_manager: ClientManager
-    ) -> Parameters | None:
+    def initialize_parameters(self, client_manager: ClientManager) -> Parameters | None:
         """Initialize global model parameters."""
         initial_parameters = self.initial_parameters
         self.initial_parameters = None  # Don't keep initial parameters in memory
         return initial_parameters
 
-    def evaluate(
-        self, server_round: int, parameters: Parameters
-    ) -> tuple[float, dict[str, Scalar]] | None:
+    def evaluate(self, server_round: int, parameters: Parameters) -> tuple[float, dict[str, Scalar]] | None:
         """Evaluate model parameters using an evaluation function."""
         if self.evaluate_fn is None:
             # No evaluation function provided
@@ -206,9 +199,7 @@ class FedAvg(Strategy):
         fit_ins = FitIns(parameters, config)
 
         # Sample clients
-        sample_size, min_num_clients = self.num_fit_clients(
-            client_manager.num_available("training")
-        )
+        sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available("training"))
         clients = client_manager.sample(
             num_clients=sample_size,
             min_num_clients=min_num_clients,
@@ -238,9 +229,7 @@ class FedAvg(Strategy):
         evaluate_ins = EvaluateIns(parameters, config)
 
         # Sample clients
-        sample_size, min_num_clients = self.num_evaluation_clients(
-            client_manager.num_available(phase)
-        )
+        sample_size, min_num_clients = self.num_evaluation_clients(client_manager.num_available(phase))
         clients = client_manager.sample(
             num_clients=sample_size,
             min_num_clients=min_num_clients,
@@ -296,10 +285,7 @@ class FedAvg(Strategy):
             return None, {}
 
         # Convert results
-        weights_results = [
-            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-            for _, fit_res in results
-        ]
+        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
         parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
 
         # Aggregate custom metrics if aggregation fn was provided
@@ -326,9 +312,7 @@ class FedAvg(Strategy):
             print(f"Saving round {server_round} aggregated_parameters...")
 
             # Convert `Parameters` to `List[np.ndarray]`
-            aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(
-                parameters_aggregated
-            )
+            aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(parameters_aggregated)
 
             # Convert `List[np.ndarray]` to PyTorch`state_dict`
             params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
@@ -336,9 +320,7 @@ class FedAvg(Strategy):
             self.model.load_state_dict(state_dict, strict=True)
 
             # Save the model
-            torch.save(
-                self.model, f"./models/model_round_{server_round}_{self.file_name}.pth"
-            )
+            torch.save(self.model, f"./models/model_round_{server_round}_{self.file_name}.pth")
 
             torch.save(
                 self.model.state_dict(),
@@ -362,10 +344,7 @@ class FedAvg(Strategy):
 
         # Aggregate loss
         loss_aggregated = weighted_loss_avg(
-            [
-                (evaluate_res.num_examples, evaluate_res.loss)
-                for _, evaluate_res in results
-            ]
+            [(evaluate_res.num_examples, evaluate_res.loss) for _, evaluate_res in results]
         )
 
         # Aggregate custom metrics if aggregation fn was provided
@@ -400,10 +379,7 @@ class FedAvg(Strategy):
 
         # Aggregate loss
         loss_aggregated = weighted_loss_avg(
-            [
-                (evaluate_res.num_examples, evaluate_res.loss)
-                for _, evaluate_res in results
-            ],
+            [(evaluate_res.num_examples, evaluate_res.loss) for _, evaluate_res in results],
         )
 
         # Aggregate custom metrics if aggregation fn was provided

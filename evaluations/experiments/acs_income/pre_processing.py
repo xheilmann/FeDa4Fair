@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 
 random.seed(42)
 
+
 def pre_process_income(df):
     """
     Pre-process the income dataset to make it ready for the simulation
@@ -29,7 +30,7 @@ def pre_process_income(df):
         The values in the list are numpy array of the dataframes
 
     """
-    categorical_columns = ["COW", "SCHL"] #, "RAC1P"]
+    categorical_columns = ["COW", "SCHL"]  # , "RAC1P"]
     continuous_columns = ["AGEP", "WKHP", "OCCP", "POBP", "RELP"]
 
     # get the target and sensitive attributes
@@ -67,9 +68,7 @@ def pre_process_single_datasets(df):
 
     sensitive_attributes = [1 if item == 1 else 0 for item in sensitive_attributes]
 
-    second_sensitive_attributes = [
-        1 if item == 1 else 0 for item in second_sensitive_attributes
-    ]
+    second_sensitive_attributes = [1 if item == 1 else 0 for item in second_sensitive_attributes]
 
     # third_sensitive_attributes = [
     #     1 if item == 1 else 0 for item in third_sensitive_attributes
@@ -106,9 +105,7 @@ if __name__ == "__main__":
         default=False,
     )
 
-    parser.add_argument(
-        "--folder_name", type=str, help="The folder name where the data is stored"
-    )
+    parser.add_argument("--folder_name", type=str, help="The folder name where the data is stored")
 
     args = parser.parse_args()
     cross_silo = args.cross_silo
@@ -118,57 +115,59 @@ if __name__ == "__main__":
 
     unfair_dfs = []
 
-    states = ["CT",
-    "RI",
-    "VT",
-    "TX",
-    "GA",
-    "PR",
-    "OH",
-    "NE",
-    "HI",
-    "MO",
-    "PA",
-    "DE",
-    "WV",
-    "MD",
-    "AZ",
-    "LA",
-    "WA",
-    "TN",
-    "MA",
-    "NJ",
-    "ME",
-    "SC",
-    "MI",
-    "OK",
-    "IL",
-    "FL",
-    "UT",
-    "AK",
-    "WI",
-    "NH",
-    "VA",
-    "SD",
-    "MS",
-    "ND",
-    "NC",
-    "AL",
-    "IA",
-    "ID",
-    "WY",
-    "NV",
-    "NM",
-    "NY",
-    "CA",
-    "AR",
-    "MN",
-    "OR",
-    "MT",
-    "KY",
-    "KS",
-    "IN",
-    "CO"]
+    states = [
+        "CT",
+        "RI",
+        "VT",
+        "TX",
+        "GA",
+        "PR",
+        "OH",
+        "NE",
+        "HI",
+        "MO",
+        "PA",
+        "DE",
+        "WV",
+        "MD",
+        "AZ",
+        "LA",
+        "WA",
+        "TN",
+        "MA",
+        "NJ",
+        "ME",
+        "SC",
+        "MI",
+        "OK",
+        "IL",
+        "FL",
+        "UT",
+        "AK",
+        "WI",
+        "NH",
+        "VA",
+        "SD",
+        "MS",
+        "ND",
+        "NC",
+        "AL",
+        "IA",
+        "ID",
+        "WY",
+        "NV",
+        "NM",
+        "NY",
+        "CA",
+        "AR",
+        "MN",
+        "OR",
+        "MT",
+        "KY",
+        "KS",
+        "IN",
+        "CO",
+    ]
 
     partitions_names = []
     list_files = os.listdir(folder)
@@ -240,12 +239,10 @@ if __name__ == "__main__":
 
             print(index // 2, train_data[0].shape, test_data[0].shape)
 
-            if not os.path.exists(
-                f"{folder}FL_data/federated/{index // 2}"
-            ):
+            if not os.path.exists(f"{folder}FL_data/federated/{index // 2}"):
                 os.makedirs(f"{folder}FL_data/federated/{index // 2}")
                 # save partitions_names
-            json_file = {index:data for index, data in enumerate(partitions_names)}
+            json_file = {index: data for index, data in enumerate(partitions_names)}
             with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
                 json.dump(json_file, f)
             np.save(
@@ -268,7 +265,6 @@ if __name__ == "__main__":
                 f"{folder}FL_data/federated/{index // 2}/income_third_groups_{index // 2}_train.npy",
                 train_third_groups[0],
             )
-
 
             np.save(
                 f"{folder}FL_data/federated/{index // 2}/income_dataframes_{index // 2}_test.npy",
@@ -305,12 +301,10 @@ if __name__ == "__main__":
 
             print(index, train_data[0].shape)
 
-            if not os.path.exists(
-                f"{folder}FL_data/federated/{index}"
-            ):
+            if not os.path.exists(f"{folder}FL_data/federated/{index}"):
                 os.makedirs(f"{folder}FL_data/federated/{index}")
                 # save partitions_names
-            json_file = {index:data for index, data in enumerate(partitions_names)}
+            json_file = {index: data for index, data in enumerate(partitions_names)}
             with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
                 json.dump(json_file, f)
             np.save(
@@ -333,4 +327,3 @@ if __name__ == "__main__":
                 f"{folder}FL_data/federated/{index}/income_third_groups_{index}_train.npy",
                 train_third_groups[0],
             )
-

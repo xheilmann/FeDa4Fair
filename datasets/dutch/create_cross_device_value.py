@@ -4,6 +4,7 @@ Dataset: lucacorbucci/Dutch_census_binary_marital_status
 Scenario: Cross-Device (150 clients)
 Target DP Levels: Medium (0.30)
 """
+
 import os
 import numpy as np
 import pandas as pd
@@ -15,18 +16,22 @@ from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
 from FeDa4Fair.metrics.fairness import compute_multi_fairness
 
+
 def create_benchmarks():
     num_clients = 150
     output_base = "datasets/dutch/cross_device_value"
-    
+
     if not os.path.exists(output_base):
         os.makedirs(output_base)
 
     levels = {
         "medium": {
-            "drop_mean": 0.5, "drop_std": 0.05,
-            "flip_mean_0": 0.4, "flip_mean_1": 0.4, "flip_std": 0.02,
-            "target": 0.30
+            "drop_mean": 0.5,
+            "drop_std": 0.05,
+            "flip_mean_0": 0.4,
+            "flip_mean_1": 0.4,
+            "flip_std": 0.02,
+            "target": 0.30,
         }
     }
 
@@ -34,7 +39,7 @@ def create_benchmarks():
         print(f"Creating {level_name} benchmark (Target DP ~{config['target']})...")
 
         half_clients = num_clients // 2
-        
+
         group_configs = [
             {
                 "group_id": "value_0_bias",
@@ -43,11 +48,13 @@ def create_benchmarks():
                     {
                         "attribute": "sex_binary",
                         "value": 0,
-                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
-                        "flip_mean": config["flip_mean_0"], "flip_std": config["flip_std"],
-                        "mitigate": False
+                        "drop_mean": config["drop_mean"],
+                        "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_0"],
+                        "flip_std": config["flip_std"],
+                        "mitigate": False,
                     }
-                ]
+                ],
             },
             {
                 "group_id": "value_1_bias",
@@ -56,12 +63,14 @@ def create_benchmarks():
                     {
                         "attribute": "sex_binary",
                         "value": 1,
-                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
-                        "flip_mean": config["flip_mean_1"], "flip_std": config["flip_std"],
-                        "mitigate": False
+                        "drop_mean": config["drop_mean"],
+                        "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_1"],
+                        "flip_std": config["flip_std"],
+                        "mitigate": False,
                     }
-                ]
-            }
+                ],
+            },
         ]
 
         mod_dict = generate_multiobjective_bias(num_clients, group_configs)
@@ -75,47 +84,50 @@ def create_benchmarks():
             modification_dict=mod_dict,
             fl_setting="cross-device",
             perc_train_val_test=[0.8, 0.2],
-            path=f"{output_base}/{level_name}"
+            path=f"{output_base}/{level_name}",
         )
 
         fds.prepare()
 
         # Evaluation
         print(f"Evaluating {level_name} benchmark...")
-        
+
         sens_atts = ["sex_binary"]
-        
+
         # Calculate DATA Bias (model=None)
         results_dp = compute_multi_fairness(
             partitioner=fds.partitioners["train"],
             partitioner_test=fds.partitioners["train"],
-            model=None, 
+            model=None,
             sens_atts=sens_atts,
             fairness_metric="DP",
             label_name="occupation_binary",
             fds=fds,
             split="train",
-            size_unit="attribute-value"
+            size_unit="attribute-value",
         )
-        
+
         # Custom Plot
         fig_dp, ax_dp = plt.subplots(figsize=(16, 6))
         att = "sex_binary"
         cols = results_dp.columns
         c_toward_0 = next((c for c in cols if c.startswith(f"{att}_") and ("_0.0_1.0" in c or "_0_1" in c)), None)
         c_toward_1 = next((c for c in cols if c.startswith(f"{att}_") and ("_1.0_0.0" in c or "_1_0" in c)), None)
-        
+
         if c_toward_0 and c_toward_1:
-            df_plot = pd.DataFrame({
-                "Bias Toward 0 (Red)": results_dp[c_toward_0].clip(lower=0),
-                "Bias Toward 1 (Blue)": results_dp[c_toward_1].clip(lower=0)
-            }, index=results_dp.index)
-            
+            df_plot = pd.DataFrame(
+                {
+                    "Bias Toward 0 (Red)": results_dp[c_toward_0].clip(lower=0),
+                    "Bias Toward 1 (Blue)": results_dp[c_toward_1].clip(lower=0),
+                },
+                index=results_dp.index,
+            )
+
             df_plot.plot(kind="bar", ax=ax_dp, color=["red", "blue"], width=0.8)
             ax_dp.set_title(f"Data Demographic Parity Distribution ({level_name})")
             ax_dp.set_ylabel("DP Difference (Data Bias)")
             ax_dp.set_xlabel("Partition ID")
-            ax_dp.grid(axis='y', linestyle='--', alpha=0.7)
+            ax_dp.grid(axis="y", linestyle="--", alpha=0.7)
             # Reduce x ticks density
             n = len(df_plot)
             ax_dp.set_xticks(range(0, n, 5))
@@ -135,7 +147,7 @@ def create_benchmarks():
             label_name="occupation_binary",
             fds=fds,
             split="train",
-            size_unit="attribute"
+            size_unit="attribute",
         )
 
         if "Accuracy" in results_model.columns:
@@ -160,7 +172,7 @@ def create_benchmarks():
             fds=fds,
             split="train",
             size_unit="value",
-            value_colors={0.0: "red", 1.0: "blue"}
+            value_colors={0.0: "red", 1.0: "blue"},
         )
         fig_eo.savefig(f"{output_base}/{level_name}_EO.png")
         plt.close(fig_eo)
@@ -170,7 +182,7 @@ def create_benchmarks():
         for col in results_eo.columns:
             if col not in results.columns:
                 results[col] = results_eo[col]
-        
+
         if c_toward_0 and c_toward_1:
             max_dp = results[[c_toward_0, c_toward_1]].max(axis=1)
             avg_val = max_dp.mean()
@@ -179,6 +191,7 @@ def create_benchmarks():
         eval_path = f"{output_base}/{level_name}_evaluation.csv"
         results.to_csv(eval_path)
         print(f"Evaluation saved to {eval_path}\n")
+
 
 if __name__ == "__main__":
     create_benchmarks()

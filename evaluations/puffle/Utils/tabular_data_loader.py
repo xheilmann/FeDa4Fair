@@ -845,7 +845,6 @@ def prepare_tabular_data(
 
             Z_full = dutch_df["sex_binary"].values.astype(np.float32)
             W_full = dutch_df["Marital_status"].values.astype(np.float32)
-            
 
             X_full, _, Y_full = dataset_to_numpy(
                 dutch_df, dutch_df_feature_columns, metadata_dutch, num_sensitive_features=1
@@ -936,17 +935,17 @@ def prepare_tabular_data(
         clean_path = dataset_path.rstrip("/")
         celeba_root = os.path.dirname(os.path.dirname(clean_path))
         json_path = os.path.join(celeba_root, "celeba_img_dict.json")
-        
+
         if not os.path.exists(json_path):
-             # Fallback or error? Try direct path if relative logic fails
-             # Maybe user passed base_path differently.
-             # Let's try to assume standard structure.
-             print(f"Warning: Image dictionary not found at {json_path}")
-             img_map = {}
+            # Fallback or error? Try direct path if relative logic fails
+            # Maybe user passed base_path differently.
+            # Let's try to assume standard structure.
+            print(f"Warning: Image dictionary not found at {json_path}")
+            img_map = {}
         else:
-             print(f"Loading image dictionary from {json_path}...")
-             with open(json_path, "r") as f:
-                 img_map = json.load(f)
+            print(f"Loading image dictionary from {json_path}...")
+            with open(json_path, "r") as f:
+                img_map = json.load(f)
 
         for client_name in range(num_nodes):
             client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
@@ -954,11 +953,13 @@ def prepare_tabular_data(
                 os.makedirs(client_dir)
             os.system(f"rm -rf {client_dir}/*.pt")
 
-            transform = transforms.Compose([
-                transforms.Resize((64, 64)),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ])
+            transform = transforms.Compose(
+                [
+                    transforms.Resize((64, 64)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            )
 
             datasets_to_process = []
             if cross_silo:
@@ -976,18 +977,18 @@ def prepare_tabular_data(
                     continue
 
                 df = pd.read_csv(csv_path)
-                
+
                 labels = df["Smiling"].tolist()
-                
+
                 # Extract potential sensitive attributes
                 male_attr = df["Male"].tolist()
                 # Use hair_color if available, otherwise 0s
                 hair_attr = df["hair_color"].tolist() if "hair_color" in df.columns else [0] * len(labels)
-                
+
                 # Determine which is main (z) and which is second (w) based on experiment type
                 # Heuristic: check if path contains "value" (for value-based fairness) vs "attribute"
                 is_value_experiment = "value" in dataset_path.lower()
-                
+
                 if is_value_experiment:
                     sensitive_attributes = hair_attr
                     second_sensitive_attributes = male_attr
@@ -1003,43 +1004,38 @@ def prepare_tabular_data(
                     print(f"Error: 'celeb_id' column missing in {csv_path}")
                     # Handle error or empty list?
                     # If empty, dataset will be empty/invalid
-                
+
                 processed_data[split_name] = {
                     "image_ids": image_ids,
                     "labels": labels,
                     "sensitive": sensitive_attributes,
-                    "second_sensitive": second_sensitive_attributes
+                    "second_sensitive": second_sensitive_attributes,
                 }
 
             # Handle Train/Val Split (Sweep)
             if processed_data.get("train") is not None:
                 train_data = processed_data["train"]
-                
+
                 if sweep:
-                    (
-                        X_train, X_val, 
-                        y_train, y_val, 
-                        z_train, z_val,
-                        w_train, w_val
-                    ) = train_test_split(
-                        train_data["image_ids"], 
-                        train_data["labels"], 
+                    (X_train, X_val, y_train, y_val, z_train, z_val, w_train, w_val) = train_test_split(
+                        train_data["image_ids"],
+                        train_data["labels"],
                         train_data["sensitive"],
                         train_data["second_sensitive"],
-                        test_size=0.2, 
-                        random_state=validation_seed
+                        test_size=0.2,
+                        random_state=validation_seed,
                     )
-                    
+
                     val_dataset = CelebaPreparedDataset(
-                        image_ids=X_val, 
-                        images_dict=img_map, 
-                        labels=y_val, 
-                        sensitive_attributes=z_val, 
+                        image_ids=X_val,
+                        images_dict=img_map,
+                        labels=y_val,
+                        sensitive_attributes=z_val,
                         second_sensitive_attributes=w_val,
-                        transform=transform
+                        transform=transform,
                     )
                     torch.save(val_dataset, f"{client_dir}/val.pt")
-                    
+
                     # Update train
                     train_data["image_ids"] = X_train
                     train_data["labels"] = y_train
@@ -1048,12 +1044,12 @@ def prepare_tabular_data(
 
                 # Save Train
                 train_dataset = CelebaPreparedDataset(
-                    image_ids=train_data["image_ids"], 
+                    image_ids=train_data["image_ids"],
                     images_dict=img_map,
-                    labels=train_data["labels"], 
+                    labels=train_data["labels"],
                     sensitive_attributes=train_data["sensitive"],
                     second_sensitive_attributes=train_data["second_sensitive"],
-                    transform=transform
+                    transform=transform,
                 )
                 torch.save(train_dataset, f"{client_dir}/train.pt")
 
@@ -1061,18 +1057,17 @@ def prepare_tabular_data(
             if processed_data.get("test") is not None:
                 test_data = processed_data["test"]
                 test_dataset = CelebaPreparedDataset(
-                    image_ids=test_data["image_ids"], 
+                    image_ids=test_data["image_ids"],
                     images_dict=img_map,
-                    labels=test_data["labels"], 
-                    sensitive_attributes=test_data["sensitive"], 
+                    labels=test_data["labels"],
+                    sensitive_attributes=test_data["sensitive"],
                     second_sensitive_attributes=test_data["second_sensitive"],
-                    transform=transform
+                    transform=transform,
                 )
                 torch.save(test_dataset, f"{client_dir}/test.pt")
 
         fed_dir = f"{dataset_path}/{splitted_data_dir}"
         return fed_dir, None
-
 
     # client_data, N_is, props_positive = get_tabular_data(
     client_data, disparities, metadata = get_tabular_data(
@@ -1121,9 +1116,7 @@ def prepare_tabular_data(
 
     # remove the old files in the data folder
     os.system(f"rm -rf {dataset_path}/{splitted_data_dir}/*")
-    for client_name, (client, client_disparity, client_metadata) in enumerate(
-        zip(client_data, disparities, metadata)
-    ):
+    for client_name, (client, client_disparity, client_metadata) in enumerate(zip(client_data, disparities, metadata)):
         # Append 1 to each samples
 
         custom_dataset = TabularDataset(

@@ -265,8 +265,6 @@ if __name__ == "__main__":
             if item.endswith(".pkl"):
                 os.remove(os.path.join(f"{args.dataset_path}/federated/", item))
 
-    
-
     train_parameters = TrainParameters(
         epochs=args.epochs,
         device="cuda" if torch.cuda.is_available() else "cpu",
@@ -377,7 +375,10 @@ if __name__ == "__main__":
             )
         raise Exception("Metric not recognized")
 
-    model = ModelUtils.get_model(dataset_name, "cuda" if torch.cuda.is_available() else "cpu",)
+    model = ModelUtils.get_model(
+        dataset_name,
+        "cuda" if torch.cuda.is_available() else "cpu",
+    )
     model = model.to("cuda" if torch.cuda.is_available() else "cpu")
     model_parameters = [val.cpu().numpy() for _, val in model.state_dict().items()]
     initial_parameters = fl.common.ndarrays_to_parameters(model_parameters)
@@ -465,16 +466,12 @@ if __name__ == "__main__":
     )
     server = Server(client_manager=client_manager, strategy=strategy, args=args)
 
-
     metadata = {
         "possible_z": ["0", "1"],
         "possible_y": ["0", "1"],
-        "missing_combinations": [
-            ["0|0", "1|0"],
-            ["0|1", "1|1"]
-        ],
+        "missing_combinations": [["0|0", "1|0"], ["0|1", "1|1"]],
         "all_combinations": ["1|0", "0|0", "1|1", "0|1"],
-        "combinations": ["1|0", "1|1"]
+        "combinations": ["1|0", "1|1"],
     }
     with open(os.path.join(args.dataset_path, "federated", "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=4)

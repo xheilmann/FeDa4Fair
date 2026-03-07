@@ -424,7 +424,6 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         # Load data for this client and get trainloader
         num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
 
-
         if self.train_parameters.cross_silo == True:
             partition = "test" if self.train_parameters.sweep == False else "val"
         else:

@@ -47,12 +47,15 @@ class TestGeneration(unittest.TestCase):
 
     def test_get_attribute_modifications_count_1(self):
         from FeDa4Fair.dataset.generation import _get_attribute_modifications
+
         """When count == 1 (only 1 model has sex_dp > race_dp),
         should still use SEX attribute but NOT return None."""
-        df_entry = pd.DataFrame({
-            "DP_RACE": [0.05, 0.06],
-            "DP_SEX": [0.10, 0.04],  # count == 1 (only first row)
-        })
+        df_entry = pd.DataFrame(
+            {
+                "DP_RACE": [0.05, 0.06],
+                "DP_SEX": [0.10, 0.04],  # count == 1 (only first row)
+            }
+        )
         result = _get_attribute_modifications("TX", df_entry, 0.3)
 
         # With count == 1, should still produce a result (not None)
@@ -60,24 +63,30 @@ class TestGeneration(unittest.TestCase):
 
     def test_get_attribute_modifications_count_2_high_dp(self):
         from FeDa4Fair.dataset.generation import _get_attribute_modifications
+
         """When count == 2 and min_dp >= 0.09, should return None."""
-        df_entry = pd.DataFrame({
-            "DP_RACE": [0.05, 0.06],
-            "DP_SEX": [0.15, 0.12],  # count == 2, min >= 0.09
-        })
+        df_entry = pd.DataFrame(
+            {
+                "DP_RACE": [0.05, 0.06],
+                "DP_SEX": [0.15, 0.12],  # count == 2, min >= 0.09
+            }
+        )
         result = _get_attribute_modifications("TX", df_entry, 0.3)
         self.assertIsNone(result)
 
     def test_preprocess_data_cross_silo_no_mutation(self):
         from FeDa4Fair.dataset.generation import preprocess_data_cross_silo
+
         """preprocess_data_cross_silo should not mutate the input DataFrame."""
-        data = pd.DataFrame({
-            "PINCP": [0, 1, 0, 1] * 25,
-            "SEX": [1, 2, 1, 2] * 25,
-            "RAC1P": [1, 2, 1, 2] * 25,
-            "MAR": [1, 2, 1, 2] * 25,
-            "feature1": range(100),
-        })
+        data = pd.DataFrame(
+            {
+                "PINCP": [0, 1, 0, 1] * 25,
+                "SEX": [1, 2, 1, 2] * 25,
+                "RAC1P": [1, 2, 1, 2] * 25,
+                "MAR": [1, 2, 1, 2] * 25,
+                "feature1": range(100),
+            }
+        )
         original_columns = list(data.columns)
 
         preprocess_data_cross_silo(data.copy(), [], "attribute", "TX")

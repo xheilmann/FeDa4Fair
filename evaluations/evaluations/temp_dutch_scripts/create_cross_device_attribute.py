@@ -4,6 +4,7 @@ Dataset: lucacorbucci/Dutch_census_binary_marital_status
 Scenario: Cross-Device (150 clients)
 Target DP Levels: Medium (0.30)
 """
+
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,18 +14,22 @@ from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
 
+
 def create_benchmarks():
     num_clients = 150
     output_base = "datasets/dutch/cross_device_attribute"
-    
+
     if not os.path.exists(output_base):
         os.makedirs(output_base)
 
     levels = {
         "medium": {
-            "drop_mean": 0.7, "drop_std": 0.05,
-            "flip_mean_sex": 0.4, "flip_mean_mar": 0.4, "flip_std": 0.02,
-            "target": 0.30
+            "drop_mean": 0.7,
+            "drop_std": 0.05,
+            "flip_mean_sex": 0.4,
+            "flip_mean_mar": 0.4,
+            "flip_std": 0.02,
+            "target": 0.30,
         }
     }
 
@@ -32,42 +37,40 @@ def create_benchmarks():
         print(f"Creating {level_name} benchmark (Target DP ~{config['target']})...")
 
         half_clients = num_clients // 2
-        
+
         group_configs = [
             {
                 "group_id": "sex_bias",
                 "num_clients": half_clients,
                 "configs": [
-                    {
-                        "attribute": "Marital_status",
-                        "mitigate": True
-                    },
+                    {"attribute": "Marital_status", "mitigate": True},
                     {
                         "attribute": "sex_binary",
                         "value": 1,
-                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
-                        "flip_mean": config["flip_mean_sex"], "flip_std": config["flip_std"],
-                        "mitigate": False
-                    }
-                ]
+                        "drop_mean": config["drop_mean"],
+                        "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_sex"],
+                        "flip_std": config["flip_std"],
+                        "mitigate": False,
+                    },
+                ],
             },
             {
                 "group_id": "marital_bias",
                 "num_clients": num_clients - half_clients,
                 "configs": [
-                    {
-                        "attribute": "sex_binary",
-                        "mitigate": True
-                    },
+                    {"attribute": "sex_binary", "mitigate": True},
                     {
                         "attribute": "Marital_status",
                         "value": 1,
-                        "drop_mean": config["drop_mean"], "drop_std": config["drop_std"],
-                        "flip_mean": config["flip_mean_mar"], "flip_std": config["flip_std"],
-                        "mitigate": False
-                    }
-                ]
-            }
+                        "drop_mean": config["drop_mean"],
+                        "drop_std": config["drop_std"],
+                        "flip_mean": config["flip_mean_mar"],
+                        "flip_std": config["flip_std"],
+                        "mitigate": False,
+                    },
+                ],
+            },
         ]
 
         mod_dict = generate_multiobjective_bias(num_clients, group_configs)
@@ -81,16 +84,16 @@ def create_benchmarks():
             modification_dict=mod_dict,
             fl_setting="cross-device",
             perc_train_val_test=[0.8, 0.2],
-            path=f"{output_base}/{level_name}"
+            path=f"{output_base}/{level_name}",
         )
 
         fds.prepare()
 
         # Evaluation
         print(f"Evaluating {level_name} benchmark...")
-        
+
         sens_atts = ["sex_binary", "Marital_status"]
-        
+
         # Plot and compute DP
         fig_dp, ax_dp, results_dp = plot_multi_attribute_fairness(
             partitioner=fds.partitioners["train"],
@@ -102,7 +105,7 @@ def create_benchmarks():
             fds=fds,
             split="train",
             figsize=(12, 6),
-            title=f"Demographic Parity Distribution ({level_name})"
+            title=f"Demographic Parity Distribution ({level_name})",
         )
         fig_dp.savefig(f"{output_base}/{level_name}_DP.png")
         plt.close(fig_dp)
@@ -128,7 +131,7 @@ def create_benchmarks():
             fds=fds,
             split="train",
             figsize=(12, 6),
-            title=f"Equalized Odds Distribution ({level_name})"
+            title=f"Equalized Odds Distribution ({level_name})",
         )
         fig_eo.savefig(f"{output_base}/{level_name}_EO.png")
         plt.close(fig_eo)
@@ -144,6 +147,7 @@ def create_benchmarks():
         eval_path = f"{output_base}/{level_name}_evaluation.csv"
         results.to_csv(eval_path)
         print(f"Evaluation saved to {eval_path}\n")
+
 
 if __name__ == "__main__":
     create_benchmarks()

@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 
@@ -21,12 +20,8 @@ class IIDPartition:
         splitted_indexes = np.array_split(idx, num_partitions)
         splitted_labels = [labels[index_list] for index_list in splitted_indexes]
 
-        splitted_indexes_dict = {
-            f"cluster_{index}": item for index, item in enumerate(splitted_indexes)
-        }
-        splitted_labels_dict = {
-            f"cluster_{index}": item for index, item in enumerate(splitted_labels)
-        }
+        splitted_indexes_dict = {f"cluster_{index}": item for index, item in enumerate(splitted_indexes)}
+        splitted_labels_dict = {f"cluster_{index}": item for index, item in enumerate(splitted_labels)}
         return splitted_indexes_dict, splitted_labels_dict
 
     def do_iid_partitioning_with_indexes(

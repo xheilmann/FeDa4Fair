@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 
@@ -29,8 +28,6 @@ class PartitionUtils:
         splitted_dataset = []
 
         for indexes in splitted_indexes:
-            splitted_dataset.append(
-                [images[indexes], sensitive_attribute[indexes], labels[indexes]]
-            )
+            splitted_dataset.append([images[indexes], sensitive_attribute[indexes], labels[indexes]])
 
         return splitted_dataset

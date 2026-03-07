@@ -15,14 +15,10 @@ class Utils:
             return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
         if mechanism_type == "geometric":
             p = 1 - np.exp(-epsilon / sensitivity)
-            return (
-                np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1)
-            )[0]
+            return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
         if mechanism_type == "gaussian":
             return np.random.normal(loc=0, scale=sigma, size=1)[0]
-        raise ValueError(
-            "The mechanism type must be either laplace, geometric or gaussian"
-        )
+        raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
 
     @staticmethod
     def get_summed_grad(model, batch_size):
@@ -62,9 +58,7 @@ class Utils:
 
     @staticmethod
     def compute_max_and_min_per_sample_gradient(optimizer: DPOptimizer):
-        per_param_norms = [
-            g.reshape(len(g), -1).norm(2, dim=-1) for g in optimizer.grad_samples
-        ]
+        per_param_norms = [g.reshape(len(g), -1).norm(2, dim=-1) for g in optimizer.grad_samples]
         per_sample_norms = torch.stack(per_param_norms, dim=1).norm(2, dim=1)
         return (
             min(per_sample_norms),

@@ -33,12 +33,14 @@ def test_bias_level(drop_mean, flip_mean, num_clients, scenario_type):
             "configs": [
                 {
                     "attribute": "sex_binary",
-                    "value": 1, # Targeting females
-                    "drop_mean": drop_mean, "drop_std": 0.05,
-                    "flip_mean": flip_mean, "flip_std": 0.02,
-                    "mitigate": drop_mean < 0 # Dummy way to trigger mitigation in this test script
+                    "value": 1,  # Targeting females
+                    "drop_mean": drop_mean,
+                    "drop_std": 0.05,
+                    "flip_mean": flip_mean,
+                    "flip_std": 0.02,
+                    "mitigate": drop_mean < 0,  # Dummy way to trigger mitigation in this test script
                 }
-            ]
+            ],
         }
     ]
 
@@ -66,18 +68,19 @@ def test_bias_level(drop_mean, flip_mean, num_clients, scenario_type):
         label_name="occupation_binary",
         fds=fds,
         split="train_train",
-        test_split="train_test"
+        test_split="train_test",
     )
 
     avg_dp = results["sex_binary_DP"].mean()
     print(f"Average DP: {avg_dp:.4f}\n")
     return avg_dp
 
+
 if __name__ == "__main__":
     # Baseline DP is ~0.30
 
     print("--- Increasing Bias (Target > 0.30) ---")
-    test_bias_level(0.3, 0.1, 50, "attribute") # Target 0.35?
+    test_bias_level(0.3, 0.1, 50, "attribute")  # Target 0.35?
     test_bias_level(0.6, 0.2, 50, "attribute")
 
     print("--- Reducing Bias (Target < 0.30) ---")

@@ -24,9 +24,7 @@ class Representative:
         indexes = list(range(len(labels)))
 
         samples_per_node = (
-            number_of_samples_per_node
-            if number_of_samples_per_node is not None
-            else len(labels) // num_partitions
+            number_of_samples_per_node if number_of_samples_per_node is not None else len(labels) // num_partitions
         )
         np.random.shuffle(indexes)
 
@@ -45,11 +43,7 @@ class Representative:
                 remaining_data[labels_and_sensitive[index]] = []
             remaining_data[labels_and_sensitive[index]].append(index)
 
-        number_unfair_nodes = (
-            int(num_partitions * ratio_unfair_nodes)
-            if ratio_unfair_nodes is not None
-            else 0
-        )
+        number_unfair_nodes = int(num_partitions * ratio_unfair_nodes) if ratio_unfair_nodes is not None else 0
         number_fair_nodes = num_partitions - number_unfair_nodes
 
         # At the moment this is the only thing that is working, we need
@@ -81,9 +75,7 @@ class Representative:
             unfair_nodes = new_unfair_nodes
 
         predictions = [labels[indexes] for indexes in fair_nodes + unfair_nodes]
-        sensitive_features = [
-            sensitive_features[indexes] for indexes in fair_nodes + unfair_nodes
-        ]
+        sensitive_features = [sensitive_features[indexes] for indexes in fair_nodes + unfair_nodes]
 
         disparities = Representative.compute_disparities_debug(
             predictions=predictions, sensitive_features=sensitive_features
@@ -152,9 +144,7 @@ class Representative:
         plt.figure(figsize=(20, 8))
 
         plt.bar(range(len(counter_group_0_0)), counter_group_0_0)
-        plt.bar(
-            range(len(counter_group_0_1)), counter_group_0_1, bottom=counter_group_0_0
-        )
+        plt.bar(range(len(counter_group_0_1)), counter_group_0_1, bottom=counter_group_0_0)
         plt.bar(
             range(len(counter_group_1_0)),
             counter_group_1_0,
@@ -163,10 +153,7 @@ class Representative:
         plt.bar(
             range(len(counter_group_1_1)),
             counter_group_1_1,
-            bottom=[
-                sum(x)
-                for x in zip(counter_group_0_0, counter_group_0_1, counter_group_1_0)
-            ],
+            bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1, counter_group_1_0)],
         )
 
         plt.xlabel("Client")
@@ -262,10 +249,7 @@ class Representative:
             for node in fair_nodes:
                 samples_to_remove = sum(number_of_samples_to_add) // len(fair_nodes)
                 for index, sample in enumerate(node):
-                    if (
-                        combination[sample] == group_to_increment
-                        and samples_to_remove > 0
-                    ):
+                    if combination[sample] == group_to_increment and samples_to_remove > 0:
                         if combination[sample] not in remaining_data:
                             remaining_data[group_to_increment] = []
                         remaining_data[group_to_increment].append(sample)
@@ -280,8 +264,6 @@ class Representative:
             # now we have to add the same amount of data taken from group_to_unfair
             for node, samples_to_add in zip(unfair_nodes, number_of_samples_to_add):
                 node.extend(remaining_data[group_to_increment][:samples_to_add])
-                remaining_data[group_to_increment] = remaining_data[group_to_increment][
-                    samples_to_add:
-                ]
+                remaining_data[group_to_increment] = remaining_data[group_to_increment][samples_to_add:]
 
         return fair_nodes, unfair_nodes

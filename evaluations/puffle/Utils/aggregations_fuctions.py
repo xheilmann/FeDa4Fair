@@ -237,7 +237,7 @@ class AggregationFunctions:
                     f"Test Node {node_name} - Disp. Dataset": disparity_dataset,
                     "FL Round": server_round,
                 }
-                
+
                 max_group = metric.get("max_group_test" if not train_parameters.sweep else "max_group_validation")
                 if max_group:
                     print(f"Client {node_name} Max Group: Target={max_group[0]}, Z={max_group[1]}")
@@ -542,8 +542,8 @@ class AggregationFunctions:
                     continue
 
         for non_existing, existing in missing_combinations:
-            sum_counters[non_existing] = (
-                max(0, sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing])
+            sum_counters[non_existing] = max(
+                0, sum_possible_sensitive_attributes[existing[-1]] - sum_counters[existing]
             )
         average_probabilities = {}
         for combination in all_combinations:

@@ -56,9 +56,10 @@ class TestDataUtils(unittest.TestCase):
         self.assertGreater(removed_count, 0)
 
     def test_drop_data_with_integer_labels(self):
-        """drop_data should only drop rows where label == 1, 
+        """drop_data should only drop rows where label == 1,
         not all truthy values."""
         from FeDa4Fair.utils.data_utils import drop_data
+
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels
@@ -73,16 +74,17 @@ class TestDataUtils(unittest.TestCase):
         dropped = original_len - len(result)
         self.assertGreater(dropped, 0)
         self.assertLessEqual(dropped, 25)  # Can't drop more than matching rows
-        
+
     def test_drop_data_with_integer_labels_count(self):
         from FeDa4Fair.utils.data_utils import drop_data
+
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels
         }
         df = pd.DataFrame(data)
         original_len = len(df)
-        
+
         result = drop_data(df, 0.5, "sens", 1, "label")
         dropped = original_len - len(result)
         # Exact calculation: 25 matching rows * 0.5 = 12
@@ -91,6 +93,7 @@ class TestDataUtils(unittest.TestCase):
     def test_flip_data_with_integer_labels(self):
         """flip_data should correctly flip integer labels from 1 to 0."""
         from FeDa4Fair.utils.data_utils import flip_data
+
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels

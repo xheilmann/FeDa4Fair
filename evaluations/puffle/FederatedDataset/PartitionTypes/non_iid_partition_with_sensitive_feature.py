@@ -30,12 +30,9 @@ class NonIIDPartitionWithSensitiveFeature:
             index_per_label[label].append(index)
 
         # in list labels we have the labels of this dataset
-        list_labels = {
-            item.item() if isinstance(item, torch.Tensor) else item for item in labels
-        }
+        list_labels = {item.item() if isinstance(item, torch.Tensor) else item for item in labels}
         list_sensitive_features = {
-            item.item() if isinstance(item, torch.Tensor) else item
-            for item in sensitive_features
+            item.item() if isinstance(item, torch.Tensor) else item for item in sensitive_features
         }
         labels_and_sensitive_feature = []
         for label in list_labels:
@@ -55,12 +52,8 @@ class NonIIDPartitionWithSensitiveFeature:
             distribution = np.random.dirichlet(num_partitions * [alpha], size=1)
             # we have to sample from the group of samples that have label equal
             # to label and not from the entire labels list.
-            filtered_labels = labels[
-                (labels == label) & (sensitive_features == sensitive_feature)
-            ]
-            tmp_to_be_sampled = np.random.choice(
-                num_partitions, len(filtered_labels), p=distribution[0]
-            )
+            filtered_labels = labels[(labels == label) & (sensitive_features == sensitive_feature)]
+            tmp_to_be_sampled = np.random.choice(num_partitions, len(filtered_labels), p=distribution[0])
             total_sampled += len(tmp_to_be_sampled)
             # Inside to_be_sampled we save a counter for each label
             # The counter is the number of samples that we want to sample for each
@@ -68,17 +61,11 @@ class NonIIDPartitionWithSensitiveFeature:
             to_be_sampled.append(Counter(tmp_to_be_sampled))
         assert total_sampled == len(labels)
         # create the partitions
-        partitions_index = {
-            f"node_{cluster_name}": [] for cluster_name in range(num_partitions)
-        }
+        partitions_index = {f"node_{cluster_name}": [] for cluster_name in range(num_partitions)}
         total_samples = 0
-        for (class_index, _), distribution_samples in zip(
-            labels_and_sensitive_feature, to_be_sampled
-        ):
+        for (class_index, _), distribution_samples in zip(labels_and_sensitive_feature, to_be_sampled):
             for cluster_name, samples in distribution_samples.items():
-                partitions_index[f"node_{cluster_name}"] += index_per_label[
-                    class_index
-                ][:samples]
+                partitions_index[f"node_{cluster_name}"] += index_per_label[class_index][:samples]
                 total_samples += samples
 
                 index_per_label[class_index] = index_per_label[class_index][samples:]
@@ -91,8 +78,7 @@ class NonIIDPartitionWithSensitiveFeature:
         assert total == len(labels)
 
         partitions_labels = {
-            cluster: [item.item() for item in labels[samples]]
-            for cluster, samples in partitions_index.items()
+            cluster: [item.item() for item in labels[samples]] for cluster, samples in partitions_index.items()
         }
 
         return partitions_index, partitions_labels
@@ -120,12 +106,9 @@ class NonIIDPartitionWithSensitiveFeature:
             index_per_label[label].append(index)
 
         # in list labels we have the labels of this dataset
-        list_labels = {
-            item.item() if isinstance(item, torch.Tensor) else item for item in labels
-        }
+        list_labels = {item.item() if isinstance(item, torch.Tensor) else item for item in labels}
         list_sensitive_features = {
-            item.item() if isinstance(item, torch.Tensor) else item
-            for item in sensitive_features
+            item.item() if isinstance(item, torch.Tensor) else item for item in sensitive_features
         }
         labels_and_sensitive_feature = []
         for label in list_labels:
@@ -146,12 +129,8 @@ class NonIIDPartitionWithSensitiveFeature:
             dir_distributions.append((label, sensitive_feature, distribution))
             # we have to sample from the group of samples that have label equal
             # to label and not from the entire labels list.
-            filtered_labels = labels[
-                (labels == label) & (sensitive_features == sensitive_feature)
-            ]
-            tmp_to_be_sampled = np.random.choice(
-                num_partitions, len(filtered_labels), p=distribution[0]
-            )
+            filtered_labels = labels[(labels == label) & (sensitive_features == sensitive_feature)]
+            tmp_to_be_sampled = np.random.choice(num_partitions, len(filtered_labels), p=distribution[0])
             total_sampled += len(tmp_to_be_sampled)
             # Inside to_be_sampled we save a counter for each label
             # The counter is the number of samples that we want to sample for each
@@ -160,17 +139,11 @@ class NonIIDPartitionWithSensitiveFeature:
 
         assert total_sampled == len(labels)
         # create the partitions
-        partitions_index = {
-            f"node_{cluster_name}": [] for cluster_name in range(num_partitions)
-        }
+        partitions_index = {f"node_{cluster_name}": [] for cluster_name in range(num_partitions)}
         total_samples = 0
-        for (class_index, _), distribution_samples in zip(
-            labels_and_sensitive_feature, to_be_sampled
-        ):
+        for (class_index, _), distribution_samples in zip(labels_and_sensitive_feature, to_be_sampled):
             for cluster_name, samples in distribution_samples.items():
-                partitions_index[f"node_{cluster_name}"] += index_per_label[
-                    class_index
-                ][:samples]
+                partitions_index[f"node_{cluster_name}"] += index_per_label[class_index][:samples]
                 total_samples += samples
 
                 index_per_label[class_index] = index_per_label[class_index][samples:]
@@ -183,8 +156,7 @@ class NonIIDPartitionWithSensitiveFeature:
         assert total == len(labels)
 
         partitions_labels = {
-            cluster: [item.item() for item in labels[samples]]
-            for cluster, samples in partitions_index.items()
+            cluster: [item.item() for item in labels[samples]] for cluster, samples in partitions_index.items()
         }
 
         partitions_index_list = []

@@ -106,9 +106,7 @@ class DatasetUtils:
             z_test = np.array(z[train_size:])
 
             train_dataset = TabularDataset(
-                x=np.hstack((x_train, np.ones((x_train.shape[0], 1)))).astype(
-                    np.float32
-                ),
+                x=np.hstack((x_train, np.ones((x_train.shape[0], 1)))).astype(np.float32),
                 z=z_train.astype(np.float32),
                 y=y_train.astype(np.float32),
             )
@@ -144,12 +142,8 @@ class DatasetUtils:
         """
         kwargs = {"num_workers": 0, "pin_memory": True}
 
-        train_loader = torch.utils.data.DataLoader(
-            train_ds, batch_size=batch_size, shuffle=True, **kwargs
-        )
+        train_loader = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True, **kwargs)
 
-        test_loader = torch.utils.data.DataLoader(
-            test_ds, batch_size=batch_size, shuffle=True, **kwargs
-        )
+        test_loader = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=True, **kwargs)
 
         return train_loader, test_loader

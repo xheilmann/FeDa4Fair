@@ -32,6 +32,7 @@ share/python-wheels/
 MANIFEST
 wandb/
 .DS_Store
+agent.md
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

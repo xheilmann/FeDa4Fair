@@ -76,6 +76,7 @@ US_STATES = [
     "PR",
 ]
 
+
 class ValueReplacementPreprocessor:
     """Quick utility to replace e.g. string label values"""
 
@@ -90,6 +91,7 @@ class ValueReplacementPreprocessor:
 
         return dataset_dict.map(replace)
 
+
 st.sidebar.header("Dataset Configuration")
 
 MAX_GROUPS_FOR_LETTERS = 26
@@ -98,11 +100,12 @@ dataset_label_format = {
     "ACSIncome": "ACSIncome",
     "ACSEmployment": "ACSEmployment",
     "lucacorbucci/Dutch_Census": "Dutch Census",
-    "Other (Hugging Face)": "Other (HuggingFace)"
+    "Other (Hugging Face)": "Other (HuggingFace)",
 }
 dataset_name = st.sidebar.selectbox(
-    "Select Dataset", ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"],
-    format_func=lambda x: dataset_label_format.get(x, x)
+    "Select Dataset",
+    ["ACSIncome", "ACSEmployment", "lucacorbucci/Dutch_Census", "Other (Hugging Face)"],
+    format_func=lambda x: dataset_label_format.get(x, x),
 )
 
 selected_states = None
@@ -251,7 +254,9 @@ if inject_bias:
 
         letters = string.ascii_uppercase
         current_len = len(st.session_state.bias_groups)
-        new_name = f"Group {letters[current_len]}" if current_len < MAX_GROUPS_FOR_LETTERS else f"Group {current_len + 1}"
+        new_name = (
+            f"Group {letters[current_len]}" if current_len < MAX_GROUPS_FOR_LETTERS else f"Group {current_len + 1}"
+        )
         st.session_state.bias_groups.append(
             {
                 "group_id": new_name,
@@ -380,12 +385,10 @@ selected_eval_atts = st.sidebar.multiselect(
     "Attributes to Evaluate", sorted(all_possible_atts), default=sorted(all_possible_atts)
 )
 
-fairness_labels_format = {
-    "DP": "Demographic Parity (DP)",
-    "EO": "Equality of Opportunity (EO)"
-}
-fairness_metric = st.sidebar.selectbox("Fairness Metric", ["DP", "EO"],
-                                       format_func=lambda x: fairness_labels_format.get(x, x))
+fairness_labels_format = {"DP": "Demographic Parity (DP)", "EO": "Equality of Opportunity (EO)"}
+fairness_metric = st.sidebar.selectbox(
+    "Fairness Metric", ["DP", "EO"], format_func=lambda x: fairness_labels_format.get(x, x)
+)
 size_unit = st.sidebar.selectbox("Fairness Level (Size Unit)", ["attribute", "value", "attribute-value"])
 max_parts_eval = st.sidebar.number_input("Max Partitions to Evaluate", min_value=1, value=num_partitions)
 

@@ -5,8 +5,8 @@ Scenario: Cross-Silo (50 clients)
 Target DP Levels: Medium (0.30)
 """
 
-import os
-import pandas as pd
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 
@@ -17,10 +17,10 @@ from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
 
 def create_benchmarks():
     num_clients = 50
-    output_base = "datasets/dutch/cross_silo_attribute"
+    output_base = Path("datasets/dutch/cross_silo_attribute")
 
-    if not os.path.exists(output_base):
-        os.makedirs(output_base)
+    if not output_base.exists():
+        output_base.mkdir(parents=True)
 
     levels = {
         "medium": {
@@ -97,10 +97,10 @@ def create_benchmarks():
 
         train_key = "train_train"
         if train_key not in fds.partitioners:
-            train_key = list(fds.partitioners.keys())[0]
+            train_key = next(iter(fds.partitioners.keys()))
 
         # Plot and compute DP
-        fig_dp, ax_dp, results_dp = plot_multi_attribute_fairness(
+        fig_dp, _ax_dp, results_dp = plot_multi_attribute_fairness(
             partitioner=fds.partitioners[train_key],
             partitioner_test=fds.partitioners[train_key],
             model=LogisticRegression(max_iter=1000, solver="liblinear"),
@@ -126,7 +126,7 @@ def create_benchmarks():
             plt.close(fig_acc)
 
         # Plot and compute EO
-        fig_eo, ax_eo, results_eo = plot_multi_attribute_fairness(
+        fig_eo, _ax_eo, results_eo = plot_multi_attribute_fairness(
             partitioner=fds.partitioners[train_key],
             partitioner_test=fds.partitioners[train_key],
             model=LogisticRegression(max_iter=1000, solver="liblinear"),

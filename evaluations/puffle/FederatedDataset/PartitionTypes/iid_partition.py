@@ -4,14 +4,14 @@ import torch
 
 class IIDPartition:
     def do_partitioning(
-        dataset: torch.utils.data.Dataset,
+        self: torch.utils.data.Dataset,
         num_partitions: int,
         total_num_classes: int,
     ) -> dict:
-        labels = dataset.targets
+        labels = self.targets
         # print(Counter([item.item() for item in labels]))
 
-        num_labels = len(set([item.item() for item in labels]))
+        len({item.item() for item in labels})
         idx = torch.tensor(list(range(len(labels))))
         # shuffle the indexes
         idx = idx[torch.randperm(len(idx))]
@@ -25,7 +25,7 @@ class IIDPartition:
         return splitted_indexes_dict, splitted_labels_dict
 
     def do_iid_partitioning_with_indexes(
-        indexes: np.array,
+        self: np.array,
         num_partitions: int,
     ) -> np.array:
         """
@@ -40,5 +40,5 @@ class IIDPartition:
             np.array: the list of splitted indexes
 
         """
-        idx = indexes[torch.randperm(len(indexes))]
+        idx = self[torch.randperm(len(self))]
         return np.array_split(idx, num_partitions)

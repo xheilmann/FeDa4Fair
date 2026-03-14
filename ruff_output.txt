@@ -1,0 +1,4851 @@
+warning: The following rules have been removed and ignoring them has no effect:
+    - PD901
+
+EM101 Exception must not use a string literal, assign to variable first
+  --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 3:76:30
+   |
+75 |     if not (len(dataframe) == len(label) == len(group) == len(second_group)):
+76 |         raise AssertionError("len(dataframe) == len(label) == len(group) == len(second_group)")
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+77 |     dataframes.append(dataframe.to_numpy())
+78 |     labels.append(label.to_numpy())
+   |
+help: Assign to variable; remove string literal
+
+BLE001 Do not catch blind exception: `Exception`
+  --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 4:82:24
+   |
+80 |                     if cross_silo:
+81 |                         unfair_dfs.append(test)
+82 |                 except Exception:
+   |                        ^^^^^^^^^
+83 |                     print(f"Error reading file {state}_{partition}.csv")
+84 |                     continue
+   |
+
+PTH123 `open()` should be replaced by `Path.open()`
+  --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 14:29:14
+   |
+27 |             # save partitions_names
+28 |         json_file = dict(enumerate(partitions_names))
+29 |         with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
+   |              ^^^^
+30 |             json.dump(json_file, f)
+31 |         np.save(
+   |
+help: Replace with `Path.open()`
+
+PTH123 `open()` should be replaced by `Path.open()`
+  --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 14:89:14
+   |
+87 |             # save partitions_names
+88 |         json_file = dict(enumerate(partitions_names))
+89 |         with open(f"{folder}FL_data/federated/partitions_names.json", "w") as f:
+   |              ^^^^
+90 |             json.dump(json_file, f)
+91 |         np.save(
+   |
+help: Replace with `Path.open()`
+
+D417 Missing argument descriptions in the docstring for `equalized_odds_difference_by_outcome`: `sensitive_features`, `y_pred`, `y_true`
+ --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 32:6:5
+  |
+6 | def equalized_odds_difference_by_outcome(y_true, y_pred, sensitive_features):
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |     """
+8 |     Calculates the equalized odds difference, considering outcomes separately for each group.
+  |
+
+D417 Missing argument descriptions in the docstring for `equalized_odds_disparity_details`: `sensitive_features`, `y_pred`, `y_true`
+ --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 34:6:5
+  |
+6 | def equalized_odds_disparity_details(y_true, y_pred, sensitive_features):
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |     """
+8 |     Calculates the equalized odds difference and provides details on group-wise disparities.
+  |
+
+D417 Missing argument descriptions in the docstring for `demographic_parity_difference_by_outcome`: `sensitive_features`, `y_pred`
+ --> evaluations/experiments/acs_income/pre_processing.ipynb:cell 38:5:5
+  |
+5 | def demographic_parity_difference_by_outcome(y_pred, sensitive_features):
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 |     """
+7 |     Computes the demographic parity difference as:
+  |
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 4:13:1
+   |
+11 | ):
+12 |     fig, ax = plt.subplots(figsize=(6, 6))
+13 |     
+   | ^^^^
+14 |     # Define a color-blind-friendly color
+15 |     marker_face_color = '#56B4E9'  # Blue from ColorBrewer Set2
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 5:19:5
+   |
+17 |     })
+18 |     # Add dataset name metadata as columns
+19 |     # df1 = df1.reset_index()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+20 |     # diff_df["dataset"] = df1["dataset"]
+21 |     # Optional: Reset index if you want 'State' as a column
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 5:20:5
+   |
+18 |     # Add dataset name metadata as columns
+19 |     # df1 = df1.reset_index()
+20 |     # diff_df["dataset"] = df1["dataset"]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 |     # Optional: Reset index if you want 'State' as a column
+22 |     # diff_df = diff_df.reset_index()
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 5:22:5
+   |
+20 |     # diff_df["dataset"] = df1["dataset"]
+21 |     # Optional: Reset index if you want 'State' as a column
+22 |     # diff_df = diff_df.reset_index()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |     diff_df = diff_df.reset_index()
+24 |     diff_df.head()
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+   --> evaluations/plots/plots.ipynb:cell 5:180:1
+    |
+178 |         else:
+179 |             plt.show()
+180 |         
+    | ^^^^^^^^
+181 |     else:
+182 |         # Save the main plot even if there's no legend
+    |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:193:1
+    |
+191 | # def scatter_fairness_plot(
+192 | #     df1: pd.DataFrame,
+193 | #     client_column: str = "Partition ID",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+194 | #     fairness_column_Y: str = "RAC1P_DP",
+195 | #     fairness_column_X: str = "RAC1P_DP",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:194:1
+    |
+192 | #     df1: pd.DataFrame,
+193 | #     client_column: str = "Partition ID",
+194 | #     fairness_column_Y: str = "RAC1P_DP",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+195 | #     fairness_column_X: str = "RAC1P_DP",
+196 | #     title: str = "Fairness Before/After Comparison",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:195:1
+    |
+193 | #     client_column: str = "Partition ID",
+194 | #     fairness_column_Y: str = "RAC1P_DP",
+195 | #     fairness_column_X: str = "RAC1P_DP",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+196 | #     title: str = "Fairness Before/After Comparison",
+197 | #     figsize: tuple = (6, 6),
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:196:1
+    |
+194 | #     fairness_column_Y: str = "RAC1P_DP",
+195 | #     fairness_column_X: str = "RAC1P_DP",
+196 | #     title: str = "Fairness Before/After Comparison",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+197 | #     figsize: tuple = (6, 6),
+198 | #     ylabel: str = "Fairness Value Before",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:197:1
+    |
+195 | #     fairness_column_X: str = "RAC1P_DP",
+196 | #     title: str = "Fairness Before/After Comparison",
+197 | #     figsize: tuple = (6, 6),
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+198 | #     ylabel: str = "Fairness Value Before",
+199 | #     xlabel: str = "Fairness Value After",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:198:1
+    |
+196 | #     title: str = "Fairness Before/After Comparison",
+197 | #     figsize: tuple = (6, 6),
+198 | #     ylabel: str = "Fairness Value Before",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+199 | #     xlabel: str = "Fairness Value After",
+200 | #     title_font_size: int = 25,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:199:1
+    |
+197 | #     figsize: tuple = (6, 6),
+198 | #     ylabel: str = "Fairness Value Before",
+199 | #     xlabel: str = "Fairness Value After",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+200 | #     title_font_size: int = 25,
+201 | #     label_font_size: int = 25,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:200:1
+    |
+198 | #     ylabel: str = "Fairness Value Before",
+199 | #     xlabel: str = "Fairness Value After",
+200 | #     title_font_size: int = 25,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+201 | #     label_font_size: int = 25,
+202 | #     ticks_font_size: int = 20,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:201:1
+    |
+199 | #     xlabel: str = "Fairness Value After",
+200 | #     title_font_size: int = 25,
+201 | #     label_font_size: int = 25,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+202 | #     ticks_font_size: int = 20,
+203 | # ) -> plt.Figure:
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:202:1
+    |
+200 | #     title_font_size: int = 25,
+201 | #     label_font_size: int = 25,
+202 | #     ticks_font_size: int = 20,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+203 | # ) -> plt.Figure:
+204 | #     """
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:209:1
+    |
+207 | #     Parameters
+208 | #     ----------
+209 | #     df1 : pd.DataFrame
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+210 | #         DataFrame containing client IDs and two fairness metrics.
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:226:1
+    |
+224 | #         The matplotlib figure object containing the plot.
+225 | #     """
+226 | #     assert df1[client_column].is_unique, "The client ID column must be unique."
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+227 |
+228 | #     fairness1 = df1[fairness_column_X]
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:228:1
+    |
+226 | #     assert df1[client_column].is_unique, "The client ID column must be unique."
+227 |
+228 | #     fairness1 = df1[fairness_column_X]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+229 | #     fairness2 = df1[fairness_column_Y]
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:229:1
+    |
+228 | #     fairness1 = df1[fairness_column_X]
+229 | #     fairness2 = df1[fairness_column_Y]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+230 |
+231 | #     min_val = min(fairness1.min(), fairness2.min())
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:231:1
+    |
+229 | #     fairness2 = df1[fairness_column_Y]
+230 |
+231 | #     min_val = min(fairness1.min(), fairness2.min())
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+232 | #     max_val = max(fairness1.max(), fairness2.max())
+233 | #     padding = 0.05 * (max_val - min_val)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:232:1
+    |
+231 | #     min_val = min(fairness1.min(), fairness2.min())
+232 | #     max_val = max(fairness1.max(), fairness2.max())
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+233 | #     padding = 0.05 * (max_val - min_val)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:233:1
+    |
+231 | #     min_val = min(fairness1.min(), fairness2.min())
+232 | #     max_val = max(fairness1.max(), fairness2.max())
+233 | #     padding = 0.05 * (max_val - min_val)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+234 |
+235 | #     fig, ax = plt.subplots(figsize=figsize)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:235:1
+    |
+233 | #     padding = 0.05 * (max_val - min_val)
+234 |
+235 | #     fig, ax = plt.subplots(figsize=figsize)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+236 |
+237 | #     # Use color-blind friendly palette
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:239:1
+    |
+237 | #     # Use color-blind friendly palette
+238 | #     marker_face_color = '#56B4E9'  # Green tone
+239 | #     marker_edge_color = 'black'
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+240 |
+241 | #     ax.scatter(
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:244:1
+    |
+242 | #         fairness1,
+243 | #         fairness2,
+244 | #         facecolors=marker_face_color,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+245 | #         edgecolors=marker_edge_color,
+246 | #         marker='o',
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:245:1
+    |
+243 | #         fairness2,
+244 | #         facecolors=marker_face_color,
+245 | #         edgecolors=marker_edge_color,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+246 | #         marker='o',
+247 | #         s=200,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:246:1
+    |
+244 | #         facecolors=marker_face_color,
+245 | #         edgecolors=marker_edge_color,
+246 | #         marker='o',
+    | ^^^^^^^^^^^^^^^^^^^^^
+247 | #         s=200,
+248 | #         linewidths=1.2,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:247:1
+    |
+245 | #         edgecolors=marker_edge_color,
+246 | #         marker='o',
+247 | #         s=200,
+    | ^^^^^^^^^^^^^^^^
+248 | #         linewidths=1.2,
+249 | #         alpha=0.8
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:248:1
+    |
+246 | #         marker='o',
+247 | #         s=200,
+248 | #         linewidths=1.2,
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+249 | #         alpha=0.8
+250 | #     )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:249:1
+    |
+247 | #         s=200,
+248 | #         linewidths=1.2,
+249 | #         alpha=0.8
+    | ^^^^^^^^^^^^^^^^^^^
+250 | #     )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:250:1
+    |
+248 | #         linewidths=1.2,
+249 | #         alpha=0.8
+250 | #     )
+    | ^^^^^^^
+251 |
+252 | #     ax.plot(
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:253:1
+    |
+252 | #     ax.plot(
+253 | #         [min_val - padding, max_val + padding],
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+254 | #         [min_val - padding, max_val + padding],
+255 | #         linestyle="dotted",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:254:1
+    |
+252 | #     ax.plot(
+253 | #         [min_val - padding, max_val + padding],
+254 | #         [min_val - padding, max_val + padding],
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+255 | #         linestyle="dotted",
+256 | #         color="gray",
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:255:1
+    |
+253 | #         [min_val - padding, max_val + padding],
+254 | #         [min_val - padding, max_val + padding],
+255 | #         linestyle="dotted",
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+256 | #         color="gray",
+257 | #         linewidth=2
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:256:1
+    |
+254 | #         [min_val - padding, max_val + padding],
+255 | #         linestyle="dotted",
+256 | #         color="gray",
+    | ^^^^^^^^^^^^^^^^^^^^^^^
+257 | #         linewidth=2
+258 | #     )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:257:1
+    |
+255 | #         linestyle="dotted",
+256 | #         color="gray",
+257 | #         linewidth=2
+    | ^^^^^^^^^^^^^^^^^^^^^
+258 | #     )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:258:1
+    |
+256 | #         color="gray",
+257 | #         linewidth=2
+258 | #     )
+    | ^^^^^^^
+259 |
+260 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:260:1
+    |
+258 | #     )
+259 |
+260 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+261 | #     ax.set_xlim(min_val - padding, max_val + padding)
+262 | #     ax.set_ylim(min_val - padding, max_val + padding)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:261:1
+    |
+260 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+261 | #     ax.set_xlim(min_val - padding, max_val + padding)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+262 | #     ax.set_ylim(min_val - padding, max_val + padding)
+263 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:262:1
+    |
+260 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+261 | #     ax.set_xlim(min_val - padding, max_val + padding)
+262 | #     ax.set_ylim(min_val - padding, max_val + padding)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+263 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+264 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:263:1
+    |
+261 | #     ax.set_xlim(min_val - padding, max_val + padding)
+262 | #     ax.set_ylim(min_val - padding, max_val + padding)
+263 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+264 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+265 | #     ax.set_title(title, fontsize=title_font_size)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:264:1
+    |
+262 | #     ax.set_ylim(min_val - padding, max_val + padding)
+263 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+264 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+265 | #     ax.set_title(title, fontsize=title_font_size)
+266 | #     ax.grid(True)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:265:1
+    |
+263 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+264 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+265 | #     ax.set_title(title, fontsize=title_font_size)
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+266 | #     ax.grid(True)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:266:1
+    |
+264 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+265 | #     ax.set_title(title, fontsize=title_font_size)
+266 | #     ax.grid(True)
+    | ^^^^^^^^^^^^^^^^^^^
+267 |
+268 | #     return fig
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 5:268:1
+    |
+266 | #     ax.grid(True)
+267 |
+268 | #     return fig
+    | ^^^^^^^^^^^^^^^^
+269 |
+270 | import pandas as pd
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 6:4:1
+  |
+2 | #     df1: pd.DataFrame,
+3 | #     df2: pd.DataFrame,
+4 | #     client_column: str = "Partition ID",
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5 | #     fairness_column: str = "RAC1P_DP",
+6 | #     title: str = "Fairness Before/After Comparison",
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 6:5:1
+  |
+3 | #     df2: pd.DataFrame,
+4 | #     client_column: str = "Partition ID",
+5 | #     fairness_column: str = "RAC1P_DP",
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | #     title: str = "Fairness Before/After Comparison",
+7 | #     figsize: tuple = (6, 6),
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 6:6:1
+  |
+4 | #     client_column: str = "Partition ID",
+5 | #     fairness_column: str = "RAC1P_DP",
+6 | #     title: str = "Fairness Before/After Comparison",
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 | #     figsize: tuple = (6, 6),
+8 | #     ylabel: str = "Fairness Value Before",
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 6:7:1
+  |
+5 | #     fairness_column: str = "RAC1P_DP",
+6 | #     title: str = "Fairness Before/After Comparison",
+7 | #     figsize: tuple = (6, 6),
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 | #     ylabel: str = "Fairness Value Before",
+9 | #     xlabel: str = "Fairness Value After",
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:8:1
+   |
+ 6 | #     title: str = "Fairness Before/After Comparison",
+ 7 | #     figsize: tuple = (6, 6),
+ 8 | #     ylabel: str = "Fairness Value Before",
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 9 | #     xlabel: str = "Fairness Value After",
+10 | #     title_font_size: int = 25,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:9:1
+   |
+ 7 | #     figsize: tuple = (6, 6),
+ 8 | #     ylabel: str = "Fairness Value Before",
+ 9 | #     xlabel: str = "Fairness Value After",
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+10 | #     title_font_size: int = 25,
+11 | #     label_font_size: int = 25,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:10:1
+   |
+ 8 | #     ylabel: str = "Fairness Value Before",
+ 9 | #     xlabel: str = "Fairness Value After",
+10 | #     title_font_size: int = 25,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 | #     label_font_size: int = 25,
+12 | #     ticks_font_size: int = 20,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:11:1
+   |
+ 9 | #     xlabel: str = "Fairness Value After",
+10 | #     title_font_size: int = 25,
+11 | #     label_font_size: int = 25,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | #     ticks_font_size: int = 20,
+13 | #     unfairness_distribution: dict = None,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:12:1
+   |
+10 | #     title_font_size: int = 25,
+11 | #     label_font_size: int = 25,
+12 | #     ticks_font_size: int = 20,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+13 | #     unfairness_distribution: dict = None,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:13:1
+   |
+11 | #     label_font_size: int = 25,
+12 | #     ticks_font_size: int = 20,
+13 | #     unfairness_distribution: dict = None,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 |     
+15 | # ) -> plt.Figure:
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 6:14:1
+   |
+12 | #     ticks_font_size: int = 20,
+13 | #     unfairness_distribution: dict = None,
+14 |     
+   | ^^^^
+15 | # ) -> plt.Figure:
+16 | #     """
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:19:1
+   |
+17 | #     Plot a scatter comparison of fairness values from two dataframes.
+18 | #     """
+19 | #     assert df1[client_column].is_unique, "The client ID column must be unique."
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 |
+21 | #     merged = pd.merge(
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:21:1
+   |
+19 | #     assert df1[client_column].is_unique, "The client ID column must be unique."
+20 |
+21 | #     merged = pd.merge(
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+22 | #         df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+23 | #         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:22:1
+   |
+21 | #     merged = pd.merge(
+22 | #         df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 | #         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+24 | #         on=client_column,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:23:1
+   |
+21 | #     merged = pd.merge(
+22 | #         df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+23 | #         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 | #         on=client_column,
+25 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:24:1
+   |
+22 | #         df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+23 | #         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+24 | #         on=client_column,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:25:1
+   |
+23 | #         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+24 | #         on=client_column,
+25 | #     )
+   | ^^^^^^^
+26 |
+27 | #     fairness1 = merged["fairness1"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:27:1
+   |
+25 | #     )
+26 |
+27 | #     fairness1 = merged["fairness1"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | #     fairness2 = merged["fairness2"]
+29 | #     min_val = min(fairness1.min(), fairness2.min())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:28:1
+   |
+27 | #     fairness1 = merged["fairness1"]
+28 | #     fairness2 = merged["fairness2"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 | #     min_val = min(fairness1.min(), fairness2.min())
+30 | #     max_val = max(fairness1.max(), fairness2.max())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:29:1
+   |
+27 | #     fairness1 = merged["fairness1"]
+28 | #     fairness2 = merged["fairness2"]
+29 | #     min_val = min(fairness1.min(), fairness2.min())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 | #     max_val = max(fairness1.max(), fairness2.max())
+31 | #     padding = 0.05 * (max_val - min_val)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:30:1
+   |
+28 | #     fairness2 = merged["fairness2"]
+29 | #     min_val = min(fairness1.min(), fairness2.min())
+30 | #     max_val = max(fairness1.max(), fairness2.max())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 | #     padding = 0.05 * (max_val - min_val)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:31:1
+   |
+29 | #     min_val = min(fairness1.min(), fairness2.min())
+30 | #     max_val = max(fairness1.max(), fairness2.max())
+31 | #     padding = 0.05 * (max_val - min_val)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 |
+33 | #     fig, ax = plt.subplots(figsize=figsize)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:33:1
+   |
+31 | #     padding = 0.05 * (max_val - min_val)
+32 |
+33 | #     fig, ax = plt.subplots(figsize=figsize)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 6:34:1
+   |
+33 | #     fig, ax = plt.subplots(figsize=figsize)
+34 |     
+   | ^^^^
+35 |
+36 | #     # Color-blind-friendly style
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:38:1
+   |
+36 | #     # Color-blind-friendly style
+37 | #     marker_face_color = '#56B4E9'  # Orange from color-blind safe palette
+38 | #     marker_edge_color = 'black'
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:44:1
+   |
+42 | #         fairness2,
+43 | #         fairness1,
+44 | #         facecolors=marker_face_color,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+45 | #         edgecolors=marker_edge_color,
+46 | #         marker='o',
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:45:1
+   |
+43 | #         fairness1,
+44 | #         facecolors=marker_face_color,
+45 | #         edgecolors=marker_edge_color,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+46 | #         marker='o',
+47 | #         s=200,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:46:1
+   |
+44 | #         facecolors=marker_face_color,
+45 | #         edgecolors=marker_edge_color,
+46 | #         marker='o',
+   | ^^^^^^^^^^^^^^^^^^^^^
+47 | #         s=200,
+48 | #         linewidths=1.2,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:47:1
+   |
+45 | #         edgecolors=marker_edge_color,
+46 | #         marker='o',
+47 | #         s=200,
+   | ^^^^^^^^^^^^^^^^
+48 | #         linewidths=1.2,
+49 | #         alpha=0.8
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:48:1
+   |
+46 | #         marker='o',
+47 | #         s=200,
+48 | #         linewidths=1.2,
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+49 | #         alpha=0.8
+50 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:49:1
+   |
+47 | #         s=200,
+48 | #         linewidths=1.2,
+49 | #         alpha=0.8
+   | ^^^^^^^^^^^^^^^^^^^
+50 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:50:1
+   |
+48 | #         linewidths=1.2,
+49 | #         alpha=0.8
+50 | #     )
+   | ^^^^^^^
+51 |
+52 | #     ax.plot(
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:53:1
+   |
+52 | #     ax.plot(
+53 | #         [min_val - padding, max_val + padding],
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+54 | #         [min_val - padding, max_val + padding],
+55 | #         linestyle="dotted",
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:54:1
+   |
+52 | #     ax.plot(
+53 | #         [min_val - padding, max_val + padding],
+54 | #         [min_val - padding, max_val + padding],
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+55 | #         linestyle="dotted",
+56 | #         color="gray",
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:55:1
+   |
+53 | #         [min_val - padding, max_val + padding],
+54 | #         [min_val - padding, max_val + padding],
+55 | #         linestyle="dotted",
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+56 | #         color="gray",
+57 | #         linewidth=2
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:56:1
+   |
+54 | #         [min_val - padding, max_val + padding],
+55 | #         linestyle="dotted",
+56 | #         color="gray",
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+57 | #         linewidth=2
+58 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:57:1
+   |
+55 | #         linestyle="dotted",
+56 | #         color="gray",
+57 | #         linewidth=2
+   | ^^^^^^^^^^^^^^^^^^^^^
+58 | #     )
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:58:1
+   |
+56 | #         color="gray",
+57 | #         linewidth=2
+58 | #     )
+   | ^^^^^^^
+59 |     
+60 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 6:59:1
+   |
+57 | #         linewidth=2
+58 | #     )
+59 |     
+   | ^^^^
+60 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+61 | #     ax.set_xlim(min_val - padding, max_val + padding)
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:60:1
+   |
+58 | #     )
+59 |     
+60 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+61 | #     ax.set_xlim(min_val - padding, max_val + padding)
+62 | #     ax.set_ylim(min_val - padding, max_val + padding)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:61:1
+   |
+60 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+61 | #     ax.set_xlim(min_val - padding, max_val + padding)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+62 | #     ax.set_ylim(min_val - padding, max_val + padding)
+63 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:62:1
+   |
+60 | #     ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
+61 | #     ax.set_xlim(min_val - padding, max_val + padding)
+62 | #     ax.set_ylim(min_val - padding, max_val + padding)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+63 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+64 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:63:1
+   |
+61 | #     ax.set_xlim(min_val - padding, max_val + padding)
+62 | #     ax.set_ylim(min_val - padding, max_val + padding)
+63 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+64 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+65 | #     ax.set_title(title, fontsize=title_font_size)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:64:1
+   |
+62 | #     ax.set_ylim(min_val - padding, max_val + padding)
+63 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+64 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+65 | #     ax.set_title(title, fontsize=title_font_size)
+66 | #     ax.grid(True)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:65:1
+   |
+63 | #     ax.set_xlabel(xlabel, fontsize=label_font_size)
+64 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+65 | #     ax.set_title(title, fontsize=title_font_size)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+66 | #     ax.grid(True)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:66:1
+   |
+64 | #     ax.set_ylabel(ylabel, fontsize=label_font_size)
+65 | #     ax.set_title(title, fontsize=title_font_size)
+66 | #     ax.grid(True)
+   | ^^^^^^^^^^^^^^^^^^^
+67 |
+68 | #     fig.tight_layout()
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:68:1
+   |
+66 | #     ax.grid(True)
+67 |
+68 | #     fig.tight_layout()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+69 |
+70 | #     return fig
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 6:70:1
+   |
+68 | #     fig.tight_layout()
+69 |
+70 | #     return fig
+   | ^^^^^^^^^^^^^^^^
+71 |
+72 | import matplotlib.patches as mpatches
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+   --> evaluations/plots/plots.ipynb:cell 6:114:1
+    |
+112 |     # Define colors for the two groups
+113 |     if unfairness_distribution:
+114 |     
+    | ^^^^
+115 |         race_color = '#D81B60'  # Vivid orange
+116 |         sex_color = '#1E88E5'   # Blue
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> evaluations/plots/plots.ipynb:cell 6:130:1
+    |
+130 |     
+    | ^^^^
+131 |     if unfairness_distribution:
+132 |         race_states = unfairness_distribution.get("race_state", [])
+    |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:145:9
+    |
+143 |             race_x.append(fairness2[i])
+144 |             race_y.append(fairness1[i])
+145 |         # other_labels.append(client)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:178:5
+    |
+176 |     #     other_x,
+177 |     #     other_y,
+178 |     #     facecolors='gray',
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+179 |     #     edgecolors='black',
+180 |     #     marker='o',
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:179:5
+    |
+177 |     #     other_y,
+178 |     #     facecolors='gray',
+179 |     #     edgecolors='black',
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+180 |     #     marker='o',
+181 |     #     s=200,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:180:5
+    |
+178 |     #     facecolors='gray',
+179 |     #     edgecolors='black',
+180 |     #     marker='o',
+    |     ^^^^^^^^^^^^^^^^^
+181 |     #     s=200,
+182 |     #     linewidths=1.2,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:181:5
+    |
+179 |     #     edgecolors='black',
+180 |     #     marker='o',
+181 |     #     s=200,
+    |     ^^^^^^^^^^^^
+182 |     #     linewidths=1.2,
+183 |     #     alpha=0.6,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:182:5
+    |
+180 |     #     marker='o',
+181 |     #     s=200,
+182 |     #     linewidths=1.2,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+183 |     #     alpha=0.6,
+184 |     #     label='Other States'
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:183:5
+    |
+181 |     #     s=200,
+182 |     #     linewidths=1.2,
+183 |     #     alpha=0.6,
+    |     ^^^^^^^^^^^^^^^^
+184 |     #     label='Other States'
+185 |     # )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:184:5
+    |
+182 |     #     linewidths=1.2,
+183 |     #     alpha=0.6,
+184 |     #     label='Other States'
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+185 |     # )
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 6:185:5
+    |
+183 |     #     alpha=0.6,
+184 |     #     label='Other States'
+185 |     # )
+    |     ^^^
+186 |
+187 |     ax.plot(
+    |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 7:49:34
+   |
+48 |     # Styling for the initial state scatter plot
+49 |     marker_face_color = '#004D40' 
+   |                                  ^
+50 |     marker_edge_color = 'black' 
+51 |     marker_size = 200
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 7:50:32
+   |
+48 |     # Styling for the initial state scatter plot
+49 |     marker_face_color = '#004D40' 
+50 |     marker_edge_color = 'black' 
+   |                                ^
+51 |     marker_size = 200
+52 |     marker_linewidth = 1.2
+   |
+help: Remove trailing whitespace
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 7:96:1
+   |
+94 |     plt.title(title, fontsize=font_size)
+95 |     plt.grid(True)
+96 |     
+   | ^^^^
+97 |     # # Move legend outside plot, below
+98 |     # ax.legend(loc='upper center',
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 7:99:5
+    |
+ 97 |     # # Move legend outside plot, below
+ 98 |     # ax.legend(loc='upper center',
+ 99 |     #           bbox_to_anchor=(0.5, -0.15),
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+100 |     #           fontsize=20,
+101 |     #           title_fontsize=22,
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 7:100:5
+    |
+ 98 |     # ax.legend(loc='upper center',
+ 99 |     #           bbox_to_anchor=(0.5, -0.15),
+100 |     #           fontsize=20,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+101 |     #           title_fontsize=22,
+102 |     #           ncol=2, frameon=False)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 7:101:5
+    |
+ 99 |     #           bbox_to_anchor=(0.5, -0.15),
+100 |     #           fontsize=20,
+101 |     #           title_fontsize=22,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+102 |     #           ncol=2, frameon=False)
+    |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 8:13:1
+   |
+11 |     font_size: int = 26,
+12 |     ticks_font_size: int = 20,
+13 |     
+   | ^^^^
+14 |     title: str = "",
+15 |     y_label: str = "",
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 8:90:1
+   |
+88 |     # Plot the final state points with jitter
+89 |     for val in sorted(df2[value_col].unique()):
+90 |         
+   | ^^^^^^^^
+91 |         subset = df2[df2[value_col] == val]
+92 |         y_vals = subset[sensitive_col].astype(float)
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 8:114:9
+    |
+112 |         val2_orig = str(row[f'{value_col}_df2'])
+113 |         # if int(val1_orig) != int(val2_orig):
+114 |         #     print(val1_orig, val2_orig)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+115 |         #     print(2 in jittered_positions_df1)
+116 |         #     print(jittered_positions_df2)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 8:115:9
+    |
+113 |         # if int(val1_orig) != int(val2_orig):
+114 |         #     print(val1_orig, val2_orig)
+115 |         #     print(2 in jittered_positions_df1)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+116 |         #     print(jittered_positions_df2)
+    |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+   --> evaluations/plots/plots.ipynb:cell 8:116:9
+    |
+114 | …     #     print(val1_orig, val2_orig)
+115 | …     #     print(2 in jittered_positions_df1)
+116 | …     #     print(jittered_positions_df2)
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+117 | …     
+118 | …     if int(float(val1_orig)) in jittered_positions_df1 and int(float(val2_orig)) in jittered_positions_df2 and val1_orig != val2_or…
+    |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+   --> evaluations/plots/plots.ipynb:cell 8:117:1
+    |
+115 | …     #     print(2 in jittered_positions_df1)
+116 | …     #     print(jittered_positions_df2)
+117 | …     
+    ^^^^^^^^
+118 | …     if int(float(val1_orig)) in jittered_positions_df1 and int(float(val2_orig)) in jittered_positions_df2 and val1_orig != val2_or…
+119 | …         initial_matches = [match for match in jittered_positions_df1[int(float(val1_orig))] if match[0] == dataset_id]
+    |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 18:1:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 18:2:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # # Merge the two DataFrames on the "dataset" column
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 18:5:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | # merged_df.head(100)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 18:6:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+6 | # merged_df.head(100)
+  | ^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 19:5:38
+  |
+3 |     model_title = "Log. Regr." if model == "LogisticRegression" else model
+4 |     plot = local_client_fairness_plot(
+5 |         df1=dp[dp["model"] == model], 
+  |                                      ^
+6 |         df2=results_df, 
+7 |         client_column="dataset",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 19:6:24
+  |
+4 |     plot = local_client_fairness_plot(
+5 |         df1=dp[dp["model"] == model], 
+6 |         df2=results_df, 
+  |                        ^
+7 |         client_column="dataset",
+8 |         fairness_column="DP_RACE",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 19:12:28
+   |
+10 |         xlabel="FedAVG Dem. Disparity",
+11 |         title="RACE",
+12 |         title_font_size=26, 
+   |                            ^
+13 |         label_font_size=26,
+14 |         ticks_font_size=18,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 19:22:38
+   |
+20 |     model_title = "Log. Regr." if model == "LogisticRegression" else model
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+23 |         df2=results_df, 
+24 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 19:23:24
+   |
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+23 |         df2=results_df, 
+   |                        ^
+24 |         client_column="dataset",
+25 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 19:29:28
+   |
+27 |         xlabel="FedAVG Dem. Disparity",
+28 |         title="SEX",
+29 |         title_font_size=26, 
+   |                            ^
+30 |         label_font_size=26,
+31 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 20:1:1
+  |
+1 | # plot_comparison_fairness(df=results_df, title="FedAvg")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 21:1:1
+  |
+1 | # plot_comparison_fairness(df=dp.loc[dp["model"] == "LogisticRegression"], title="LogisticRegression")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 35:1:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 35:2:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # # Merge the two DataFrames on the "dataset" column
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 35:5:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | # merged_df.head(100)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 35:6:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+6 | # merged_df.head(100)
+  | ^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 36:6:38
+  |
+5 |     plot = local_client_fairness_plot(
+6 |         df1=dp[dp["model"] == model], 
+  |                                      ^
+7 |         df2=results_df, 
+8 |         client_column="dataset",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 36:7:24
+  |
+5 |     plot = local_client_fairness_plot(
+6 |         df1=dp[dp["model"] == model], 
+7 |         df2=results_df, 
+  |                        ^
+8 |         client_column="dataset",
+9 |         fairness_column="DP_RACE",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 36:13:28
+   |
+11 |         xlabel="FedAVG Dem. Parity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 36:22:38
+   |
+20 | for model in dp["model"].unique():
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+23 |         df2=results_df, 
+24 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 36:23:24
+   |
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+23 |         df2=results_df, 
+   |                        ^
+24 |         client_column="dataset",
+25 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 36:29:28
+   |
+27 |         xlabel="FedAVG Dem. Parity",
+28 |         title="SEX",
+29 |         title_font_size=26, 
+   |                            ^
+30 |         label_font_size=26,
+31 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 37:11:28
+   |
+ 9 |         xlabel="Dem. Disparity RACE",
+10 |         title=f"Attribute Bias Distribution",
+11 |         title_font_size=26, 
+   |                            ^
+12 |         label_font_size=26,
+13 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 45:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 45:4:106
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                          ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 45:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/7xd7s7vf")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 45:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/7xd7s7vf")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 45:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/7xd7s7vf")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+9 | states_unfairness = {
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 45:8:1
+   |
+ 6 | api = wandb.Api()
+ 7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/7xd7s7vf")
+ 8 | df = pd.DataFrame(run.scan_history())
+   | ^^
+ 9 | states_unfairness = {
+10 |     "sex_states":['IN_0', 'IN_2', 'IN_3', 'WV_0', 'PA_0', 'PA_1', 'PA_2', 'PA_3', 'PA_5', 'IL_2', 'IL_3', 'IL_4', 'MI_0', 'MI_1', 'MI_…
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 45:9:1
+   |
+ 7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/7xd7s7vf")
+ 8 | df = pd.DataFrame(run.scan_history())
+ 9 | states_unfairness = {
+   | ^^^^^^^^^^^^^^^^^
+10 |     "sex_states":['IN_0', 'IN_2', 'IN_3', 'WV_0', 'PA_0', 'PA_1', 'PA_2', 'PA_3', 'PA_5', 'IL_2', 'IL_3', 'IL_4', 'MI_0', 'MI_1', 'MI_…
+11 |     "race_state":['AL_2', 'AL_3', 'AL_4', 'NM_1', 'NM_5', 'SD_3', 'IA_0', 'IA_1', 'MA_0', 'MA_3', 'MA_4', 'WV_5', 'FL_5', 'AZ_0', 'AZ_…
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 45:14:1
+   |
+12 | }
+13 |
+14 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+15 | mapping = {
+16 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 45:15:1
+   |
+14 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+15 | mapping = {
+   | ^^^^^^^
+16 |     "- Third DP NEW.": "DP_RACE",
+17 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 46:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 111):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 46:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 111):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 46:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 111):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 47:1:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 47:2:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # # Merge the two DataFrames on the "dataset" column
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 47:5:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | # merged_df.head(100)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 47:6:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+6 | # merged_df.head(100)
+  | ^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 48:12:28
+   |
+10 |         xlabel="FedAVG Dem. Disparity",
+11 |         title="RACE",
+12 |         title_font_size=26, 
+   |                            ^
+13 |         label_font_size=26,
+14 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 48:22:38
+   |
+20 |     model_title = "Log. Regr." if model == "LogisticRegression" else model
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+23 |         df2=results_df, 
+24 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 48:23:24
+   |
+21 |     plot = local_client_fairness_plot(
+22 |         df1=dp[dp["model"] == model], 
+23 |         df2=results_df, 
+   |                        ^
+24 |         client_column="dataset",
+25 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 48:29:28
+   |
+27 |         xlabel="FedAVG Dem. Disparity",
+28 |         title="SEX",
+29 |         title_font_size=26, 
+   |                            ^
+30 |         label_font_size=26,
+31 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 49:11:28
+   |
+ 9 |         xlabel="Dem. Disparity RACE",
+10 |         title=f"Attribute Bias Distribution",
+11 |         title_font_size=26, 
+   |                            ^
+12 |         label_font_size=26,
+13 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 52:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 52:4:102
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                      ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 52:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/dyefdq2e")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 52:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/dyefdq2e")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 52:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/dyefdq2e")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 52:8:1
+   |
+ 6 | api = wandb.Api()
+ 7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/dyefdq2e")
+ 8 | df = pd.DataFrame(run.scan_history())
+   | ^^
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 52:10:1
+   |
+ 8 | df = pd.DataFrame(run.scan_history())
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+11 | mapping = {
+12 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 52:11:1
+   |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+11 | mapping = {
+   | ^^^^^^^
+12 |     "- Third DP NEW.": "DP_RACE",
+13 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 53:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 100):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 53:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 100):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 53:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 100):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 55:1:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 55:2:1
+  |
+1 | # dp_sex_centralized = dp[dp["model"] == "LogisticRegression"][["DP_RACE", "dataset"]]
+2 | # results_fedavg = results_df[["DP_RACE", "dataset"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # # Merge the two DataFrames on the "dataset" column
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 55:5:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | # merged_df.head(100)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 55:6:1
+  |
+4 | # # Merge the two DataFrames on the "dataset" column
+5 | # merged_df = pd.merge(dp_sex_centralized, results_fedavg, on="dataset", suffixes=('_centralized', '_federated'))
+6 | # merged_df.head(100)
+  | ^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 56:6:38
+  |
+5 |     plot = local_client_fairness_plot(
+6 |         df1=dp[dp["model"] == model], 
+  |                                      ^
+7 |         df2=results_df, 
+8 |         client_column="dataset",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 56:7:24
+  |
+5 |     plot = local_client_fairness_plot(
+6 |         df1=dp[dp["model"] == model], 
+7 |         df2=results_df, 
+  |                        ^
+8 |         client_column="dataset",
+9 |         fairness_column="DP_RACE",
+  |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 56:13:28
+   |
+11 |         xlabel="FedAVG Dem. Disparity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 56:23:38
+   |
+22 |     plot = local_client_fairness_plot(
+23 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+24 |         df2=results_df, 
+25 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 56:24:24
+   |
+22 |     plot = local_client_fairness_plot(
+23 |         df1=dp[dp["model"] == model], 
+24 |         df2=results_df, 
+   |                        ^
+25 |         client_column="dataset",
+26 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 56:30:28
+   |
+28 |         xlabel="FedAVG Dem. Disparity",
+29 |         title="SEX",
+30 |         title_font_size=26, 
+   |                            ^
+31 |         label_font_size=26,
+32 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 57:1:1
+  |
+1 | # plot_comparison_fairness(df=results_df, title="FedAvg")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 58:1:1
+  |
+1 | # plot_comparison_fairness(df=dp.loc[dp["model"] == "LogisticRegression"], title="LogisticRegression")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 78:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 78:4:104
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                        ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 78:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/zw4xdavp")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 78:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/zw4xdavp")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 78:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/zw4xdavp")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 78:8:1
+  |
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/zw4xdavp")
+8 | df = pd.DataFrame(run.scan_history())
+  | ^^
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 78:12:1
+   |
+12 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+13 | mapping = {
+14 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 78:13:1
+   |
+12 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+13 | mapping = {
+   | ^^^^^^^
+14 |     "- Third DP NEW.": "DP_RACE",
+15 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 79:1:1
+  |
+1 | states_unfairness = {
+  | ^^^^^^^^^^^^^^^^^
+2 |     "sex_states": ['SD', 'IN', 'WV', 'PA', 'IL', 'MI', 'WA', 'TX', 'MO', 'WY', 'TN', 'OK', 'UT', 'ID', 'ND', 'VA', 'AR', 'KS', 'NH', 'O…
+3 |     "race_state": ['AL', 'NM', 'IA', 'MA', 'FL', 'AZ', 'NY', 'AK', 'MS', 'NC', 'GA', 'VT', 'SC', 'NJ', 'CT', 'DE', 'RI', 'WI', 'OR', 'N…
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 80:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 51):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 80:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 51):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 80:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 51):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 81:1:1
+  |
+1 | # plot_comparison_fairness(df=results_df, title="Unfairness reduction")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 82:13:28
+   |
+11 |         xlabel="FedAVG Dem. Disparity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 82:24:38
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+25 |         df2=results_df, 
+26 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 82:25:24
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+25 |         df2=results_df, 
+   |                        ^
+26 |         client_column="dataset",
+27 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 82:31:28
+   |
+29 |         xlabel="FedAVG Dem. Disparity",
+30 |         title="SEX",
+31 |         title_font_size=26, 
+   |                            ^
+32 |         label_font_size=26,
+33 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 85:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 85:4:100
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                    ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 85:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/g0bvrdjf")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 85:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/g0bvrdjf")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 85:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/g0bvrdjf")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 85:8:1
+  |
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/g0bvrdjf")
+8 | df = pd.DataFrame(run.scan_history())
+  | ^^
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 85:12:1
+   |
+12 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+13 | mapping = {
+14 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 85:13:1
+   |
+12 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+13 | mapping = {
+   | ^^^^^^^
+14 |     "- Third DP NEW.": "DP_RACE",
+15 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 86:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 51):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 86:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 51):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 86:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 51):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 87:1:1
+  |
+1 | # plot_comparison_fairness(df=results_df, title="Unfairness reduction")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 88:13:28
+   |
+11 |         xlabel="FedAVG Dem. Disparity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 88:24:38
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+25 |         df2=results_df, 
+26 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 88:25:24
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+25 |         df2=results_df, 
+   |                        ^
+26 |         client_column="dataset",
+27 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 88:31:28
+   |
+29 |         xlabel="FedAVG Dem. Disparity",
+30 |         title="SEX",
+31 |         title_font_size=26, 
+   |                            ^
+32 |         label_font_size=26,
+33 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 96:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 96:4:106
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                          ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 96:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/qu2rhc1e")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 96:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/qu2rhc1e")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 96:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/qu2rhc1e")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 96:8:1
+   |
+ 6 | api = wandb.Api()
+ 7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/qu2rhc1e")
+ 8 | df = pd.DataFrame(run.scan_history())
+   | ^^
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 96:10:1
+   |
+ 8 | df = pd.DataFrame(run.scan_history())
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+11 | mapping = {
+12 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 96:11:1
+   |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+11 | mapping = {
+   | ^^^^^^^
+12 |     "- Third DP NEW.": "DP_RACE",
+13 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 96:18:1
+   |
+16 |     "- Group 3": "Value"
+17 | }
+18 | states_unfairness = {
+   | ^^^^^^^^^^^^^^^^^
+19 |     "sex_states": ['IN_0', 'IN_2', 'IN_3', 'WV_0', 'PA_0', 'PA_1', 'PA_2', 'PA_3', 'PA_5', 'IL_2', 'IL_3', 'IL_4', 'MI_0', 'MI_1', 'MI…
+20 |     "race_state": ['AL_2', 'AL_3', 'AL_4', 'NM_1', 'NM_5', 'SD_3', 'IA_0', 'IA_1', 'MA_0', 'MA_3', 'MA_4', 'WV_5', 'FL_5', 'AZ_0', 'AZ…
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 97:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 111):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 97:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 111):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 97:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 111):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 98:13:28
+   |
+11 |         xlabel="FedAVG Dem. Disparity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 98:24:38
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+25 |         df2=results_df, 
+26 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 98:25:24
+   |
+23 |     plot = local_client_fairness_plot(
+24 |         df1=dp[dp["model"] == model], 
+25 |         df2=results_df, 
+   |                        ^
+26 |         client_column="dataset",
+27 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 98:31:28
+   |
+29 |         xlabel="FedAVG Dem. Disparity",
+30 |         title="SEX",
+31 |         title_font_size=26, 
+   |                            ^
+32 |         label_font_size=26,
+33 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:12
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |            ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:13
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |             ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:14
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |              ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:15
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |               ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:16
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected an expression or a ')'
+ --> evaluations/plots/plots.ipynb:cell 102:4:17
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                 ^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: missing closing quote in string literal
+ --> evaluations/plots/plots.ipynb:cell 102:4:102
+  |
+2 | dp = pd.read_csv(f'./{folder_name}/model_perf_DP.csv')
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+  |                                                                                                      ^^^^^^^^
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 102:5:5
+  |
+3 | eo = pd.read_csv(f'./{folder_name}/model_perf_EO.csv')
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+  |     ^^^^^^^^^^^^^^^
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/0rmxjt18")
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 102:6:1
+  |
+4 | with open (../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json') as f:
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+  | ^^^
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/0rmxjt18")
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 102:7:1
+  |
+5 |     partition_names = json.load(f)
+6 | api = wandb.Api()
+7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/0rmxjt18")
+  | ^^^
+8 | df = pd.DataFrame(run.scan_history())
+  |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 102:8:1
+   |
+ 6 | api = wandb.Api()
+ 7 | run = api.run("/lucacorbucci/Fair_Fed_Dataset_results/runs/0rmxjt18")
+ 8 | df = pd.DataFrame(run.scan_history())
+   | ^^
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 102:10:1
+   |
+ 8 | df = pd.DataFrame(run.scan_history())
+ 9 |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+   | ^^^^^^^^^^
+11 | mapping = {
+12 |     "- Third DP NEW.": "DP_RACE",
+   |
+
+invalid-syntax: Expected `,`, found name
+  --> evaluations/plots/plots.ipynb:cell 102:11:1
+   |
+10 | attributes = ["- First DP NEW.", "- Second DP NEW.", "- Third DP NEW.", "- Acc.", "- Group 3"]
+11 | mapping = {
+   | ^^^^^^^
+12 |     "- Third DP NEW.": "DP_RACE",
+13 |     "- Second DP NEW.": "DP_MAR",
+   |
+
+invalid-syntax: Expected `,`, found name
+ --> evaluations/plots/plots.ipynb:cell 103:1:1
+  |
+1 | results = {}
+  | ^^^^^^^
+2 |
+3 | for node in range(0, 200):
+  |
+
+invalid-syntax: Expected `)`, found newline
+ --> evaluations/plots/plots.ipynb:cell 103:1:13
+  |
+1 | results = {}
+  |             ^
+2 |
+3 | for node in range(0, 200):
+  |
+
+invalid-syntax: Expected an indented block after `with` statement
+ --> evaluations/plots/plots.ipynb:cell 103:3:1
+  |
+1 | results = {}
+2 |
+3 | for node in range(0, 200):
+  | ^^^
+4 |     for attribute in attributes:
+5 |         current_attribute = f"{attribute_name} {node} {attribute}"
+  |
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 104:1:1
+  |
+1 | # plot_comparison_fairness(df=results_df, title="Unfairness reduction")
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 105:13:28
+   |
+11 |         xlabel="FedAVG Dem. Disparity",
+12 |         title="RACE",
+13 |         title_font_size=26, 
+   |                            ^
+14 |         label_font_size=26,
+15 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 105:23:38
+   |
+22 |     plot = local_client_fairness_plot(
+23 |         df1=dp[dp["model"] == model], 
+   |                                      ^
+24 |         df2=results_df, 
+25 |         client_column="dataset",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 105:24:24
+   |
+22 |     plot = local_client_fairness_plot(
+23 |         df1=dp[dp["model"] == model], 
+24 |         df2=results_df, 
+   |                        ^
+25 |         client_column="dataset",
+26 |         fairness_column="DP_SEX",
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 105:30:28
+   |
+28 |         xlabel="FedAVG Dem. Disparity",
+29 |         title="SEX",
+30 |         title_font_size=26, 
+   |                            ^
+31 |         label_font_size=26,
+32 |         ticks_font_size=20,
+   |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:21:1
+   |
+19 | #     """
+20 |
+21 | #     categorical_columns = ["COW", "SCHL"] #, "RAC1P"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | #     continuous_columns = ["AGEP", "WKHP", "OCCP", "POBP", "RELP"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:22:1
+   |
+21 | #     categorical_columns = ["COW", "SCHL"] #, "RAC1P"]
+22 | #     continuous_columns = ["AGEP", "WKHP", "OCCP", "POBP", "RELP"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |
+24 | #     # get the target and sensitive attributes
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:25:1
+   |
+24 | #     # get the target and sensitive attributes
+25 | #     target_attributes = df[">50K"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 | #     sensitive_attributes = df["SEX"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:26:1
+   |
+24 | #     # get the target and sensitive attributes
+25 | #     target_attributes = df[">50K"]
+26 | #     sensitive_attributes = df["SEX"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 |
+28 | #     # convert the columns to one-hot encoding
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:29:1
+   |
+28 | #     # convert the columns to one-hot encoding
+29 | #     df = pd.get_dummies(df, columns=categorical_columns, dtype=int)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 |
+31 | #     # normalize the continuous columns between 0 and 1
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:33:1
+   |
+31 | #     # normalize the continuous columns between 0 and 1
+32 | #     for col in continuous_columns:
+33 | #         df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 |
+35 | #     return pd.DataFrame(df)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:35:1
+   |
+33 | #         df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+34 |
+35 | #     return pd.DataFrame(df)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:39:1
+   |
+38 | # def pre_process_single_datasets(df):
+39 | #     dataframe = pd.DataFrame()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+40 | #     label = pd.DataFrame()
+41 | #     group = pd.DataFrame()
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:40:1
+   |
+38 | # def pre_process_single_datasets(df):
+39 | #     dataframe = pd.DataFrame()
+40 | #     label = pd.DataFrame()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 | #     group = pd.DataFrame()
+42 | #     second_group = pd.DataFrame()
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:41:1
+   |
+39 | #     dataframe = pd.DataFrame()
+40 | #     label = pd.DataFrame()
+41 | #     group = pd.DataFrame()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+42 | #     second_group = pd.DataFrame()
+43 | #     third_group = pd.DataFrame()
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:42:1
+   |
+40 | #     label = pd.DataFrame()
+41 | #     group = pd.DataFrame()
+42 | #     second_group = pd.DataFrame()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+43 | #     third_group = pd.DataFrame()
+44 | #     dataframes = []
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:43:1
+   |
+41 | #     group = pd.DataFrame()
+42 | #     second_group = pd.DataFrame()
+43 | #     third_group = pd.DataFrame()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 | #     dataframes = []
+45 | #     labels = []
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:44:1
+   |
+42 | #     second_group = pd.DataFrame()
+43 | #     third_group = pd.DataFrame()
+44 | #     dataframes = []
+   | ^^^^^^^^^^^^^^^^^^^^^
+45 | #     labels = []
+46 | #     groups = []
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:45:1
+   |
+43 | #     third_group = pd.DataFrame()
+44 | #     dataframes = []
+45 | #     labels = []
+   | ^^^^^^^^^^^^^^^^^
+46 | #     groups = []
+47 | #     second_groups = []
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:46:1
+   |
+44 | #     dataframes = []
+45 | #     labels = []
+46 | #     groups = []
+   | ^^^^^^^^^^^^^^^^^
+47 | #     second_groups = []
+48 | #     third_groups = []
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:47:1
+   |
+45 | #     labels = []
+46 | #     groups = []
+47 | #     second_groups = []
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+48 | #     third_groups = []
+49 | #     target_attributes = df[">50K"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:48:1
+   |
+46 | #     groups = []
+47 | #     second_groups = []
+48 | #     third_groups = []
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+49 | #     target_attributes = df[">50K"]
+50 | #     sensitive_attributes = df["SEX"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:49:1
+   |
+47 | #     second_groups = []
+48 | #     third_groups = []
+49 | #     target_attributes = df[">50K"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+50 | #     sensitive_attributes = df["SEX"]
+51 | #     second_sensitive_attributes = df["MAR"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:50:1
+   |
+48 | #     third_groups = []
+49 | #     target_attributes = df[">50K"]
+50 | #     sensitive_attributes = df["SEX"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+51 | #     second_sensitive_attributes = df["MAR"]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:51:1
+   |
+49 | #     target_attributes = df[">50K"]
+50 | #     sensitive_attributes = df["SEX"]
+51 | #     second_sensitive_attributes = df["MAR"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+52 |     
+53 | #     third_sensitive_attributes = df["RAC1P"]
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 110:52:1
+   |
+50 | #     sensitive_attributes = df["SEX"]
+51 | #     second_sensitive_attributes = df["MAR"]
+52 |     
+   | ^^^^
+53 | #     third_sensitive_attributes = df["RAC1P"]
+54 | #     third_sensitive_attributes = third_sensitive_attributes.astype(int)
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:53:1
+   |
+51 | #     second_sensitive_attributes = df["MAR"]
+52 |     
+53 | #     third_sensitive_attributes = df["RAC1P"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+54 | #     third_sensitive_attributes = third_sensitive_attributes.astype(int)
+55 | #     target_attributes = target_attributes.astype(int)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:54:1
+   |
+53 | #     third_sensitive_attributes = df["RAC1P"]
+54 | #     third_sensitive_attributes = third_sensitive_attributes.astype(int)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+55 | #     target_attributes = target_attributes.astype(int)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:55:1
+   |
+53 | #     third_sensitive_attributes = df["RAC1P"]
+54 | #     third_sensitive_attributes = third_sensitive_attributes.astype(int)
+55 | #     target_attributes = target_attributes.astype(int)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+56 |
+57 | #     sensitive_attributes = [1 if item == 1 else 0 for item in sensitive_attributes]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:57:1
+   |
+55 | #     target_attributes = target_attributes.astype(int)
+56 |
+57 | #     sensitive_attributes = [1 if item == 1 else 0 for item in sensitive_attributes]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+58 |
+59 | #     second_sensitive_attributes = [
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:59:1
+   |
+57 | #     sensitive_attributes = [1 if item == 1 else 0 for item in sensitive_attributes]
+58 |
+59 | #     second_sensitive_attributes = [
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+60 | #         1 if item == 1 else 0 for item in second_sensitive_attributes
+61 | #     ]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:61:1
+   |
+59 | #     second_sensitive_attributes = [
+60 | #         1 if item == 1 else 0 for item in second_sensitive_attributes
+61 | #     ]
+   | ^^^^^^^
+62 |
+63 | #     third_sensitive_attributes = [
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:63:1
+   |
+61 | #     ]
+62 |
+63 | #     third_sensitive_attributes = [
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+64 | #         1 if item == 1 else 0 for item in third_sensitive_attributes
+65 | #     ]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:65:1
+   |
+63 | #     third_sensitive_attributes = [
+64 | #         1 if item == 1 else 0 for item in third_sensitive_attributes
+65 | #     ]
+   | ^^^^^^^
+66 |
+67 | #     df = df.drop([">50K"], axis=1)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:67:1
+   |
+65 | #     ]
+66 |
+67 | #     df = df.drop([">50K"], axis=1)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+68 | #     # df.drop(['RAC1P_1.0', 'RAC1P_2.0'], axis=1, inplace=True)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:68:1
+   |
+67 | #     df = df.drop([">50K"], axis=1)
+68 | #     # df.drop(['RAC1P_1.0', 'RAC1P_2.0'], axis=1, inplace=True)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+69 |
+70 | #     # concatenate the dataframes
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:71:1
+   |
+70 | #     # concatenate the dataframes
+71 | #     dataframe = pd.concat([dataframe, df])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+72 | #     # remove RAC1P from dataframe
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:75:1
+   |
+74 | #     # convert the labels and groups to dataframes
+75 | #     label = pd.concat([label, pd.DataFrame(target_attributes)])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+76 | #     group = pd.concat([group, pd.DataFrame(sensitive_attributes)])
+77 | #     second_group = pd.concat([second_group, pd.DataFrame(second_sensitive_attributes)])
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:76:1
+   |
+74 | #     # convert the labels and groups to dataframes
+75 | #     label = pd.concat([label, pd.DataFrame(target_attributes)])
+76 | #     group = pd.concat([group, pd.DataFrame(sensitive_attributes)])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+77 | #     second_group = pd.concat([second_group, pd.DataFrame(second_sensitive_attributes)])
+78 | #     third_group = pd.concat([third_group, pd.DataFrame(third_sensitive_attributes)])
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:77:1
+   |
+75 | #     label = pd.concat([label, pd.DataFrame(target_attributes)])
+76 | #     group = pd.concat([group, pd.DataFrame(sensitive_attributes)])
+77 | #     second_group = pd.concat([second_group, pd.DataFrame(second_sensitive_attributes)])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+78 | #     third_group = pd.concat([third_group, pd.DataFrame(third_sensitive_attributes)])
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:78:1
+   |
+76 | #     group = pd.concat([group, pd.DataFrame(sensitive_attributes)])
+77 | #     second_group = pd.concat([second_group, pd.DataFrame(second_sensitive_attributes)])
+78 | #     third_group = pd.concat([third_group, pd.DataFrame(third_sensitive_attributes)])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+79 |
+80 | #     assert len(dataframe) == len(label) == len(group) == len(second_group)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:80:1
+   |
+78 | #     third_group = pd.concat([third_group, pd.DataFrame(third_sensitive_attributes)])
+79 |
+80 | #     assert len(dataframe) == len(label) == len(group) == len(second_group)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+81 | #     dataframes.append(dataframe.to_numpy())
+82 | #     labels.append(label.to_numpy())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:81:1
+   |
+80 | #     assert len(dataframe) == len(label) == len(group) == len(second_group)
+81 | #     dataframes.append(dataframe.to_numpy())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+82 | #     labels.append(label.to_numpy())
+83 | #     groups.append(group.to_numpy())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:82:1
+   |
+80 | #     assert len(dataframe) == len(label) == len(group) == len(second_group)
+81 | #     dataframes.append(dataframe.to_numpy())
+82 | #     labels.append(label.to_numpy())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+83 | #     groups.append(group.to_numpy())
+84 | #     second_groups.append(second_group.to_numpy())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:83:1
+   |
+81 | #     dataframes.append(dataframe.to_numpy())
+82 | #     labels.append(label.to_numpy())
+83 | #     groups.append(group.to_numpy())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+84 | #     second_groups.append(second_group.to_numpy())
+85 | #     third_groups.append(third_group.to_numpy())
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:84:1
+   |
+82 | #     labels.append(label.to_numpy())
+83 | #     groups.append(group.to_numpy())
+84 | #     second_groups.append(second_group.to_numpy())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+85 | #     third_groups.append(third_group.to_numpy())
+86 | #     return dataframes, labels, groups, second_groups, third_groups
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:85:1
+   |
+83 | #     groups.append(group.to_numpy())
+84 | #     second_groups.append(second_group.to_numpy())
+85 | #     third_groups.append(third_group.to_numpy())
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+86 | #     return dataframes, labels, groups, second_groups, third_groups
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 110:86:1
+   |
+84 | #     second_groups.append(second_group.to_numpy())
+85 | #     third_groups.append(third_group.to_numpy())
+86 | #     return dataframes, labels, groups, second_groups, third_groups
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 111:1:1
+  |
+1 | # from sklearn.model_selection import train_test_split
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 |
+3 | # # open the original csv files: 
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 111:3:33
+  |
+1 | # from sklearn.model_selection import train_test_split
+2 |
+3 | # # open the original csv files: 
+  |                                 ^
+4 | # folder = "../original_data/cross_silo_value_final/"
+5 | # list_files = !ls {folder}
+  |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 111:4:1
+  |
+3 | # # open the original csv files: 
+4 | # folder = "../original_data/cross_silo_value_final/"
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5 | # list_files = !ls {folder}
+6 | # unfair_dfs = []
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 111:6:1
+  |
+4 | # folder = "../original_data/cross_silo_value_final/"
+5 | # list_files = !ls {folder}
+6 | # unfair_dfs = []
+  | ^^^^^^^^^^^^^^^^^
+7 | # print(list_files)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 111:7:1
+  |
+5 | # list_files = !ls {folder}
+6 | # unfair_dfs = []
+7 | # print(list_files)
+  | ^^^^^^^^^^^^^^^^^^^
+8 |
+9 | # states = ['CT',
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:61:1
+   |
+59 | #  'CO']
+60 |
+61 | # partitions_names = []
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+62 |
+63 | # for state in states:
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:64:1
+   |
+63 | # for state in states:
+64 | #     partitions = set()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+65 | #     for file in list_files:
+66 | #         if file.endswith(".csv"):
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:67:1
+   |
+65 | #     for file in list_files:
+66 | #         if file.endswith(".csv"):
+67 | #             partition = int(file.split("_")[-1].split(".")[0])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+68 | #             if partition not in partitions:
+69 | #                 partitions_names.append(f"{state}_{partition}")
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:69:1
+   |
+67 | #             partition = int(file.split("_")[-1].split(".")[0])
+68 | #             if partition not in partitions:
+69 | #                 partitions_names.append(f"{state}_{partition}")
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+70 | #                 partitions.add(partition)
+71 | #                 train = pd.read_csv(f"{folder}{state}_{partition}.csv")
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:70:1
+   |
+68 | #             if partition not in partitions:
+69 | #                 partitions_names.append(f"{state}_{partition}")
+70 | #                 partitions.add(partition)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+71 | #                 train = pd.read_csv(f"{folder}{state}_{partition}.csv")
+72 | #                 # split the train csv into train and test
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:71:1
+   |
+69 | #                 partitions_names.append(f"{state}_{partition}")
+70 | #                 partitions.add(partition)
+71 | #                 train = pd.read_csv(f"{folder}{state}_{partition}.csv")
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+72 | #                 # split the train csv into train and test
+73 | #                 train, test = train_test_split(train, test_size=0.2)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:73:1
+   |
+71 | #                 train = pd.read_csv(f"{folder}{state}_{partition}.csv")
+72 | #                 # split the train csv into train and test
+73 | #                 train, test = train_test_split(train, test_size=0.2)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+74 |
+75 | #                 unfair_dfs.append(train)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:75:1
+   |
+73 | #                 train, test = train_test_split(train, test_size=0.2)
+74 |
+75 | #                 unfair_dfs.append(train)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+76 | #                 unfair_dfs.append(test)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 111:76:1
+   |
+75 | #                 unfair_dfs.append(train)
+76 | #                 unfair_dfs.append(test)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 112:1:1
+  |
+1 | # concatenated_df = pd.concat(unfair_dfs, ignore_index=True)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | # concatenated_df["PINCP"] = [1 if item == True else 0 for item in concatenated_df["PINCP"]]
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 112:2:1
+  |
+1 | # concatenated_df = pd.concat(unfair_dfs, ignore_index=True)
+2 | # concatenated_df["PINCP"] = [1 if item == True else 0 for item in concatenated_df["PINCP"]]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # # rename the column PINCP to >50K
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 112:5:1
+  |
+4 | # # rename the column PINCP to >50K
+5 | # concatenated_df.rename(columns={"PINCP": ">50K"}, inplace=True)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | # concatenated_df.drop(["__index_level_0__"], axis=1, inplace=True)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 112:6:1
+  |
+4 | # # rename the column PINCP to >50K
+5 | # concatenated_df.rename(columns={"PINCP": ">50K"}, inplace=True)
+6 | # concatenated_df.drop(["__index_level_0__"], axis=1, inplace=True)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |
+8 | # concatenated_df.head()
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 112:8:1
+  |
+6 | # concatenated_df.drop(["__index_level_0__"], axis=1, inplace=True)
+7 |
+8 | # concatenated_df.head()
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:2:1
+  |
+1 | # # Apply one-hot encoding
+2 | # pre_processed_df = pre_process_income(concatenated_df)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 |
+4 | # split_dfs = []
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:4:1
+  |
+2 | # pre_processed_df = pre_process_income(concatenated_df)
+3 |
+4 | # split_dfs = []
+  | ^^^^^^^^^^^^^^^^
+5 | # start_idx = 0
+6 | # for df in unfair_dfs:
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:5:1
+  |
+4 | # split_dfs = []
+5 | # start_idx = 0
+  | ^^^^^^^^^^^^^^^
+6 | # for df in unfair_dfs:
+7 | #     end_idx = start_idx + len(df)
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:7:1
+  |
+5 | # start_idx = 0
+6 | # for df in unfair_dfs:
+7 | #     end_idx = start_idx + len(df)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 | #     split_dfs.append(pre_processed_df.iloc[start_idx:end_idx])
+9 | #     start_idx = end_idx
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:8:1
+  |
+6 | # for df in unfair_dfs:
+7 | #     end_idx = start_idx + len(df)
+8 | #     split_dfs.append(pre_processed_df.iloc[start_idx:end_idx])
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+9 | #     start_idx = end_idx
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 113:9:1
+  |
+7 | #     end_idx = start_idx + len(df)
+8 | #     split_dfs.append(pre_processed_df.iloc[start_idx:end_idx])
+9 | #     start_idx = end_idx
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:20:1
+   |
+18 | #     """
+19 | #     # Ensure input arrays are numpy arrays
+20 | #     y_pred = np.asarray(y_pred)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 | #     sensitive_features = np.asarray(sensitive_features)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:21:1
+   |
+19 | #     # Ensure input arrays are numpy arrays
+20 | #     y_pred = np.asarray(y_pred)
+21 | #     sensitive_features = np.asarray(sensitive_features)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 |
+23 | #     # Check for consistent lengths
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:25:1
+   |
+23 | #     # Check for consistent lengths
+24 | #     if not (y_pred.shape == sensitive_features.shape):
+25 | #         raise ValueError("y_pred and sensitive_features must have the same shape")
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 |
+27 | #     # Get unique values in the sensitive features array
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:28:1
+   |
+27 | #     # Get unique values in the sensitive features array
+28 | #     unique_sensitive_values = np.unique(sensitive_features)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |
+30 | #     # Calculate acceptance rates for each group
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:31:1
+   |
+30 | #     # Calculate acceptance rates for each group
+31 | #     acceptance_rates = []
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | #     for group_value in unique_sensitive_values:
+33 | #         group_indices = (sensitive_features == group_value)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:33:1
+   |
+31 | #     acceptance_rates = []
+32 | #     for group_value in unique_sensitive_values:
+33 | #         group_indices = (sensitive_features == group_value)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 | #         acceptance_rate = np.mean(y_pred[group_indices])
+35 | #         acceptance_rates.append(acceptance_rate)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:34:1
+   |
+32 | #     for group_value in unique_sensitive_values:
+33 | #         group_indices = (sensitive_features == group_value)
+34 | #         acceptance_rate = np.mean(y_pred[group_indices])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | #         acceptance_rates.append(acceptance_rate)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:35:1
+   |
+33 | #         group_indices = (sensitive_features == group_value)
+34 | #         acceptance_rate = np.mean(y_pred[group_indices])
+35 | #         acceptance_rates.append(acceptance_rate)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+36 |
+37 | #     # Calculate the demographic parity difference
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:38:1
+   |
+37 | #     # Calculate the demographic parity difference
+38 | #     max_diff = 0
+   | ^^^^^^^^^^^^^^^^^^
+39 | #     for i in range(len(acceptance_rates)):
+40 | #         for j in range(i + 1, len(acceptance_rates)):
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:41:1
+   |
+39 | #     for i in range(len(acceptance_rates)):
+40 | #         for j in range(i + 1, len(acceptance_rates)):
+41 | #             diff = np.abs(acceptance_rates[i] - acceptance_rates[j])
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+42 | #             if diff > max_diff:
+43 | #                 max_diff = diff
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:43:1
+   |
+41 | #             diff = np.abs(acceptance_rates[i] - acceptance_rates[j])
+42 | #             if diff > max_diff:
+43 | #                 max_diff = diff
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 |
+45 | #     return max_diff
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 114:45:1
+   |
+43 | #                 max_diff = diff
+44 |
+45 | #     return max_diff
+   | ^^^^^^^^^^^^^^^^^^^^^
+46 |
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:1:1
+  |
+1 | # dataset_analysis = {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+2 |
+3 | # counter = {
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:3:1
+  |
+1 | # dataset_analysis = {}
+2 |
+3 | # counter = {
+  | ^^^^^^^^^^^^^
+4 | #     "sex": 0,
+5 | #     "race": 0, 
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:4:1
+  |
+3 | # counter = {
+4 | #     "sex": 0,
+  | ^^^^^^^^^^^^^^^
+5 | #     "race": 0, 
+6 | #     "mar": 0,
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:5:1
+  |
+3 | # counter = {
+4 | #     "sex": 0,
+5 | #     "race": 0, 
+  | ^^^^^^^^^^^^^^^^^
+6 | #     "mar": 0,
+7 | # }
+  |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+ --> evaluations/plots/plots.ipynb:cell 115:5:17
+  |
+3 | # counter = {
+4 | #     "sex": 0,
+5 | #     "race": 0, 
+  |                 ^
+6 | #     "mar": 0,
+7 | # }
+  |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:6:1
+  |
+4 | #     "sex": 0,
+5 | #     "race": 0, 
+6 | #     "mar": 0,
+  | ^^^^^^^^^^^^^^^
+7 | # }
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+ --> evaluations/plots/plots.ipynb:cell 115:7:1
+  |
+5 | #     "race": 0, 
+6 | #     "mar": 0,
+7 | # }
+  | ^^^
+8 |
+9 | # for index in range(0, len(split_dfs), 2):
+  |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:10:1
+   |
+ 9 | # for index in range(0, len(split_dfs), 2):
+10 | #     train_state = split_dfs[index]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 | #     test_state = split_dfs[index + 1]
+12 | #     print(len(train_state), len(test_state))
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:11:1
+   |
+ 9 | # for index in range(0, len(split_dfs), 2):
+10 | #     train_state = split_dfs[index]
+11 | #     test_state = split_dfs[index + 1]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | #     print(len(train_state), len(test_state))
+13 | #     (
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:12:1
+   |
+10 | #     train_state = split_dfs[index]
+11 | #     test_state = split_dfs[index + 1]
+12 | #     print(len(train_state), len(test_state))
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+13 | #     (
+14 | #         train_data,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:13:1
+   |
+11 | #     test_state = split_dfs[index + 1]
+12 | #     print(len(train_state), len(test_state))
+13 | #     (
+   | ^^^^^^^
+14 | #         train_data,
+15 | #         train_labels,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:20:1
+   |
+18 | #         train_third_groups,
+19 | #     ) = pre_process_single_datasets(train_state)
+20 | #     (
+   | ^^^^^^^
+21 | #         test_data,
+22 | #         test_labels,
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:29:1
+   |
+29 | #     SEX = test_groups[0]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 | #     # MAR = test_second_groups[0]
+31 | #     RACE = test_third_groups[0]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:30:1
+   |
+29 | #     SEX = test_groups[0]
+30 | #     # MAR = test_second_groups[0]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 | #     RACE = test_third_groups[0]
+32 | #     labels = test_labels[0]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:31:1
+   |
+29 | #     SEX = test_groups[0]
+30 | #     # MAR = test_second_groups[0]
+31 | #     RACE = test_third_groups[0]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | #     labels = test_labels[0]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:32:1
+   |
+30 | #     # MAR = test_second_groups[0]
+31 | #     RACE = test_third_groups[0]
+32 | #     labels = test_labels[0]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 |
+34 | #     dp_sex = demographic_parity_difference(SEX, labels)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:34:1
+   |
+32 | #     labels = test_labels[0]
+33 |
+34 | #     dp_sex = demographic_parity_difference(SEX, labels)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | #     # dp_mar = demographic_parity_difference(MAR, labels)
+36 | #     dp_race = demographic_parity_difference(RACE, labels)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:35:1
+   |
+34 | #     dp_sex = demographic_parity_difference(SEX, labels)
+35 | #     # dp_mar = demographic_parity_difference(MAR, labels)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+36 | #     dp_race = demographic_parity_difference(RACE, labels)
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:36:1
+   |
+34 | #     dp_sex = demographic_parity_difference(SEX, labels)
+35 | #     # dp_mar = demographic_parity_difference(MAR, labels)
+36 | #     dp_race = demographic_parity_difference(RACE, labels)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:40:1
+   |
+39 | #     if dp_sex > dp_race:
+40 | #         max_disparity = "sex" 
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 | #     else: 
+42 | #         max_disparity = "race"
+   |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 115:40:32
+   |
+39 | #     if dp_sex > dp_race:
+40 | #         max_disparity = "sex" 
+   |                                ^
+41 | #     else: 
+42 | #         max_disparity = "race"
+   |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:41:1
+   |
+39 | #     if dp_sex > dp_race:
+40 | #         max_disparity = "sex" 
+41 | #     else: 
+   | ^^^^^^^^^^^^
+42 | #         max_disparity = "race"
+   |
+help: Remove commented-out code
+
+W291 Trailing whitespace
+  --> evaluations/plots/plots.ipynb:cell 115:41:12
+   |
+39 | #     if dp_sex > dp_race:
+40 | #         max_disparity = "sex" 
+41 | #     else: 
+   |            ^
+42 | #         max_disparity = "race"
+   |
+help: Remove trailing whitespace
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:42:1
+   |
+40 | #         max_disparity = "sex" 
+41 | #     else: 
+42 | #         max_disparity = "race"
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+43 |     
+44 | #     counter[max_disparity] += 1
+   |
+help: Remove commented-out code
+
+W293 Blank line contains whitespace
+  --> evaluations/plots/plots.ipynb:cell 115:43:1
+   |
+41 | #     else: 
+42 | #         max_disparity = "race"
+43 |     
+   | ^^^^
+44 | #     counter[max_disparity] += 1
+   |
+help: Remove whitespace from blank line
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:44:1
+   |
+42 | #         max_disparity = "race"
+43 |     
+44 | #     counter[max_disparity] += 1
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+45 |
+46 | #     node = index // 2
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:46:1
+   |
+44 | #     counter[max_disparity] += 1
+45 |
+46 | #     node = index // 2
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+47 | #     if node not in dataset_analysis:
+48 | #         dataset_analysis[node] = {}
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:48:1
+   |
+46 | #     node = index // 2
+47 | #     if node not in dataset_analysis:
+48 | #         dataset_analysis[node] = {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+49 | #     dataset_analysis[node][mapping[attribute]] = last_value
+50 | #     dataset_analysis[node]["dataset"] = partition_names[str(node)].split("_")[0]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:49:1
+   |
+47 | #     if node not in dataset_analysis:
+48 | #         dataset_analysis[node] = {}
+49 | #     dataset_analysis[node][mapping[attribute]] = last_value
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+50 | #     dataset_analysis[node]["dataset"] = partition_names[str(node)].split("_")[0]
+   |
+help: Remove commented-out code
+
+ERA001 Found commented-out code
+  --> evaluations/plots/plots.ipynb:cell 115:50:1
+   |
+48 | #         dataset_analysis[node] = {}
+49 | #     dataset_analysis[node][mapping[attribute]] = last_value
+50 | #     dataset_analysis[node]["dataset"] = partition_names[str(node)].split("_")[0]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: Remove commented-out code
+
+PLR0915 Too many statements (65 > 50)
+   --> evaluations/plots/plots.py:182:5
+    |
+182 | def visualize_value_change(
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+183 |     df1: pd.DataFrame,
+184 |     df2: pd.DataFrame,
+    |
+
+PLR0912 Too many branches (17 > 12)
+   --> evaluations/plots/plots.py:342:5
+    |
+342 | def local_client_fairness_plot(
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+343 |     df1: pd.DataFrame,
+344 |     df2: pd.DataFrame,
+    |
+
+PLR0915 Too many statements (78 > 50)
+   --> evaluations/plots/plots.py:342:5
+    |
+342 | def local_client_fairness_plot(
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+343 |     df1: pd.DataFrame,
+344 |     df2: pd.DataFrame,
+    |
+
+PLR0915 Too many statements (78 > 50)
+   --> evaluations/plots/plots.py:506:5
+    |
+506 | def scatter_fairness_plot(
+    |     ^^^^^^^^^^^^^^^^^^^^^
+507 |     df1: pd.DataFrame,
+508 |     client_column: str = "Partition ID",
+    |
+
+PLR0912 Too many branches (13 > 12)
+   --> evaluations/plots/plots.py:736:5
+    |
+736 | def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node", dataset_name=""):
+    |     ^^^^^^^^^^^^^^^^^
+737 |     """
+738 |     Fetches FL experiment results from WandB.
+    |
+
+PLR0912 Too many branches (20 > 12)
+   --> evaluations/plots/plots.py:850:5
+    |
+850 | def load_local_results(file_path):
+    |     ^^^^^^^^^^^^^^^^^^
+851 |     if file_path.endswith(".json"):
+852 |         with Path(file_path).open() as f:
+    |
+
+PLR0912 Too many branches (56 > 12)
+   --> evaluations/plots/plots.py:933:5
+    |
+933 | def main():
+    |     ^^^^
+934 |     parser = argparse.ArgumentParser(description="Generate fairness plots for FL experiments.")
+935 |     parser.add_argument("--dataset_name", required=True, help="Name of the dataset (e.g., dutch, adult)")
+    |
+
+PLR0915 Too many statements (216 > 50)
+   --> evaluations/plots/plots.py:933:5
+    |
+933 | def main():
+    |     ^^^^
+934 |     parser = argparse.ArgumentParser(description="Generate fairness plots for FL experiments.")
+935 |     parser.add_argument("--dataset_name", required=True, help="Name of the dataset (e.g., dutch, adult)")
+    |
+
+NPY002 Replace legacy `np.random.laplace` call with `np.random.Generator`
+  --> evaluations/puffle/DPL/DPLUtils/utils.py:15:20
+   |
+13 |     ):
+14 |         if mechanism_type == "laplace":
+15 |             return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
+   |                    ^^^^^^^^^^^^^^^^^
+16 |         if mechanism_type == "geometric":
+17 |             p = 1 - np.exp(-epsilon / sensitivity)
+   |
+
+NPY002 Replace legacy `np.random.geometric` call with `np.random.Generator`
+  --> evaluations/puffle/DPL/DPLUtils/utils.py:18:21
+   |
+16 |         if mechanism_type == "geometric":
+17 |             p = 1 - np.exp(-epsilon / sensitivity)
+18 |             return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
+   |                     ^^^^^^^^^^^^^^^^^^^
+19 |         if mechanism_type == "gaussian":
+20 |             return np.random.normal(loc=0, scale=sigma, size=1)[0]
+   |
+
+NPY002 Replace legacy `np.random.geometric` call with `np.random.Generator`
+  --> evaluations/puffle/DPL/DPLUtils/utils.py:18:56
+   |
+16 |         if mechanism_type == "geometric":
+17 |             p = 1 - np.exp(-epsilon / sensitivity)
+18 |             return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
+   |                                                        ^^^^^^^^^^^^^^^^^^^
+19 |         if mechanism_type == "gaussian":
+20 |             return np.random.normal(loc=0, scale=sigma, size=1)[0]
+   |
+
+NPY002 Replace legacy `np.random.normal` call with `np.random.Generator`
+  --> evaluations/puffle/DPL/DPLUtils/utils.py:20:20
+   |
+18 |             return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
+19 |         if mechanism_type == "gaussian":
+20 |             return np.random.normal(loc=0, scale=sigma, size=1)[0]
+   |                    ^^^^^^^^^^^^^^^^
+21 |         msg = "The mechanism type must be either laplace, geometric or gaussian"
+22 |         raise ValueError(msg)
+   |
+
+S101 Use of `assert` detected
+  --> evaluations/puffle/DPL/DPLUtils/utils.py:83:13
+   |
+82 |         for p1, p2 in zip(model_1.parameters(), model_2.parameters(), strict=False):
+83 |             assert torch.all(p1 == p2)
+   |             ^^^^^^
+   |
+
+ERA001 Found commented-out code
+  --> evaluations/puffle/FederatedDataset/PartitionTypes/iid_partition.py:12:9
+   |
+10 |     ) -> dict:
+11 |         labels = self.targets
+12 |         # print(Counter([item.item() for item in labels]))
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+13 |
+14 |         len({item.item() for item in labels})
+   |
+help: Remove commented-out code
+
+ARG004 Unused static method argument: `total_num_classes`
+  --> evaluations/puffle/FederatedDataset/PartitionTypes/representative.py:14:9
+   |
+12 |         sensitive_features: np.ndarray,
+13 |         num_partitions: int,
+14 |         total_num_classes: int,
+   |         ^^^^^^^^^^^^^^^^^
+15 |         group_to_reduce: tuple,
+16 |         group_to_increment: tuple,
+   |
+
+PLR0912 Too many branches (15 > 12)
+   --> evaluations/puffle/FederatedDataset/PartitionTypes/representative.py:173:9
+    |
+172 |     @staticmethod
+173 |     def create_unfair_nodes(
+    |         ^^^^^^^^^^^^^^^^^^^
+174 |         fair_nodes: list,
+175 |         nodes_to_unfair: list,
+    |
+
+PTH123 `open()` should be replaced by `Path.open()`
+ --> final_fix.py:7:10
+  |
+5 | def fix_acs_income():
+6 |     file_path = "evaluations/experiments/acs_income/pre_processing.ipynb"
+7 |     with open(file_path, encoding="utf-8") as f:
+  |          ^^^^
+8 |         nb = json.load(f)
+  |
+help: Replace with `Path.open()`
+
+PTH123 `open()` should be replaced by `Path.open()`
+  --> final_fix.py:35:10
+   |
+33 |             cell["source"] = new_source
+34 |
+35 |     with open(file_path, "w", encoding="utf-8") as f:
+   |          ^^^^
+36 |         json.dump(nb, f, indent=1, ensure_ascii=False)
+37 |         f.write("\n")
+   |
+help: Replace with `Path.open()`
+
+S605 Starting a process with a shell: seems safe, but may be changed in the future; consider rewriting without `shell`
+  --> final_fix.py:41:5
+   |
+39 | def fix_dutch():
+40 |     # Just use ruff --fix for dutch.ipynb as it said it can fix 6 errors.
+41 |     os.system("uv run ruff check --fix examples/dutch.ipynb")
+   |     ^^^^^^^^^
+42 |
+43 | if __name__ == "__main__":
+   |
+
+PTH110 `os.path.exists()` should be replaced by `Path.exists()`
+  --> fix_era001.py:34:16
+   |
+33 |     for file_path, lines_to_remove in file_lines.items():
+34 |         if not os.path.exists(file_path):
+   |                ^^^^^^^^^^^^^^
+35 |             continue
+   |
+help: Replace with `Path(...).exists()`
+
+PTH123 `open()` should be replaced by `Path.open()`
+  --> fix_era001.py:38:14
+   |
+37 |         print(f"Fixing {file_path} ({len(lines_to_remove)} lines)")
+38 |         with open(file_path) as f:
+   |              ^^^^
+39 |             lines = f.readlines()
+   |
+help: Replace with `Path.open()`
+
+PTH123 `open()` should be replaced by `Path.open()`
+  --> fix_era001.py:52:14
+   |
+50 |                 new_lines.append(line)
+51 |
+52 |         with open(file_path, "w") as f:
+   |              ^^^^
+53 |             f.writelines(new_lines)
+   |
+help: Replace with `Path.open()`
+
+PLR0912 Too many branches (30 > 12)
+ --> fix_notebooks.py:6:5
+  |
+6 | def fix_notebook(file_path):
+  |     ^^^^^^^^^^^^
+7 |     with open(file_path, encoding="utf-8") as f:
+8 |         nb = json.load(f)
+  |
+
+PLR0915 Too many statements (92 > 50)
+ --> fix_notebooks.py:6:5
+  |
+6 | def fix_notebook(file_path):
+  |     ^^^^^^^^^^^^
+7 |     with open(file_path, encoding="utf-8") as f:
+8 |         nb = json.load(f)
+  |
+
+PTH123 `open()` should be replaced by `Path.open()`
+ --> fix_notebooks.py:7:10
+  |
+6 | def fix_notebook(file_path):
+7 |     with open(file_path, encoding="utf-8") as f:
+  |          ^^^^
+8 |         nb = json.load(f)
+  |
+help: Replace with `Path.open()`
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:28:21
+   |
+26 |                 fixed_line = line.rstrip() + ("\n" if line.endswith("\n") else "")
+27 |                 if fixed_line != line:
+28 |                     line = fixed_line
+   |                     ^^^^
+29 |                     cell_changed = True
+   |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:33:21
+   |
+31 |                 # E722: Bare except
+32 |                 if "except:" in line:
+33 |                     line = line.replace("except:", "except Exception:")
+   |                     ^^^^
+34 |                     cell_changed = True
+   |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:38:21
+   |
+36 |                 # PD011: .values -> .to_numpy()
+37 |                 if ".values" in line and "index.values" not in line:
+38 |                     line = line.replace(".values", ".to_numpy()")
+   |                     ^^^^
+39 |                     cell_changed = True
+40 |                 if "index.values" in line:
+   |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:41:21
+   |
+39 |                     cell_changed = True
+40 |                 if "index.values" in line:
+41 |                     line = line.replace("index.values", "index.to_numpy()")
+   |                     ^^^^
+42 |                     cell_changed = True
+   |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:46:21
+   |
+44 |                 # PTH rules
+45 |                 if "os.path.exists(" in line:
+46 |                     line = line.replace("os.path.exists(", "Path(").replace("):", ").exists():")
+   |                     ^^^^
+47 |                     cell_changed = True
+48 |                 if "os.makedirs(" in line:
+   |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+  --> fix_notebooks.py:49:21
+   |
+47 |                     cell_changed = True
+48 |                 if "os.makedirs(" in line:
+49 |                     line = line.replace("os.makedirs(", "Path(").replace(")", ").mkdir(parents=True, exist_ok=True)")
+   |                     ^^^^
+50 |                     cell_changed = True
+   |
+
+E741 Ambiguous variable name: `l`
+  --> fix_notebooks.py:92:37
+   |
+91 |             # Add Path import if needed
+92 |             if any("Path(" in l for l in final_lines) and not any("from pathlib import Path" in l for l in final_lines):
+   |                                     ^
+93 |                 final_lines.insert(0, "from pathlib import Path\n")
+94 |                 changed = True
+   |
+
+E741 Ambiguous variable name: `l`
+  --> fix_notebooks.py:92:103
+   |
+91 |             # Add Path import if needed
+92 |             if any("Path(" in l for l in final_lines) and not any("from pathlib import Path" in l for l in final_lines):
+   |                                                                                                       ^
+93 |                 final_lines.insert(0, "from pathlib import Path\n")
+94 |                 changed = True
+   |
+
+E741 Ambiguous variable name: `l`
+   --> fix_notebooks.py:114:87
+    |
+112 |                     )
+113 |                     if new_source != source:
+114 |                         cell["source"] = [l + "\n" if not l.endswith("\n") else l for l in new_source.splitlines()]
+    |                                                                                       ^
+115 |                         changed = True
+    |
+
+E741 Ambiguous variable name: `l`
+   --> fix_notebooks.py:122:46
+    |
+120 |             if cell["cell_type"] == "code":
+121 |                 lines = cell["source"]
+122 |                 if any("np.random." in l for l in lines) and not any("rng.integers" in l for l in lines):
+    |                                              ^
+123 |                     new_lines = []
+124 |                     if not any("rng = np.random.default_rng()" in l for l in lines):
+    |
+
+E741 Ambiguous variable name: `l`
+   --> fix_notebooks.py:122:94
+    |
+120 |             if cell["cell_type"] == "code":
+121 |                 lines = cell["source"]
+122 |                 if any("np.random." in l for l in lines) and not any("rng.integers" in l for l in lines):
+    |                                                                                              ^
+123 |                     new_lines = []
+124 |                     if not any("rng = np.random.default_rng()" in l for l in lines):
+    |
+
+E741 Ambiguous variable name: `l`
+   --> fix_notebooks.py:124:73
+    |
+122 |                 if any("np.random." in l for l in lines) and not any("rng.integers" in l for l in lines):
+123 |                     new_lines = []
+124 |                     if not any("rng = np.random.default_rng()" in l for l in lines):
+    |                                                                         ^
+125 |                         new_lines.append("rng = np.random.default_rng()\n")
+126 |                     for line in lines:
+    |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+   --> fix_notebooks.py:127:25
+    |
+125 |                         new_lines.append("rng = np.random.default_rng()\n")
+126 |                     for line in lines:
+127 |                         line = line.replace("np.random.randint", "rng.integers")
+    |                         ^^^^
+128 |                         line = line.replace("np.random.normal", "rng.normal")
+129 |                         line = line.replace("np.random.choice", "rng.choice")
+    |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+   --> fix_notebooks.py:128:25
+    |
+126 |                     for line in lines:
+127 |                         line = line.replace("np.random.randint", "rng.integers")
+128 |                         line = line.replace("np.random.normal", "rng.normal")
+    |                         ^^^^
+129 |                         line = line.replace("np.random.choice", "rng.choice")
+130 |                         new_lines.append(line)
+    |
+
+PLW2901 `for` loop variable `line` overwritten by assignment target
+   --> fix_notebooks.py:129:25
+    |
+127 |                         line = line.replace("np.random.randint", "rng.integers")
+128 |                         line = line.replace("np.random.normal", "rng.normal")
+129 |                         line = line.replace("np.random.choice", "rng.choice")
+    |                         ^^^^
+130 |                         new_lines.append(line)
+131 |                     cell["source"] = new_lines
+    |
+
+PTH123 `open()` should be replaced by `Path.open()`
+   --> fix_notebooks.py:135:14
+    |
+134 |     if changed:
+135 |         with open(file_path, "w", encoding="utf-8") as f:
+    |              ^^^^
+136 |             json.dump(nb, f, indent=1, ensure_ascii=False)
+137 |             f.write("\n")
+    |
+help: Replace with `Path.open()`
+
+PTH110 `os.path.exists()` should be replaced by `Path.exists()`
+   --> fix_notebooks.py:150:12
+    |
+148 |     # Re-read fresh to avoid double-fixing issues if script is re-run
+149 |     for f in files:
+150 |         if os.path.exists(f):
+    |            ^^^^^^^^^^^^^^
+151 |             fix_notebook(f)
+152 |         else:
+    |
+help: Replace with `Path(...).exists()`
+
+Found 437 errors.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).

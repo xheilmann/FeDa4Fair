@@ -4,6 +4,8 @@ from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.metrics.fairness import compute_multi_fairness
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 
+CROSS_SILO_CLIENT_COUNT = 50
+
 
 def test_bias_level(drop_mean, flip_mean, num_clients, scenario_type):
     # In Dutch Census:
@@ -53,7 +55,7 @@ def test_bias_level(drop_mean, flip_mean, num_clients, scenario_type):
         label_name="occupation_binary",
         sensitive_attributes=["sex_binary"],
         modification_dict=modifications,
-        fl_setting="cross-silo" if num_clients == 50 else "cross-device",
+        fl_setting="cross-silo" if num_clients == CROSS_SILO_CLIENT_COUNT else "cross-device",
         perc_train_val_test=[0.8, 0.2],
     )
 
@@ -80,8 +82,8 @@ if __name__ == "__main__":
     # Baseline DP is ~0.30
 
     print("--- Increasing Bias (Target > 0.30) ---")
-    test_bias_level(0.3, 0.1, 50, "attribute")  # Target 0.35?
-    test_bias_level(0.6, 0.2, 50, "attribute")
+    test_bias_level(0.3, 0.1, CROSS_SILO_CLIENT_COUNT, "attribute")  # Target 0.35?
+    test_bias_level(0.6, 0.2, CROSS_SILO_CLIENT_COUNT, "attribute")
 
     print("--- Reducing Bias (Target < 0.30) ---")
     # To reduce bias, we use 'mitigate': True in the create scripts.

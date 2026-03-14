@@ -35,7 +35,6 @@ class CelebaNet(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
         )
-        # self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, input_data: Tensor) -> Tensor:
         """
@@ -53,5 +52,4 @@ class CelebaNet(nn.Module):
         out = self.gn_relu(self.cnn2(out))
         out = self.gn_relu(self.cnn3(out))
         out = out.reshape(out.size(0), -1)
-        out = self.fc1(out)
-        return out
+        return self.fc1(out)

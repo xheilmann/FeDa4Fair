@@ -33,7 +33,7 @@ class TestGenericLoading(unittest.TestCase):
         # We need to check if 'split' is NOT in kwargs or is None if passed positionally
         # But our implementation pops it.
         # Check call args
-        args, kwargs = mock_load_dataset.call_args
+        _args, kwargs = mock_load_dataset.call_args
         self.assertNotIn("split", kwargs)
 
         # Verify dataset structure

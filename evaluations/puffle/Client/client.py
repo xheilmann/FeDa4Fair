@@ -2,9 +2,9 @@ import copy
 import gc
 import json
 import logging
-import os
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import dill
 import flwr as fl
@@ -13,12 +13,17 @@ import ray
 import torch
 from DPL.Learning.learning import Learning
 from DPL.Regularization.RegularizationLoss import RegularizationLoss
-from flwr.common.typing import Scalar
 from opacus import PrivacyEngine
 from opacus.accountants.utils import get_noise_multiplier
 from Utils.model_utils import ModelUtils
 from Utils.train_parameters import TrainParameters
 from Utils.utils import Utils
+
+if TYPE_CHECKING:
+    from flwr.common.typing import Scalar
+
+
+logger = logging.getLogger(__name__)
 
 
 class FlowerClientDisparity(fl.client.NumPyClient):
@@ -32,7 +37,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         train_parameters: TrainParameters,
         client_generator,
     ):
-        logging.info(f"Node {cid} is initializing...")
+        logger.info("Node %s is initializing...", cid)
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         self.train_parameters = copy.deepcopy(train_parameters)
         self.cid = cid
@@ -52,57 +57,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             )
             self.optimizer_regularization = self.get_optimizer(model=self.model_regularization)
 
-    def get_optimizer(self, model):
-        if self.train_parameters.optimizer == "adam":
-            return torch.optim.Adam(
-                model.parameters(),
-                lr=self.lr,
-            )
-        if self.train_parameters.optimizer == "sgd":
-            return torch.optim.SGD(
-                model.parameters(),
-                lr=self.lr,
-            )
-        if self.train_parameters.optimizer == "adamW":
-            return torch.optim.AdamW(
-                model.parameters(),
-                lr=self.lr,
-            )
-        raise ValueError("Optimizer not recognized")
-
-    def get_parameters(self, config):
-        return Utils.get_params(self.net)
-
-    def fit(self, parameters, config, average_probabilities=None):
-        is_tunable = True if self.train_parameters.regularization_mode == "tunable" else False
-        current_fl_round = config["server_round"]
-        random_generator = np.random.default_rng(seed=[int(self.client_generator.random() * 2**32), current_fl_round])
-        seed = int(random_generator.random() * 2**32)
-        Utils.seed_everything(seed)
-
-        if os.path.exists(f"{self.fed_dir}/avg_proba.pkl"):
-            with open(f"{self.fed_dir}/avg_proba.pkl", "rb") as file:
-                average_probabilities = dill.load(file)
-
-        Utils.set_params(self.net, parameters)
-
-        with open(f"{self.fed_dir}/counter_sampling.pkl", "rb") as f:
-            counter_sampling = dill.load(f)
-            self.sampling_frequency = counter_sampling[str(self.cid)]
-
-        # Load data for this client and get trainloader
-        num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
-        train_loader = Utils.get_dataloader(
-            self.fed_dir,
-            self.cid,
-            batch_size=config["batch_size"],
-            workers=num_workers,
-            dataset=self.dataset_name,
-            partition="train",
-        )
-
-        print(f"Client {self.cid} has {len(train_loader.dataset)} samples")
-
+    def _compute_reweighing_weights(self, train_loader):
         reweighing_weights = None
         if self.train_parameters.reweighing:
             counts = {}
@@ -115,7 +70,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 else:
                     sensitive_features = sens_1
 
-                for z, y in zip(sensitive_features, target):
+                for z, y in zip(sensitive_features, target, strict=False):
                     z_item = z.item()
                     y_item = y.item()
                     key = (z_item, y_item)
@@ -124,9 +79,8 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
             prob_z = {}
             prob_y = {}
-            prob_zy = {}
-            unique_z = set(k[0] for k in counts.keys())
-            unique_y = set(k[1] for k in counts.keys())
+            unique_z = {k[0] for k in counts}
+            unique_y = {k[1] for k in counts}
 
             for z in unique_z:
                 n_z = sum(counts.get((z, y), 0) for y in unique_y)
@@ -144,251 +98,121 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                     reweighing_weights[k] = (prob_z[z] * prob_y[y]) / prob_zy
                 else:
                     reweighing_weights[k] = 1.0
+        return reweighing_weights
 
-        self.delta = (1 / len(train_loader.dataset)) / 3
-
-        if self.train_parameters.epsilon_lambda is not None:
-            # this is the sigma that we will use to compute the noise
-            # that will be added to the Lambda
-            sampling_ratio = 1 / len(train_loader)
-
-            iterations = self.sampling_frequency * self.train_parameters.epochs * len(train_loader)
-            sigma_update_lambda = get_noise_multiplier(
-                target_epsilon=self.train_parameters.epsilon_lambda,
-                target_delta=self.delta,
-                sample_rate=sampling_ratio,
-                steps=iterations,
-                accountant="rdp",
-            )
-        else:
-            sigma_update_lambda = None
-
+    def _setup_privacy_and_noise(self, train_loader):
         loaded_privacy_engine = None
         loaded_privacy_engine_regularization = None
         first_round = False
 
-        # If we already used this client we need to load the state regarding
-        # the privacy engine both for the classic model and for the model
-        # used for the regularization
-        if os.path.exists(f"{self.fed_dir}/privacy_engine_{self.cid}.pkl"):
-            with open(f"{self.fed_dir}/privacy_engine_{self.cid}.pkl", "rb") as file:
-                loaded_privacy_engine = dill.load(file)
+        if (self.fed_dir / f"privacy_engine_{self.cid}.pkl").exists():
+            with (self.fed_dir / f"privacy_engine_{self.cid}.pkl").open("rb") as file:
+                loaded_privacy_engine = dill.load(file)  # noqa: S301
 
-            if os.path.exists(f"{self.fed_dir}/privacy_engine_regularization_{self.cid}.pkl"):
-                with open(f"{self.fed_dir}/privacy_engine_regularization_{self.cid}.pkl", "rb") as file:
-                    loaded_privacy_engine_regularization = dill.load(file)
+            if (self.fed_dir / f"privacy_engine_regularization_{self.cid}.pkl").exists():
+                with (self.fed_dir / f"privacy_engine_regularization_{self.cid}.pkl").open("rb") as file:
+                    loaded_privacy_engine_regularization = dill.load(file)  # noqa: S301
         else:
-            # If it is the first time that we use this client we use a Lambda = 0
-            # because in the first round the model will be random and so the predictions
-            # so the disparity will be 0 and therefore we can have Lambda = 0.
-            # This is just the Lambda that we will use in the first batch. Then we
-            # will update it based on our classic algorithm.
             if self.train_parameters.regularization_mode == "tunable":
                 self.train_parameters.regularization_lambda = 0
             first_round = True
 
-        # max_disparity_dataset = 0
-
         if self.train_parameters.epsilon is None:
             self.noise_multiplier = 0
             self.original_epsilon = None
-        elif os.path.exists(f"{self.fed_dir}/noise_level_noise_level_{self.cid}.pkl"):
-            with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "rb") as file:
-                self.noise_multiplier = dill.load(file)
+        elif (self.fed_dir / f"noise_level_{self.cid}.pkl").exists():
+            with (self.fed_dir / f"noise_level_{self.cid}.pkl").open("rb") as file:
+                self.noise_multiplier = dill.load(file)  # noqa: S301
                 self.original_epsilon = self.train_parameters.epsilon
                 self.train_parameters.epsilon = None
         else:
-            # We compute the noise corresponding to the epsilon defined
-            # as parameter in the TrainParameter passed to the client
             noise = self.get_noise(dataset=train_loader)
-            with open(f"{self.fed_dir}/noise_level_{self.cid}.pkl", "wb") as file:
+            with (self.fed_dir / f"noise_level_{self.cid}.pkl").open("wb") as file:
                 dill.dump(noise, file)
             self.noise_multiplier = noise
             self.original_epsilon = self.train_parameters.epsilon
             self.train_parameters.epsilon = None
+        return loaded_privacy_engine, loaded_privacy_engine_regularization, first_round
 
-        (
-            private_net,
-            private_optimizer,
-            train_loader,
-            privacy_engine,
-        ) = Utils.create_private_model(
-            model=self.net,
-            epsilon=self.train_parameters.epsilon,
-            original_optimizer=self.optimizer,
-            train_loader=train_loader,
-            epochs=self.train_parameters.epochs,
-            delta=self.delta,
-            MAX_GRAD_NORM=self.clipping,
-            batch_size=self.train_parameters.batch_size,
-            noise_multiplier=self.noise_multiplier,
-            accountant=loaded_privacy_engine,
+    def get_optimizer(self, model):
+        if self.train_parameters.optimizer == "adam":
+            return torch.optim.Adam(model.parameters(), lr=self.lr)
+        if self.train_parameters.optimizer == "sgd":
+            return torch.optim.SGD(model.parameters(), lr=self.lr)
+        if self.train_parameters.optimizer == "adamW":
+            return torch.optim.AdamW(model.parameters(), lr=self.lr)
+        msg = "Optimizer not recognized"
+        raise ValueError(msg)
+
+    def get_parameters(self, config):
+        return Utils.get_params(self.net)
+
+    def fit(self, parameters, config, average_probabilities=None):
+        is_tunable = self.train_parameters.regularization_mode == "tunable"
+        current_fl_round = config["server_round"]
+        random_generator = np.random.default_rng(seed=[int(self.client_generator.random() * 2**32), current_fl_round])
+        seed = int(random_generator.random() * 2**32)
+        Utils.seed_everything(seed)
+
+        if (self.fed_dir / "avg_proba.pkl").exists():
+            with (self.fed_dir / "avg_proba.pkl").open("rb") as file:
+                average_probabilities = dill.load(file)  # noqa: S301
+
+        Utils.set_params(self.net, parameters)
+
+        with (self.fed_dir / "counter_sampling.pkl").open("rb") as f:
+            counter_sampling = dill.load(f)  # noqa: S301
+            self.sampling_frequency = counter_sampling[str(self.cid)]
+
+        num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
+        train_loader = Utils.get_dataloader(
+            self.fed_dir, self.cid, batch_size=config["batch_size"],
+            workers=num_workers, dataset=self.dataset_name, partition="train",
+        )
+
+        print(f"Client {self.cid} has {len(train_loader.dataset)} samples")
+        reweighing_weights = self._compute_reweighing_weights(train_loader)
+        self.delta = (1 / len(train_loader.dataset)) / 3
+
+        sigma_update_lambda = self._get_sigma_update_lambda(train_loader)
+        loaded_pe, loaded_pe_reg, first_round = self._setup_privacy_and_noise(train_loader)
+
+        (private_net, private_optimizer, train_loader, privacy_engine) = Utils.create_private_model(
+            model=self.net, epsilon=self.train_parameters.epsilon, original_optimizer=self.optimizer,
+            train_loader=train_loader, epochs=self.train_parameters.epochs, delta=self.delta,
+            MAX_GRAD_NORM=self.clipping, batch_size=self.train_parameters.batch_size,
+            noise_multiplier=self.noise_multiplier, accountant=loaded_pe,
         )
         private_net.to(self.train_parameters.device)
 
-        private_model_regularization = None
-        private_optimizer_regularization = None
-
-        # Use the model sent by the server to compute the disparity
-        # before the local training
-        max_disparity_train_before_local_epoch = RegularizationLoss().violation_with_dataset(
-            model=private_net,
-            dataset=train_loader,
-            device=self.train_parameters.device,
+        max_disp_before = RegularizationLoss().violation_with_dataset(
+            model=private_net, dataset=train_loader, device=self.train_parameters.device,
             average_probabilities=average_probabilities,
         )
 
-        # In the first round we want to start from Lambda = 0, if it is not the first
-        # round we have several options to update Lambda: we can start from a fixed
-        # value, we can start from a value that depends on the target disparity
-        # and on the disparity of the training dataset or we can use the average of the
-        # disparities of the previous FL round
         if not first_round and self.train_parameters.target and is_tunable:
-            self.train_parameters.regularization_lambda = self.compute_starting_lambda_with_disparity(
-                disparity_training=max_disparity_train_before_local_epoch,
-            )
+            self.train_parameters.regularization_lambda = self.compute_starting_lambda_with_disparity(max_disp_before)
 
-        if self.train_parameters.regularization:
-            (
-                private_model_regularization,
-                private_optimizer_regularization,
-                _,
-                privacy_engine_regularization,
-            ) = Utils.create_private_model(
-                model=self.model_regularization,
-                epsilon=self.train_parameters.epsilon,
-                original_optimizer=self.optimizer_regularization,
-                train_loader=train_loader,
-                epochs=self.train_parameters.epochs,
-                delta=self.delta,
-                MAX_GRAD_NORM=self.clipping,
-                batch_size=self.train_parameters.batch_size,
-                noise_multiplier=self.noise_multiplier,
-                accountant=loaded_privacy_engine_regularization,
-            )
-            private_model_regularization.to(self.train_parameters.device)
+        private_model_reg, private_opt_reg, pe_reg = self._setup_regularization_model(train_loader, loaded_pe_reg)
 
         gc.collect()
-
-        all_metrics = []
-        all_losses = []
-        history_lambda = []
-        for epoch in range(self.train_parameters.epochs):
-            metrics = Learning.train_private_model(
-                train_parameters=self.train_parameters,
-                model=private_net,
-                model_regularization=private_model_regularization,
-                optimizer=private_optimizer,
-                optimizer_regularization=private_optimizer_regularization,
-                train_loader=train_loader,
-                test_loader=None,
-                current_epoch=epoch,
-                current_fl_round=current_fl_round,
-                node_id=self.cid,
-                average_probabilities=average_probabilities,
-                sigma_update_lambda=sigma_update_lambda,
-                reweighing_weights=reweighing_weights,
-            )
-
-            metrics["Max Disparity Train Before Local Epoch"] = max_disparity_train_before_local_epoch
-            history_lambda.extend(metrics["history_lambda"])
-            all_metrics.append(metrics)
-            all_losses.append(metrics["Train Loss"])
+        all_metrics, all_losses, history_lambda = self._run_training_epochs(
+            private_net, private_model_reg, private_optimizer, private_opt_reg,
+            train_loader, current_fl_round, average_probabilities, sigma_update_lambda,
+            reweighing_weights, max_disp_before
+        )
 
         Utils.set_params(self.net, Utils.get_params(private_net))
+        self._save_privacy_state(privacy_engine, pe_reg)
 
-        # We need to store the state of the privacy engine and all the
-        # details about the private training
-        with open(f"{self.fed_dir}/privacy_engine_{self.cid}.pkl", "wb") as f:
-            dill.dump(privacy_engine.accountant, f)
-        if self.train_parameters.regularization:
-            with open(f"{self.fed_dir}/privacy_engine_regularization_{self.cid}.pkl", "wb") as f:
-                dill.dump(privacy_engine_regularization.accountant, f)
-
-            with open(f"{self.fed_dir}/regularization_lambda_{self.cid}.pkl", "wb") as f:
-                dill.dump(self.train_parameters.regularization_lambda, f)
-
-        (
-            predictions,
-            sensitive_attributes,
-            _,
-            _,
-            possible_targets,
-            possible_sensitive_attributes,
-            _,
-            _,
-            y_true,
-        ) = Learning.test_prediction(
-            model=private_net,
-            test_loader=train_loader,
-            train_parameters=self.train_parameters,
-            current_epoch=None,
-        )
-
-        (probabilities, counters) = RegularizationLoss.compute_probabilities(
-            predictions=predictions,
-            sensitive_attribute_list=sensitive_attributes,
-            device=self.train_parameters.device,
-            possible_sensitive_attributes=possible_sensitive_attributes,
-            possible_targets=possible_targets,
-            # train_parameters=self.train_parameters,
-        )
-
-        counters_no_noise = copy.deepcopy(counters)
-
-        # compute the noise that I have to add to the counters to ensure we
-        # guarantee train_parameters.epsilon_statistics
-        if self.train_parameters.epsilon_statistics is not None:
-            if os.path.exists(f"{self.fed_dir}/metadata.json"):
-                with open(f"{self.fed_dir}/metadata.json") as infile:
-                    json_file = json.load(infile)
-            combinations = json_file["combinations"]
-            sampling_ratio = 1
-            iterations = self.sampling_frequency * len(
-                combinations
-            )  # we multiply by 2 because every time we send two values
-            noise_statistics = get_noise_multiplier(
-                target_epsilon=self.train_parameters.epsilon_statistics,
-                target_delta=self.delta,
-                sample_rate=sampling_ratio,
-                steps=iterations,
-                accountant="rdp",
-            )
-
-            for key in counters.keys():
-                if key in combinations:
-                    counters[key] += Utils.get_noise(mechanism_type="gaussian", sigma=noise_statistics)
-        else:
-            noise_statistics = None
-
-        # Compute the final epsilon by summing the three epsilons
-        # that we can have in the methodology. We can do this because
-        # all the epsilon are RDP
-        if self.original_epsilon:
-            final_epsilon = (
-                self.original_epsilon
-                + (self.train_parameters.epsilon_lambda if self.train_parameters.epsilon_lambda is not None else 0)
-                + (
-                    self.train_parameters.epsilon_statistics
-                    if self.train_parameters.epsilon_statistics is not None
-                    else 0
-                )
-            )
-        else:
-            final_epsilon = float("inf")
-
-        final_delta = self.delta
-
-        with open(f"{self.fed_dir}/privacy_engine_{self.cid}.pkl", "wb") as f:
-            dill.dump(privacy_engine.accountant, f)
+        final_epsilon = self._compute_final_epsilon()
+        probabilities, counters, counters_no_noise = self._compute_counters(private_net, train_loader)
 
         del private_net
-        if private_model_regularization:
-            del private_model_regularization
+        if private_model_reg:
+            del private_model_reg
         gc.collect()
 
-        # print(f"Client {self.cid} Counter: ", counters)
-        # Return local model and statistics
         return (
             Utils.get_params(self.net),
             len(train_loader.dataset),
@@ -398,233 +222,170 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "train_loss_with_regularization": all_metrics[-1]["Train Loss + Regularizaion"],
                 "train_accuracy": all_metrics[-1]["Train Accuracy"],
                 "epsilon": final_epsilon,
-                "delta": final_delta,
+                "delta": self.delta,
                 "probabilities": probabilities,
                 "cid": self.cid,
-                "targets": possible_targets,
-                "sensitive_attributes": possible_sensitive_attributes,
+                "targets": all_metrics[-1].get("targets", []),
+                "sensitive_attributes": all_metrics[-1].get("sensitive_attributes", []),
                 "Disparity Train": all_metrics[-1]["Max Unfairness Train"],
                 "Lambda": self.train_parameters.regularization_lambda,
                 "counters": counters,
                 "counters_no_noise": counters_no_noise,
-                "Max Disparity Train Before Local Epoch": all_metrics[0]["Max Disparity Train Before Local Epoch"],
-                # "Max Disparity Dataset": max_disparity_dataset,
+                "Max Disparity Train Before Local Epoch": max_disp_before,
                 "history_lambda": history_lambda,
             },
         )
 
-    def evaluate(self, parameters, config):
-        if os.path.exists(f"{self.fed_dir}/avg_proba.pkl"):
-            with open(f"{self.fed_dir}/avg_proba.pkl", "rb") as file:
-                average_probabilities = dill.load(file)
-        else:
-            average_probabilities = None
-        Utils.set_params(self.net, parameters)
-
-        # Load data for this client and get trainloader
-        num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
-
-        if self.train_parameters.cross_silo == True:
-            partition = "test" if self.train_parameters.sweep == False else "val"
-        else:
-            partition = "train"
-
-        dataset = Utils.get_dataloader(
-            self.fed_dir,
-            self.cid,
-            batch_size=self.train_parameters.batch_size,
-            workers=num_workers,
-            dataset=self.dataset_name,
-            partition=partition,
+    def _get_sigma_update_lambda(self, train_loader):
+        if self.train_parameters.epsilon_lambda is None:
+            return None
+        sampling_ratio = 1 / len(train_loader)
+        iterations = self.sampling_frequency * self.train_parameters.epochs * len(train_loader)
+        return get_noise_multiplier(
+            target_epsilon=self.train_parameters.epsilon_lambda,
+            target_delta=self.delta,
+            sample_rate=sampling_ratio,
+            steps=iterations,
+            accountant="rdp",
         )
 
-        # Send model to device
+    def _setup_regularization_model(self, train_loader, loaded_pe_reg):
+        if not self.train_parameters.regularization:
+            return None, None, None
+        (pm_reg, po_reg, _, pe_reg) = Utils.create_private_model(
+            model=self.model_regularization, epsilon=self.train_parameters.epsilon,
+            original_optimizer=self.optimizer_regularization, train_loader=train_loader,
+            epochs=self.train_parameters.epochs, delta=self.delta, MAX_GRAD_NORM=self.clipping,
+            batch_size=self.train_parameters.batch_size, noise_multiplier=self.noise_multiplier,
+            accountant=loaded_pe_reg,
+        )
+        pm_reg.to(self.train_parameters.device)
+        return pm_reg, po_reg, pe_reg
+
+    def _run_training_epochs(self, net, pm_reg, opt, po_reg, loader, fl_round, avg_prob, sigma, weights, max_disp):
+        all_metrics, all_losses, history_lambda = [], [], []
+        for epoch in range(self.train_parameters.epochs):
+            metrics = Learning.train_private_model(
+                train_parameters=self.train_parameters, model=net, model_regularization=pm_reg,
+                optimizer=opt, optimizer_regularization=po_reg, train_loader=loader,
+                test_loader=None, current_epoch=epoch, current_fl_round=fl_round,
+                node_id=self.cid, average_probabilities=avg_prob,
+                sigma_update_lambda=sigma, reweighing_weights=weights,
+            )
+            metrics["Max Disparity Train Before Local Epoch"] = max_disp
+            history_lambda.extend(metrics["history_lambda"])
+            all_metrics.append(metrics)
+            all_losses.append(metrics["Train Loss"])
+        return all_metrics, all_losses, history_lambda
+
+    def _save_privacy_state(self, pe, pe_reg):
+        with (self.fed_dir / f"privacy_engine_{self.cid}.pkl").open("wb") as f:
+            dill.dump(pe.accountant, f)
+        if self.train_parameters.regularization:
+            with (self.fed_dir / f"privacy_engine_regularization_{self.cid}.pkl").open("wb") as f:
+                dill.dump(pe_reg.accountant, f)
+            with (self.fed_dir / f"regularization_lambda_{self.cid}.pkl").open("wb") as f:
+                dill.dump(self.train_parameters.regularization_lambda, f)
+
+    def _compute_final_epsilon(self):
+        if not self.original_epsilon:
+            return float("inf")
+        return (
+            self.original_epsilon
+            + (self.train_parameters.epsilon_lambda or 0)
+            + (self.train_parameters.epsilon_statistics or 0)
+        )
+
+    def _compute_counters(self, net, loader):
+        (preds, s_attrs, _, _, targets, s_features, _, _, _) = Learning.test_prediction(
+            model=net, test_loader=loader, train_parameters=self.train_parameters, current_epoch=None,
+        )
+        probs, counters = RegularizationLoss.compute_probabilities(
+            predictions=preds, sensitive_attribute_list=s_attrs, device=self.train_parameters.device,
+            possible_sensitive_attributes=s_features, possible_targets=targets,
+        )
+        counters_no_noise = copy.deepcopy(counters)
+        if self.train_parameters.epsilon_statistics is not None:
+            self._add_noise_to_counters(counters)
+        return probs, counters, counters_no_noise
+
+    def _add_noise_to_counters(self, counters):
+        if not (self.fed_dir / "metadata.json").exists():
+            return
+        with (self.fed_dir / "metadata.json").open() as f:
+            meta = json.load(f)
+        combs = meta["combinations"]
+        sigma = get_noise_multiplier(
+            target_epsilon=self.train_parameters.epsilon_statistics, target_delta=self.delta,
+            sample_rate=1, steps=self.sampling_frequency * len(combs), accountant="rdp",
+        )
+        for key in counters:
+            if key in combs:
+                counters[key] += Utils.get_noise(mechanism_type="gaussian", sigma=sigma)
+
+    def evaluate(self, parameters, config):
+        if (self.fed_dir / "avg_proba.pkl").exists():
+            with (self.fed_dir / "avg_proba.pkl").open("rb") as file:
+                avg_prob = dill.load(file)  # noqa: S301
+        else:
+            avg_prob = None
+        Utils.set_params(self.net, parameters)
+        num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
+        partition = "test" if self.train_parameters.cross_silo and not self.train_parameters.sweep else ("val" if self.train_parameters.sweep else "train")
+        dataset = Utils.get_dataloader(
+            self.fed_dir, self.cid, batch_size=self.train_parameters.batch_size,
+            workers=num_workers, dataset=self.dataset_name, partition=partition,
+        )
         self.net.to(self.train_parameters.device)
 
-        # Evaluate
-        (
-            test_loss,
-            accuracy,
-            f1score,
-            precision,
-            recall,
-            max_disparity,
-            y_true,
-            y_pred,
-            colors,
-            max_group,
-        ) = Learning.test(
-            model=self.net,
-            test_loader=dataset,
-            train_parameters=self.train_parameters,
-            current_epoch=None,
-            average_probabilities=average_probabilities,
-        )
+        res = Learning.test(self.net, dataset, self.train_parameters, None, avg_prob)
+        res2 = Learning.test_2(self.net, dataset, self.train_parameters, None, avg_prob)
+        res3 = Learning.test_3(self.net, dataset, self.train_parameters, None, avg_prob)
 
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            max_disparity_second,
-            _,
-            max_group_2,
-        ) = Learning.test_2(
-            model=self.net,
-            test_loader=dataset,
-            train_parameters=self.train_parameters,
-            current_epoch=None,
-            average_probabilities=average_probabilities,
-        )
-
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            max_disparity_third,
-            _,
-            _,
-            _,
-            max_group_3,
-        ) = Learning.test_3(
-            model=self.net,
-            test_loader=dataset,
-            train_parameters=self.train_parameters,
-            current_epoch=None,
-            average_probabilities=average_probabilities,
-        )
-
-        (
-            predictions,
-            sensitive_attributes,
-            second_sensitive_attributes,
-            third_sensitive_attributes,
-            possible_targets,
-            possible_sensitive_attributes,
-            possible_second_sensitive_attributes,
-            possible_third_sensitive_attributes,
-            y_true,
-        ) = Learning.test_prediction(
-            model=self.net,
-            test_loader=dataset,
-            train_parameters=self.train_parameters,
-            current_epoch=None,
-        )
-        (
-            probabilities,
-            counters,
-        ) = RegularizationLoss.compute_probabilities(
-            predictions=predictions,
-            sensitive_attribute_list=sensitive_attributes,
-            device=self.train_parameters.device,
-            possible_sensitive_attributes=possible_sensitive_attributes,
-            possible_targets=possible_targets,
-            # train_parameters=self.train_parameters,
-        )
-
-        (
-            second_probabilities,
-            second_counters,
-        ) = RegularizationLoss.compute_probabilities(
-            predictions=predictions,
-            sensitive_attribute_list=second_sensitive_attributes,
-            device=self.train_parameters.device,
-            possible_sensitive_attributes=possible_second_sensitive_attributes,
-            possible_targets=possible_targets,
-            # train_parameters=self.train_parameters,
-        )
-
-        (
-            third_probabilities,
-            third_counters,
-        ) = RegularizationLoss.compute_probabilities(
-            predictions=predictions,
-            sensitive_attribute_list=third_sensitive_attributes,
-            device=self.train_parameters.device,
-            possible_sensitive_attributes=possible_third_sensitive_attributes,
-            possible_targets=possible_targets,
-            # train_parameters=self.train_parameters,
-        )
+        (preds, s1, s2, s3, targets, f1, f2, f3, _) = Learning.test_prediction(self.net, dataset, self.train_parameters, None)
+        p1, c1 = RegularizationLoss.compute_probabilities(preds, s1, self.train_parameters.device, f1, targets)
+        p2, c2 = RegularizationLoss.compute_probabilities(preds, s2, self.train_parameters.device, f2, targets)
+        p3, c3 = RegularizationLoss.compute_probabilities(preds, s3, self.train_parameters.device, f3, targets)
 
         self.net.to("cpu")
         gc.collect()
 
-        if self.train_parameters.sweep:
-            metrics = {
-                "validation_accuracy": float(accuracy),
-                "max_disparity_validation": float(max_disparity)
-                if self.train_parameters.sensitive_attribute == "SEX"
-                else float(max_disparity_second),
-                "max_disparity_validation_second": float(max_disparity_second)
-                if self.train_parameters.sensitive_attribute == "SEX"
-                else float(max_disparity),
-                "max_disparity_validation_third": float(max_disparity_third)
-                if self.train_parameters.sensitive_attribute == "SEX"
-                else float(max_disparity),
-                "validation_loss": test_loss,
-                "probabilities": probabilities,
-                "second_probabilities": second_probabilities,
-                "cid": self.cid,
-                "counters": counters if self.train_parameters.sensitive_attribute == "SEX" else second_counters,
-                "second_counters": second_counters if self.train_parameters.sensitive_attribute == "SEX" else counters,
-                "third_counters": third_counters,
-                # "max_disparity_dataset": max_disparity_dataset,
-                "f1_score": f1score,
-                "max_group_validation": max_group,
-                "max_group_validation_second": max_group_2,
-                "max_group_validation_third": max_group_3,
-            }
-        else:
-            metrics = {
-                "test_accuracy": float(accuracy),
-                "max_disparity_test": float(max_disparity),
-                "max_disparity_test_second": float(max_disparity_second),
-                "max_disparity_test_third": float(max_disparity_third),
-                "test_loss": test_loss,
-                "probabilities": probabilities,
-                "second_probabilities": second_probabilities,
-                "third_probabilities": third_probabilities,
-                "cid": self.cid,
-                "counters": counters,
-                "second_counters": second_counters,
-                "third_counters": third_counters,
-                # "max_disparity_dataset": max_disparity_dataset,
-                "f1_score": f1score,
-                # "y_true": y_true,
-                "max_group_test": max_group,
-                "max_group_test_second": max_group_2,
-                "max_group_test_third": max_group_3,
-            }
+        metrics = self._get_metrics_dict(res, res2, res3, p1, p2, p3, c1, c2, c3)
+        return float(res[0]), len(dataset.dataset), metrics
 
-        # Return statistics
-        return (
-            float(test_loss),
-            len(dataset.dataset),
-            metrics,
-        )
+    def _get_metrics_dict(self, r1, r2, r3, p1, p2, p3, c1, c2, c3):
+        is_sex = self.train_parameters.sensitive_attribute == "SEX"
+        if self.train_parameters.sweep:
+            return {
+                "validation_accuracy": float(r1[1]),
+                "max_disparity_validation": float(r1[5]) if is_sex else float(r2[5]),
+                "max_disparity_validation_second": float(r2[5]) if is_sex else float(r1[5]),
+                "max_disparity_validation_third": float(r3[5]) if is_sex else float(r1[5]),
+                "validation_loss": r1[0], "probabilities": p1, "second_probabilities": p2, "cid": self.cid,
+                "counters": c1 if is_sex else c2, "second_counters": c2 if is_sex else c1, "third_counters": c3,
+                "f1_score": r1[2], "max_group_validation": r1[9], "max_group_validation_second": r2[7], "max_group_validation_third": r3[9],
+            }
+        return {
+            "test_accuracy": float(r1[1]), "max_disparity_test": float(r1[5]),
+            "max_disparity_test_second": float(r2[5]), "max_disparity_test_third": float(r3[5]),
+            "test_loss": r1[0], "probabilities": p1, "second_probabilities": p2, "third_probabilities": p3,
+            "cid": self.cid, "counters": c1, "second_counters": c2, "third_counters": c3,
+            "f1_score": r1[2], "max_group_test": r1[9], "max_group_test_second": r2[7], "max_group_test_third": r3[9],
+        }
 
     def compute_starting_lambda_with_avg(self):
-        """
-        This function computes the staƒrting Lambda based on
-        the average of the disparities of the previous FL round.
-        """
         loaded_clients_list = []
-        if os.path.exists(f"{self.fed_dir}/clients_last_round.pkl"):
-            with open(f"{self.fed_dir}/clients_last_round.pkl", "rb") as file:
-                loaded_clients_list = dill.load(file)
+        if (self.fed_dir / "clients_last_round.pkl").exists():
+            with (self.fed_dir / "clients_last_round.pkl").open("rb") as file:
+                loaded_clients_list = dill.load(file)  # noqa: S301
         lambda_list = []
         if loaded_clients_list:
             for client_cid in loaded_clients_list:
-                if os.path.exists(f"{self.fed_dir}/regularization_lambda_{client_cid}.pkl"):
-                    with open(f"{self.fed_dir}/regularization_lambda_{client_cid}.pkl", "rb") as file:
-                        loaded_lambda = dill.load(file)
+                if (self.fed_dir / f"regularization_lambda_{client_cid}.pkl").exists():
+                    with (self.fed_dir / f"regularization_lambda_{client_cid}.pkl").open("rb") as file:
+                        loaded_lambda = dill.load(file)  # noqa: S301
                         lambda_list.append(loaded_lambda)
-        if lambda_list:
-            return np.mean(lambda_list)
-        return 0
+        return np.mean(lambda_list) if lambda_list else 0
 
     def compute_starting_lambda_with_disparity(self, disparity_training: float):
         """

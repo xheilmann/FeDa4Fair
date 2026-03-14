@@ -142,15 +142,23 @@ def _get_attribute_modifications(entry, df_entry, dr):
 
 
 def _get_value_modifications(entry, df_entry, dr):
-    v1, v2 = df_entry["value_DP_RACE"].values[0][-3:-2], df_entry["value_DP_RACE"].values[1][-3:-2]
+    raw0 = str(df_entry["value_DP_RACE"].values[0])
+    raw1 = str(df_entry["value_DP_RACE"].values[1])
+    # value_DP_RACE has the format "first_last" (e.g. "1_2").
+    # Split on "_" to robustly extract the individual race values.
+    parts0 = raw0.split("_")
+    parts1 = raw1.split("_")
+    # The "discriminated" value is always the last token.
+    v1, v2 = parts0[-1], parts1[-1]
     if v1 == v2:
         min_val = np.min(df_entry["DP_RACE"].values)
         if min_val < 0.09:
-            val = int(df_entry["value_DP_RACE"].values[0][:1])
+            # Use the first token of the first entry as the target value
+            val = int(parts0[0])
             mod = {"RAC1P": {"drop_rate": dr, "flip_rate": 0, "value": val, "attribute": None, "attribute_value": None}}
             return entry, mod, [entry, dr, "RAC1P", val]
     else:
-        val = int(df_entry["value_DP_RACE"].values[0][-3:-2])
+        val = int(v1)
         mod = {"RAC1P": {"drop_rate": dr, "flip_rate": 0, "value": val, "attribute": None, "attribute_value": None}}
         return entry, mod, [entry, dr, "RAC1P", val]
     return None

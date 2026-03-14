@@ -140,6 +140,8 @@ def flip_data(
     if num_to_flip == 0:
         return df
 
+    # Work on a copy to avoid mutating the caller's DataFrame
+    df = df.copy()
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index
     if pd.api.types.is_bool_dtype(df[label_column]):
         df.loc[rows_to_flip, label_column] = False
@@ -208,6 +210,9 @@ def cap_samples(
     if len(df) <= cap:
         return df
 
+    # Use a single RNG instance seeded once (modern numpy API)
+    rng = np.random.default_rng(seed)
+
     # Calculate proportions of each label
     fractions = df[label_column].value_counts(normalize=True)
 
@@ -220,7 +225,7 @@ def cap_samples(
         n_to_keep = min(n_to_keep, len(label_indices))
 
         if n_to_keep > 0:
-            kept = np.random.RandomState(seed).choice(label_indices, size=n_to_keep, replace=False)
+            kept = rng.choice(label_indices, size=n_to_keep, replace=False)
             rows_to_keep.extend(kept)
 
     # If rounding caused us to have fewer than cap, add some random remaining ones
@@ -228,7 +233,7 @@ def cap_samples(
         remaining_indices = list(set(df.index) - set(rows_to_keep))
         n_extra = cap - len(rows_to_keep)
         if remaining_indices and n_extra > 0:
-            extra = np.random.RandomState(seed).choice(
+            extra = rng.choice(
                 remaining_indices, size=min(n_extra, len(remaining_indices)), replace=False
             )
             rows_to_keep.extend(extra)

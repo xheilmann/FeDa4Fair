@@ -1,17 +1,14 @@
-import os
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
 from datasets import Dataset, DatasetDict
 
-# Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-
 # Mock evaluation module BEFORE importing FairFederatedDataset
-# This is necessary because evaluation imports xgboost which fails if libomp is missing
+# (avoids optional xgboost import crash on some systems)
+# Using setdefault so we don't overwrite a real import if already present.
 mock_evaluation = MagicMock()
-sys.modules["FeDa4Fair.metrics.evaluation"] = mock_evaluation
+sys.modules.setdefault("FeDa4Fair.metrics.evaluation", mock_evaluation)
 
 from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 

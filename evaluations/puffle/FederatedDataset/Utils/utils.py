@@ -25,9 +25,7 @@ class PartitionUtils:
 
         """
         images, sensitive_attribute, labels = dataset
-        splitted_dataset = []
-
-        for indexes in splitted_indexes:
-            splitted_dataset.append([images[indexes], sensitive_attribute[indexes], labels[indexes]])
-
-        return splitted_dataset
+        return [
+            [images[indexes], sensitive_attribute[indexes], labels[indexes]]
+            for indexes in splitted_indexes
+        ]

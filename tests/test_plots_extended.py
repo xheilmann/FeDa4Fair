@@ -19,7 +19,7 @@ class TestPlotsExtended(unittest.TestCase):
 
         partitioner = MagicMock()
 
-        fig, axes, dfs = plot_comparison_label_distribution(partitioner_list=[partitioner], label_name="label")
+        fig, axes, _dfs = plot_comparison_label_distribution(partitioner_list=[partitioner], label_name="label")
 
         self.assertEqual(fig, mock_fig)
         self.assertEqual(len(axes), 1)
@@ -36,7 +36,7 @@ class TestPlotsExtended(unittest.TestCase):
 
         partitioner = MagicMock()
 
-        fig, axes, dfs = plot_comparison_fairness_distribution(
+        fig, _axes, _dfs = plot_comparison_fairness_distribution(
             partitioner_dict={"train": partitioner}, label_name="label", sens_att="sex"
         )
 

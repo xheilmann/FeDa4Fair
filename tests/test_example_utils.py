@@ -41,7 +41,7 @@ class TestExampleUtils(unittest.TestCase):
 
     def test_pre_process_single_datasets(self):
         df = pd.DataFrame({">50K": [0, 1], "SEX": [1, 2], "MAR": [1, 3], "RAC1P": [1, 8], "feat1": [0.1, 0.2]})
-        dfs, labels, groups, groups2, groups3 = pre_process_single_datasets(df)
+        dfs, labels, groups, _groups2, _groups3 = pre_process_single_datasets(df)
         self.assertEqual(len(dfs), 1)
         self.assertEqual(dfs[0].shape, (2, 4))  # 4 features after dropping >50K
         self.assertEqual(labels[0].tolist(), [[0], [1]])
@@ -54,7 +54,7 @@ class TestExampleUtils(unittest.TestCase):
         y = [0, 1]
         ds = TabularDataset(x, z, w, y)
         self.assertEqual(len(ds), 2)
-        x_s, z_s, w_s, y_s = ds[0]
+        x_s, z_s, _w_s, y_s = ds[0]
         np.testing.assert_array_equal(x_s, x[0])
         self.assertEqual(z_s, z[0])
         self.assertEqual(y_s, y[0])
@@ -86,7 +86,7 @@ class TestExampleUtils(unittest.TestCase):
         hf_ds = [{"image": np.zeros((64, 64, 3)), "label": 1, "sensitive": 0}]
         ds = ImageDataset(hf_ds)
         self.assertEqual(len(ds), 1)
-        img, s1, s2, label = ds[0]
+        _img, s1, _s2, label = ds[0]
         self.assertEqual(label, 1)
         self.assertEqual(s1, 0)
 

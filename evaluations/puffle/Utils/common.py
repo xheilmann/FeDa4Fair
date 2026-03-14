@@ -24,13 +24,14 @@ XYZ = tuple[np.ndarray, np.ndarray]
 XYZList = list[XYZ]
 PartitionedDataset = tuple[XYZList, XYZList]
 
-np.random.seed(2020)
+_ = np.random.default_rng(2020)
 
 
 def float_to_int(i: float) -> int:
     """Return float as int but raise if decimal is dropped."""
     if not i.is_integer():
-        raise Exception("Cast would drop decimals")
+        msg = "Cast would drop decimals"
+        raise ValueError(msg)
 
     return int(i)
 
@@ -107,7 +108,7 @@ def split_at_fraction(x: np.ndarray, y: np.ndarray, z: np.ndarray, fraction: flo
 
 def shuffle(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> XYZ:
     """Shuffle x and y."""
-    idx = np.random.permutation(len(x))
+    idx = np.random.default_rng().permutation(len(x))
     return x[idx], y[idx], z[idx]
 
 
@@ -117,12 +118,12 @@ def partition(x: np.ndarray, y: np.ndarray, z: np.ndarray, num_partitions: int) 
         zip(
             np.split(x, num_partitions),
             np.split(y, num_partitions),
-            np.split(z, num_partitions),
+            np.split(z, num_partitions), strict=False,
         ),
     )
 
 
-def combine_partitions(XYZ_list_0: XYZList, XYZ_list_1: XYZList) -> XYZList:
+def combine_partitions(xyz_list_0: XYZList, xyz_list_1: XYZList) -> XYZList:
     """Combine two lists of ndarray Tuples into one list."""
     return [
         (
@@ -130,7 +131,7 @@ def combine_partitions(XYZ_list_0: XYZList, XYZ_list_1: XYZList) -> XYZList:
             np.concatenate([y_0, y_1], axis=0),
             np.concatenate([z_0, z_1], axis=0),
         )
-        for (x_0, y_0, z_0), (x_1, y_1, z_1) in zip(XYZ_list_0, XYZ_list_1)
+        for (x_0, y_0, z_0), (x_1, y_1, z_1) in zip(xyz_list_0, xyz_list_1, strict=False)
     ]
 
 
@@ -172,13 +173,13 @@ def create_partitions(
     # Shift in second split of dataset the classes into two groups
     x_1, y_1, z_1 = shift(x_1, y_1, z_1)
 
-    XYZ_0_partitions = partition(x_0, y_0, z_0, num_partitions)
-    XYZ_1_partitions = partition(x_1, y_1, z_1, num_partitions)
+    xyz_0_partitions = partition(x_0, y_0, z_0, num_partitions)
+    xyz_1_partitions = partition(x_1, y_1, z_1, num_partitions)
 
-    XYZ_partitions = combine_partitions(XYZ_0_partitions, XYZ_1_partitions)
+    xyz_partitions = combine_partitions(xyz_0_partitions, xyz_1_partitions)
 
     # Adjust x and y shape
-    return [adjust_XYZ_shape(XYZ) for XYZ in XYZ_partitions]
+    return [adjust_xyz_shape(xyz) for xyz in xyz_partitions]
 
 
 def create_partitioned_dataset(
@@ -192,50 +193,50 @@ def create_partitioned_dataset(
     Currently tested and supported are MNIST, FashionMNIST and
     CIFAR-10/100
     """
-    XYZ_train, XYZ_test = keras_dataset
+    xyz_train, xyz_test = keras_dataset
 
-    XYZ_train_partitions = create_partitions(
-        unpartitioned_dataset=XYZ_train,
+    xyz_train_partitions = create_partitions(
+        unpartitioned_dataset=xyz_train,
         iid_fraction=iid_fraction,
         num_partitions=num_partitions,
     )
 
-    XYZ_test_partitions = create_partitions(
-        unpartitioned_dataset=XYZ_test,
+    xyz_test_partitions = create_partitions(
+        unpartitioned_dataset=xyz_test,
         iid_fraction=iid_fraction,
         num_partitions=num_partitions,
     )
 
-    return (XYZ_train_partitions, XYZ_test_partitions), adjust_XYZ_shape(XYZ_test)
+    return (xyz_train_partitions, xyz_test_partitions), adjust_xyz_shape(xyz_test)
 
 
-def log_distribution(XYZ_partitions: XYZList) -> None:
+def log_distribution(xyz_partitions: XYZList) -> None:
     """Print label distribution for list of paritions."""
-    distro = [np.unique(z, return_counts=True) for _, _, z in XYZ_partitions]
+    distro = [np.unique(z, return_counts=True) for _, _, z in xyz_partitions]
     for d in distro:
         print(d)
 
 
-def adjust_XYZ_shape(XYZ: XYZ) -> XYZ:
+def adjust_xyz_shape(xyz: XYZ) -> XYZ:
     """Adjust shape of both x and y."""
-    x, y, z = XYZ
-    if x.ndim == 3:
+    x, y, z = xyz
+    X_NDIM_3 = 3
+    Z_NDIM_2 = 2
+    if x.ndim == X_NDIM_3:
         x = adjust_x_shape(x)
-    if z.ndim == 2:
+    if z.ndim == Z_NDIM_2:
         z = adjust_y_shape(z)
     return (x, y, z)
 
 
 def adjust_x_shape(nda: np.ndarray) -> np.ndarray:
     """Turn shape (x, y, z) into (x, y, z, 1)."""
-    nda_adjusted = np.reshape(nda, (nda.shape[0], nda.shape[1], nda.shape[2], 1))
-    return nda_adjusted
+    return np.reshape(nda, (nda.shape[0], nda.shape[1], nda.shape[2], 1))
 
 
 def adjust_y_shape(nda: np.ndarray) -> np.ndarray:
     """Turn shape (x, 1) into (x)."""
-    nda_adjusted = np.reshape(nda, (nda.shape[0]))
-    return nda_adjusted
+    return np.reshape(nda, (nda.shape[0]))
 
 
 def split_array_at_indices(x: np.ndarray, split_idx: np.ndarray) -> list[list[np.ndarray]]:
@@ -257,18 +258,25 @@ def split_array_at_indices(x: np.ndarray, split_idx: np.ndarray) -> list[list[np
 
     """
     if split_idx.ndim != 1:
-        raise ValueError("Variable `split_idx` must be a 1-D numpy array.")
+        msg = "Variable `split_idx` must be a 1-D numpy array."
+        raise ValueError(msg)
     if split_idx.dtype != np.int64:
-        raise ValueError("Variable `split_idx` must be of type np.int64.")
+        msg = "Variable `split_idx` must be of type np.int64."
+        raise ValueError(msg)
     if split_idx[0] != 0:
-        raise ValueError("First value of `split_idx` must be 0.")
+        msg = "First value of `split_idx` must be 0."
+        raise ValueError(msg)
     if split_idx[-1] >= x.shape[0]:
-        raise ValueError(
+        msg = (
             """Last value in `split_idx` must be less than
             the number of samples in `x`."""
         )
+        raise ValueError(
+            msg
+        )
     if not np.all(split_idx[:-1] <= split_idx[1:]):
-        raise ValueError("Items in `split_idx` must be in increasing order.")
+        msg = "Items in `split_idx` must be in increasing order."
+        raise ValueError(msg)
 
     num_splits: int = len(split_idx)
     split_idx = np.append(split_idx, x.shape[0])
@@ -302,22 +310,26 @@ def exclude_classes_and_normalize(distribution: np.ndarray, exclude_dims: list[b
 
     """
     if np.any(distribution < 0) or (not np.isclose(np.sum(distribution), 1.0)):
-        raise ValueError("distribution must sum to 1 and have only positive values.")
+        msg = "distribution must sum to 1 and have only positive values."
+        raise ValueError(msg)
 
     if distribution.size != len(exclude_dims):
-        raise ValueError(
+        msg = (
             """Length of distribution must be equal
             to the length `exclude_dims`."""
         )
+        raise ValueError(
+            msg
+        )
     if eps < 0:
-        raise ValueError("""The value of `eps` must be positive and small.""")
+        msg = """The value of `eps` must be positive and small."""
+        raise ValueError(msg)
 
     distribution[[not x for x in exclude_dims]] += eps
     distribution[exclude_dims] = 0.0
     sum_rows = np.sum(distribution) + np.finfo(float).eps
-    distribution = distribution / sum_rows
+    return distribution / sum_rows
 
-    return distribution
 
 
 def sample_without_replacement(
@@ -333,6 +345,7 @@ def sample_without_replacement(
     Args:
         distribution (np.ndarray): Distribution used for sampling.
         list_samples(List[List[np.ndarray]]): List of samples.
+        list_sensitive_features_per_class (List[List[np.ndarray]]): List of sensitive features per class.
         num_samples (int): Total number of items to be sampled.
         empty_classes (List[bool]): List of booleans indicating which classes are empty.
             This is useful to differentiate which classes should still be sampled.
@@ -343,7 +356,8 @@ def sample_without_replacement(
 
     """
     if np.sum([len(x) for x in list_samples]) < num_samples:
-        raise ValueError("""Number of samples in `list_samples` is less than `num_samples`""")
+        msg = """Number of samples in `list_samples` is less than `num_samples`"""
+        raise ValueError(msg)
 
     # Make sure empty classes are not sampled
     # and solves for rare cases where
@@ -357,8 +371,9 @@ def sample_without_replacement(
     sensitive_list: list[np.ndarray] = []
 
     # check this or find a different dirty solution to run an experiment
+    rng = np.random.default_rng()
     for _ in range(num_samples):
-        sample_class = np.where(np.random.multinomial(1, distribution) == 1)[0][0]
+        sample_class = np.where(rng.multinomial(1, distribution) == 1)[0][0]
         sample: np.ndarray = list_samples[sample_class].pop()
         sensitive_feature = list_sensitive_features_per_class[sample_class].pop()
 
@@ -392,7 +407,8 @@ def sample_without_replacement_sensitive(
 
     Args:
         distribution (np.ndarray): Distribution used for sampling.
-        list_samples(List[List[np.ndarray]]): List of samples.
+        list_samples_per_sensitive_feature(List[List[np.ndarray]]): List of samples.
+        list_class_per_sensitive_feature (List[List[np.ndarray]]): List of classes per sensitive feature.
         num_samples (int): Total number of items to be sampled.
         empty_classes (List[bool]): List of booleans indicating which classes are empty.
             This is useful to differentiate which classes should still be sampled.
@@ -403,7 +419,8 @@ def sample_without_replacement_sensitive(
 
     """
     if np.sum([len(x) for x in list_samples_per_sensitive_feature]) < num_samples:
-        raise ValueError("""Number of samples in `list_samples` is less than `num_samples`""")
+        msg = """Number of samples in `list_samples` is less than `num_samples`"""
+        raise ValueError(msg)
 
     # Make sure empty classes are not sampled
     # and solves for rare cases where
@@ -417,8 +434,9 @@ def sample_without_replacement_sensitive(
     sensitive_list: list[np.ndarray] = []
 
     # check this or find a different dirty solution to run an experiment
+    rng = np.random.default_rng()
     for _ in range(num_samples):
-        sample_sensitive_feature = np.where(np.random.multinomial(1, distribution) == 1)[0][0]
+        sample_sensitive_feature = np.where(rng.multinomial(1, distribution) == 1)[0][0]
         sample: np.ndarray = list_samples_per_sensitive_feature[sample_sensitive_feature].pop()
         classes = list_class_per_sensitive_feature[sample_sensitive_feature].pop()
 
@@ -455,7 +473,7 @@ def get_partitions_distributions(partitions: XYZList) -> tuple[np.ndarray, list[
     labels = set()
     for _, _, z in partitions:
         labels.update(set(z))
-    list_labels = sorted(list(labels))
+    list_labels = sorted(labels)
     bin_edges = np.arange(len(list_labels) + 1)
 
     # Pre-allocate distributions
@@ -475,7 +493,7 @@ def create_lda_partitions(
     accept_imbalanced: bool = False,
     seed: int | SeedSequence | BitGenerator | Generator | None = None,
 ) -> tuple[XYZList, np.ndarray]:
-    """
+    r"""
     Create imbalanced non-iid partitions using Latent Dirichlet Allocation
     (LDA) without resampling.
 
@@ -518,10 +536,13 @@ def create_lda_partitions(
     x, y, z = sort_by_label(x, y, z)
 
     if (x.shape[0] % num_partitions) and (not accept_imbalanced):
-        raise ValueError(
+        msg = (
             """Total number of samples must be a multiple of `num_partitions`.
                If imbalanced classes are allowed, set
                `accept_imbalanced=True`."""
+        )
+        raise ValueError(
+            msg
         )
 
     num_samples = num_partitions * [0]
@@ -549,8 +570,9 @@ def create_lda_partitions(
     if concentration.size == 1:
         concentration = np.repeat(concentration, classes.size)
     elif concentration.size != classes.size:  # Sequence
+        msg = f"The size of the provided concentration ({concentration.size}) "
         raise ValueError(
-            f"The size of the provided concentration ({concentration.size}) ",
+            msg,
             f"must be either 1 or equal number of classes {classes.size})",
         )
 
@@ -564,13 +586,15 @@ def create_lda_partitions(
     if dirichlet_dist is None:
         dirichlet_dist = np.random.default_rng(seed).dirichlet(alpha=concentration, size=num_partitions)
 
-    if dirichlet_dist.size != 0:
-        if dirichlet_dist.shape != (num_partitions, classes.size):
-            raise ValueError(
-                f"""The shape of the provided dirichlet distribution
+    if dirichlet_dist.size != 0 and dirichlet_dist.shape != (num_partitions, classes.size):
+        msg = (
+            f"""The shape of the provided dirichlet distribution
                  ({dirichlet_dist.shape}) must match the provided number
                   of partitions and classes ({num_partitions},{classes.size})"""
-            )
+        )
+        raise ValueError(
+            msg
+        )
 
     # Assuming balanced distribution
     empty_classes = classes.size * [False]
@@ -601,11 +625,15 @@ def create_sensitive_partition(
     all the samples with the same sensitive attribute value.
 
     Args:
-        dataset (_type_): dataset we want to split
-        num_partitions (_type_): number of partitions we want to create
+        dataset (XYZ): dataset we want to split.
+        dirichlet_dist (np.ndarray, optional): previously generated distribution to be used.
+        num_partitions (int, optional): number of partitions we want to create.
+        concentration (float, np.ndarray, list[float]): Dirichlet Concentration parameter.
+        accept_imbalanced (bool): whether or not to accept imbalanced output classes.
+        seed (int, SeedSequence, BitGenerator, Generator, optional): seed to initialize the BitGenerator.
 
     Returns:
-        _type_: _description_
+        tuple[XYZList, np.ndarray]: List of XYZList containing partitions and the dirichlet probability density functions.
 
     """
     # pylint: disable=too-many-arguments,too-many-locals
@@ -614,10 +642,13 @@ def create_sensitive_partition(
     x, y, z = sort_by_sensitive_value(x, y, z)
 
     if (x.shape[0] % num_partitions) and (not accept_imbalanced):
-        raise ValueError(
+        msg = (
             """Total number of samples must be a multiple of `num_partitions`.
                If imbalanced classes are allowed, set
                `accept_imbalanced=True`."""
+        )
+        raise ValueError(
+            msg
         )
 
     num_samples = num_partitions * [0]
@@ -632,22 +663,13 @@ def create_sensitive_partition(
 
     # Check if concentration is Inf, if so create uniform partitions
     partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
-    # TODO FIXME
-    # if float("inf") in concentration:
-    #     partitions = create_partitions(
-    #         unpartitioned_dataset=(x, y, z),
-    #         iid_fraction=1.0,
-    #         num_partitions=num_partitions,
-    #     )
-    #     dirichlet_dist = get_partitions_distributions(partitions)[0]
-
-    #     return partitions, dirichlet_dist
 
     if concentration.size == 1:
         concentration = np.repeat(concentration, sensitive_values.size)
     elif concentration.size != sensitive_values.size:  # Sequence
+        msg = f"The size of the provided concentration ({concentration.size}) "
         raise ValueError(
-            f"The size of the provided concentration ({concentration.size}) ",
+            msg,
             f"must be either 1 or equal number of classes {sensitive_values.size})",
         )
 
@@ -671,13 +693,15 @@ def create_sensitive_partition(
             size=num_partitions,
         )
 
-    if dirichlet_dist.size != 0:
-        if dirichlet_dist.shape != (num_partitions, sensitive_values.size):
-            raise ValueError(
-                f"""The shape of the provided dirichlet distribution
+    if dirichlet_dist.size != 0 and dirichlet_dist.shape != (num_partitions, sensitive_values.size):
+        msg = (
+            f"""The shape of the provided dirichlet distribution
                  ({dirichlet_dist.shape}) must match the provided number
                   of partitions and classes ({num_partitions},{sensitive_values.size})"""
-            )
+        )
+        raise ValueError(
+            msg
+        )
     # Assuming balanced distribution
     empty_classes = sensitive_values.size * [False]
     for partition_id in range(num_partitions):
@@ -697,7 +721,7 @@ def create_unbalanced_partitions(dataset, num_partitions=2):
     x, y, z = shuffle(x, y, z)
     x, y, z = sort_by_sensitive_value(x, y, z)
 
-    sensitive_values, start_indices = np.unique(y, return_index=True)
+    _sensitive_values, start_indices = np.unique(y, return_index=True)
 
     partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
@@ -724,17 +748,19 @@ def create_unbalanced_partitions_max_size(dataset, num_partitions, max_size, unb
     x, y, z = shuffle(x, y, z)
     x, y, z = sort_by_sensitive_value(x, y, z)
     if len(x) // num_partitions < max_size:
-        raise ValueError("Invalid max_size")
+        msg = "Invalid max_size"
+        raise ValueError(msg)
 
     sensitive_values, start_indices = np.unique(y, return_index=True)
     start_indices = np.append(start_indices, len(y))
 
-    groups_indexes = [y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))]
+    [y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))]
 
     partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
+    rng = np.random.default_rng()
     for partition_id in range(num_partitions):
-        underrepresented_group = np.random.choice(list(set(y)))
+        underrepresented_group = rng.choice(list(set(y)))
         # we want to sample unbalanced_ratio percentage from the underrepresented group
         # and 1 - unbalanced_ratio from the other groups:
         # unbalanced_ratio * num_samples = num_samples_underrepresented_group
@@ -744,15 +770,15 @@ def create_unbalanced_partitions_max_size(dataset, num_partitions, max_size, unb
         # now sample num_samples_underrepresented_group from the underrepresented group
         # and num_samples_other_groups from the other groups
         index_underrepresented_group = np.where(y == underrepresented_group)[0]
-        selected_samples_underrepresented = np.random.choice(
+        selected_samples_underrepresented = rng.choice(
             index_underrepresented_group,
             num_samples_underrepresented_group,
             replace=False,
         )
 
         index_other_groups = np.where(y != underrepresented_group)[0]
-        selected_samples_other_groups = np.random.choice(index_other_groups, num_samples_other_groups, replace=False)
-        # print(len(selected_samples_other_groups), print(len(selected_samples_underrepresented)))
+        rng = np.random.default_rng()
+        selected_samples_other_groups = rng.choice(index_other_groups, num_samples_other_groups, replace=False)
         partitions[partition_id] = (
             x[np.concatenate((selected_samples_underrepresented, selected_samples_other_groups))],
             y[np.concatenate((selected_samples_underrepresented, selected_samples_other_groups))],
@@ -784,12 +810,13 @@ def create_single_unbalanced_partition_max_size(dataset, num_partitions, max_siz
     x, y, z = shuffle(x, y, z)
     x, y, z = sort_by_sensitive_value(x, y, z)
     if len(x) // num_partitions < max_size:
-        raise ValueError("Invalid max_size")
+        msg = "Invalid max_size"
+        raise ValueError(msg)
     print(Counter(y))
     sensitive_values, start_indices = np.unique(y, return_index=True)
     start_indices = np.append(start_indices, len(y))
 
-    groups_indexes = [y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))]
+    [y[start_indices[i] : start_indices[i + 1]] for i in range(len(sensitive_values))]
 
     partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
@@ -800,13 +827,13 @@ def create_single_unbalanced_partition_max_size(dataset, num_partitions, max_siz
     # now sample num_samples_underrepresented_group from the underrepresented group
     # and num_samples_other_groups from the other groups
     index_underrepresented_group = np.where(y == underrepresented_group)[0]
-    selected_samples_underrepresented = np.random.choice(
+    rng = np.random.default_rng()
+    selected_samples_underrepresented = rng.choice(
         index_underrepresented_group, num_samples_underrepresented_group, replace=False
     )
 
     index_other_groups = np.where(y != underrepresented_group)[0]
-    selected_samples_other_groups = np.random.choice(index_other_groups, num_samples_other_groups, replace=False)
-    # print(len(selected_samples_other_groups), print(len(selected_samples_underrepresented)))
+    selected_samples_other_groups = rng.choice(index_other_groups, num_samples_other_groups, replace=False)
 
     partitions[0] = (
         x[np.concatenate((selected_samples_underrepresented, selected_samples_other_groups))],
@@ -840,13 +867,12 @@ def create_single_unbalanced_partition_max_size(dataset, num_partitions, max_siz
     # now sample num_samples_underrepresented_group from the underrepresented group
     # and num_samples_other_groups from the other groups
     index_underrepresented_group = np.where(y == underrepresented_group)[0]
-    selected_samples_underrepresented = np.random.choice(
+    selected_samples_underrepresented = rng.choice(
         index_underrepresented_group, num_samples_underrepresented_group, replace=False
     )
 
     index_other_groups = np.where(y != underrepresented_group)[0]
-    selected_samples_other_groups = np.random.choice(index_other_groups, num_samples_other_groups, replace=False)
-    # print(len(selected_samples_other_groups), print(len(selected_samples_underrepresented)))
+    selected_samples_other_groups = rng.choice(index_other_groups, num_samples_other_groups, replace=False)
 
     partitions[1] = (
         x[np.concatenate((selected_samples_underrepresented, selected_samples_other_groups))],
@@ -874,35 +900,7 @@ def create_single_unbalanced_partition_max_size(dataset, num_partitions, max_siz
     return partitions
 
 
-# def create_reduced_partitions_max_size(dataset, num_partitions, max_size):
-#     x, y, z = dataset
-#     x, y, z = shuffle(x, y, z)
-#     x, y, z = sort_by_sensitive_value(x, y, z)
-
-
-#     sensitive_values, start_indices = np.unique(y, return_index=True)
-
-#     partitions: List[XYZ] = [(_, _, _) for _ in range(num_partitions)]
-
-#     # just a stupid example
-#     print(f"Assigning {start_indices[1]} samples with Male = {y[0]} to user 0")
-#     partitions[0] = (
-#         x[: start_indices[1]],
-#         y[: start_indices[1]],
-#         z[: start_indices[1]],
-#     )
-#     print(f"Assigning {len(y) - start_indices[1]} samples with Male = {y[start_indices[1]]} to user 1")
-
-#     partitions[1] = (
-#         x[start_indices[1] :],
-#         y[start_indices[1] :],
-#         z[start_indices[1] :],
-#     )
-
-#     return partitions
-
-
-def partition_10_nodes(dataset, num_partitions, max_size, num_underrepresented_nodes=1):
+def partition_10_nodes(dataset, num_partitions, _max_size, num_underrepresented_nodes=1):
     x, y, z = dataset
     x, y, z = shuffle(x, y, z)
     x, y, z = sort_by_sensitive_value(x, y, z)
@@ -911,7 +909,7 @@ def partition_10_nodes(dataset, num_partitions, max_size, num_underrepresented_n
 
     partitions: list[XYZ] = [(_, _, _) for _ in range(num_partitions)]
 
-    represented_nodes = num_partitions - num_underrepresented_nodes
+    num_partitions - num_underrepresented_nodes
     print(len(x))
     print(sensitive_values)
     print(start_indices)

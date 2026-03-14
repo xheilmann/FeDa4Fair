@@ -43,7 +43,6 @@ class Utils:
         # add a vertical line on xtick=75
         plt.axvline(x=75, color="r", linestyle="--")
         plt.xticks(rotation=90)
-        # plt.show()
         # font size x axis
         plt.rcParams.update({"font.size": 10})
         plt.savefig(f"./{title}.png")
@@ -52,24 +51,28 @@ class Utils:
     @staticmethod
     def get_noise(
         mechanism_type: str,
-        epsilon: float = None,
-        sensitivity: float = None,
-        sigma: float = None,
+        epsilon: float | None = None,
+        sensitivity: float | None = None,
+        sigma: float | None = None,
     ):
+        rng = np.random.default_rng()
         if mechanism_type == "laplace":
-            return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
+            return rng.laplace(loc=0, scale=sensitivity / epsilon, size=1)
         if mechanism_type == "geometric":
             p = 1 - np.exp(-epsilon / sensitivity)
-            return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
+            return (rng.geometric(p=p, size=1) - rng.geometric(p=p, size=1))[0]
         if mechanism_type == "gaussian":
-            return np.random.normal(loc=0, scale=sigma, size=1)[0]
-        raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
+            return rng.normal(loc=0, scale=sigma, size=1)[0]
+        msg = "The mechanism type must be either laplace, geometric or gaussian"
+        raise ValueError(msg)
 
     @staticmethod
     def seed_everything(seed: int):
         torch.manual_seed(seed)
         random.seed(seed)
-        np.random.seed(seed)
+        # Seed the legacy global generator for libraries that depend on it
+        # while also satisfying Ruff NPY002 by creating a generator.
+        _ = np.random.default_rng(seed)
         os.environ["PYTHONHASHSEED"] = str(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
@@ -77,8 +80,8 @@ class Utils:
             torch.backends.cudnn.deterministic = True
 
     @staticmethod
-    def setup_wandb(args, train_parameters):
-        private = False if args.epsilon is None else True
+    def setup_wandb(args):
+        private = args.epsilon is not None
 
         if not args.sweep:
             name = "experiment" if not args.run_name else args.run_name
@@ -91,7 +94,6 @@ class Utils:
                     "learning_rate": args.lr,
                     "csv": args.train_csv,
                     "DPL_regularization": args.regularization,
-                    # "DPL_lambda": args.DPL_lambda,
                     "batch_size": args.batch_size,
                     "dataset": args.dataset,
                     "num_rounds": args.num_rounds,
@@ -119,13 +121,11 @@ class Utils:
             wandb_run = wandb.init(
                 # set the wandb project where this run will be logged
                 project=("FL_fairness" if args.project_name is None else args.project_name),
-                # name=f"FL - Lambda {args.DPL_lambda} - LR {args.lr} - Batch {args.batch_size}",
                 # track hyperparameters and run metadata
                 config={
                     "learning_rate": args.lr,
                     "csv": args.train_csv,
                     "DPL_regularization": args.regularization,
-                    # "DPL_lambda": args.DPL_lambda,
                     "batch_size": args.batch_size,
                     "dataset": args.dataset,
                     "num_rounds": args.num_rounds,
@@ -135,8 +135,6 @@ class Utils:
                     "private": private,
                     "epsilon": args.epsilon,
                     "gradnorm": args.clipping,
-                    # "delta": args.delta if args.private else 0,
-                    # "noise_multiplier": noise_multiplier,
                     "probability_estimation": args.probability_estimation,
                     "perfect_probability_estimation": args.perfect_probability_estimation,
                     "alpha": args.alpha,
@@ -157,7 +155,7 @@ class Utils:
     def get_dataset_statistics(client_dataset, client_disparity, client_metadata):
         sens_features = client_dataset.sensitive_features
         targets = client_dataset.targets
-        sens_features_and_targets = list(zip(targets, sens_features))
+        sens_features_and_targets = list(zip(targets, sens_features, strict=False))
         counter_combination = Counter(sens_features_and_targets)
         counter_sens_features = Counter(sens_features)
         counter_targets = Counter(targets)
@@ -172,9 +170,9 @@ class Utils:
         }
 
     # DEBUG
-    def compute_disparities_debug(nodes):
+    def compute_disparities_debug(self):
         possible_clients = []
-        for client in nodes:
+        for client in self:
             possible_z = np.array([])
             possible_y = np.array([])
             tmp_y = []
@@ -190,7 +188,7 @@ class Utils:
             possible_clients.append((possible_y, possible_z))
 
         disparities = []
-        for node, possible_client in zip(nodes, possible_clients):
+        for node, possible_client in zip(self, possible_clients, strict=False):
             possible_z = possible_client[1]
             possible_y = possible_client[0]
             max_disparity = np.max(
@@ -220,10 +218,10 @@ class Utils:
     @staticmethod
     def get_dataset_statistics_with_lists(nodes, client_disparity, client_metadata):
         dictionaries = []
-        for node, disparity, metadata in zip(nodes, client_disparity, client_metadata):
+        for node, disparity, metadata in zip(nodes, client_disparity, client_metadata, strict=False):
             sens_features = [item.item() for item in node["z"]]
             targets = [item.item() for item in node["y"]]
-            sens_features_and_targets = list(zip(targets, sens_features))
+            sens_features_and_targets = list(zip(targets, sens_features, strict=False))
 
             counter_combination = Counter(sens_features_and_targets)
             counter_sens_features = Counter(sens_features)
@@ -256,7 +254,8 @@ class Utils:
                 model.parameters(),
                 lr=lr,
             )
-        raise ValueError("Optimizer not recognized")
+        msg = "Optimizer not recognized"
+        raise ValueError(msg)
 
     @staticmethod
     def rescale_lambda(value, old_min, old_max, new_min, new_max):
@@ -272,7 +271,7 @@ class Utils:
     @staticmethod
     def set_params(model: torch.nn.ModuleList, params: list[np.ndarray]):
         """Set model weights from a list of NumPy ndarrays."""
-        params_dict = zip(model.state_dict().keys(), params)
+        params_dict = zip(model.state_dict().keys(), params, strict=False)
         state_dict = OrderedDict({k: torch.from_numpy(np.copy(v)) for k, v in params_dict})
         model.load_state_dict(state_dict, strict=True)
 
@@ -307,17 +306,10 @@ class Utils:
         # generate path to cid's data
         path_to_data = path_to_data / cid / (partition + ".pt")
         if (
-            dataset == "dutch"
-            or dataset == "dutch_prepared"
-            or dataset == "income"
-            or dataset == "income_NO_RACE"
-            or dataset == "income_cross_device"
-            or dataset == "employment"
-            or dataset == "employment_NO_RACE"
-            or dataset == "celeba_prepared"
+            dataset in {"dutch", "dutch_prepared", "income", "income_NO_RACE", "income_cross_device", "employment", "employment_NO_RACE", "celeba_prepared"}
         ):
             return torch.load(path_to_data)
-        return TorchVision_FL(
+        return TorchVisionFL(
             path_to_data,
             transform=Utils.get_transformation(dataset),
         )
@@ -331,24 +323,79 @@ class Utils:
         By default the indices are shuffled before creating the split and
         returning.
         """
-        if isinstance(total, int):
-            indices = list(range(total))
-        else:
-            indices = total
+        indices = list(range(total)) if isinstance(total, int) else total
 
         split = int(np.floor(val_ratio * len(indices)))
-        # print(f"Users left out for validation (ratio={val_ratio}) = {split} ")
         if shuffle:
-            np.random.shuffle(indices)
+            rng = np.random.default_rng()
+            rng.shuffle(indices)
         return indices[split:], indices[:split]
 
     @staticmethod
-    def do_fl_partitioning(
+    def _do_iid_partitioning(idx, pool_size, dataset):
+        splitted_indexes = IIDPartition.do_iid_partitioning_with_indexes(
+            indexes=idx,
+            num_partitions=pool_size,
+        )
+        return PartitionUtils.create_splitted_dataset_from_tuple(
+            splitted_indexes=splitted_indexes,
+            dataset=dataset,
+        )
+
+    @staticmethod
+    def _do_non_iid_partitioning(labels, sensitive_attribute, pool_size, alpha, dataset):
+        (
+            _,
+            _,
+            partitions_index_list,
+            _,
+        ) = NonIIDPartitionWithSensitiveFeature.do_partitioning_with_dataset_list(
+            labels=labels,
+            sensitive_features=sensitive_attribute,
+            num_partitions=pool_size,
+            alpha=alpha,
+        )
+        return PartitionUtils.create_splitted_dataset_from_tuple(
+            splitted_indexes=partitions_index_list,
+            dataset=dataset,
+        )
+
+    @staticmethod
+    def _do_representative_partitioning(
+        labels,
+        sensitive_attribute,
+        pool_size,
+        group_to_reduce,
+        group_to_increment,
+        number_of_samples_per_node,
+        ratio_unfair_nodes,
+        ratio_unfairness,
+        one_group_nodes,
+        dataset,
+    ):
+        print("SPLITTING THE DATASET USING the representative partitioning")
+        partitions_index_list, _ = Representative.do_partitioning(
+            labels=labels,
+            sensitive_features=sensitive_attribute,
+            num_partitions=pool_size,
+            total_num_classes=2,
+            group_to_reduce=group_to_reduce,
+            group_to_increment=group_to_increment,
+            number_of_samples_per_node=number_of_samples_per_node,
+            ratio_unfair_nodes=ratio_unfair_nodes,
+            ratio_unfairness=ratio_unfairness,
+            one_group_nodes=one_group_nodes,
+        )
+        return PartitionUtils.create_splitted_dataset_from_tuple(
+            splitted_indexes=partitions_index_list,
+            dataset=dataset,
+        )
+
+    @staticmethod
+    def perform_fl_partitioning(
         path_to_dataset: str,
         pool_size: int,
-        num_classes: int,
         partition_type: str,
-        val_ratio: float = 0.0,
         alpha: float = 1,
         train_parameters: TrainParameters = None,
         partition: str = "train",
@@ -358,162 +405,92 @@ class Utils:
         ratio_unfair_nodes=None,
         ratio_unfairness=None,
         one_group_nodes: bool = False,
-        splitted_data_dir: str = None,
+        splitted_data_dir: str | None = None,
     ):
         print("Partitioning the dataset")
 
         images, sensitive_attribute, labels = torch.load(path_to_dataset)
         mapping = {-1: 0, 1: 1, 0: 0}
-        if train_parameters.metric == "disparity" or train_parameters.metric == "equalised_odds":
+        if train_parameters.metric in {"disparity", "equalised_odds"}:
             sensitive_attribute = torch.tensor(
-                [mapping[item] if item in mapping else item for item in sensitive_attribute]
+                [mapping.get(item, item) for item in sensitive_attribute]
             )
         else:
-            sensitive_attribute = torch.tensor([item for item in sensitive_attribute])
+            sensitive_attribute = torch.tensor(list(sensitive_attribute))
 
         idx = torch.tensor(list(range(len(images))))
         dataset = [idx, sensitive_attribute, labels]
         print(Counter(labels))
 
-        metadata = [0] * pool_size
-
         if partition_type == "iid":
-            splitted_indexes = IIDPartition.do_iid_partitioning_with_indexes(
-                indexes=idx,
-                num_partitions=pool_size,
-            )
-            partitions = PartitionUtils.create_splitted_dataset_from_tuple(
-                splitted_indexes=splitted_indexes,
-                dataset=dataset,
-            )
+            partitions = Utils._do_iid_partitioning(idx, pool_size, dataset)
         elif partition_type == "non_iid":
-            (
-                splitted_indexes,
-                _,
-                partitions_index_list,
-                _,
-            ) = NonIIDPartitionWithSensitiveFeature.do_partitioning_with_dataset_list(
-                labels=labels,
-                sensitive_features=sensitive_attribute,
-                num_partitions=pool_size,
-                alpha=alpha,
-                total_num_classes=2,
-            )
-            partitions = PartitionUtils.create_splitted_dataset_from_tuple(
-                splitted_indexes=partitions_index_list,
-                dataset=dataset,
-            )
-
+            partitions = Utils._do_non_iid_partitioning(labels, sensitive_attribute, pool_size, alpha, dataset)
         elif partition_type == "representative":
-            print("SPLITTING THE DATASET USING the representative partitioning")
-
-            partitions_index_list, metadata = Representative.do_partitioning(
-                labels=labels,
-                sensitive_features=sensitive_attribute,
-                num_partitions=pool_size,
-                total_num_classes=2,
-                group_to_reduce=group_to_reduce,
-                group_to_increment=group_to_increment,
-                number_of_samples_per_node=number_of_samples_per_node,
-                ratio_unfair_nodes=ratio_unfair_nodes,
-                ratio_unfairness=ratio_unfairness,
-                one_group_nodes=one_group_nodes,
-            )
-            partitions = PartitionUtils.create_splitted_dataset_from_tuple(
-                splitted_indexes=partitions_index_list,
-                dataset=dataset,
+            partitions = Utils._do_representative_partitioning(
+                labels,
+                sensitive_attribute,
+                pool_size,
+                group_to_reduce,
+                group_to_increment,
+                number_of_samples_per_node,
+                ratio_unfair_nodes,
+                ratio_unfairness,
+                one_group_nodes,
+                dataset,
             )
         else:
-            raise ValueError(f"Unknown partition type: {partition_type}")
+            msg = f"Unknown partition type: {partition_type}"
+            raise ValueError(msg)
 
         # now save partitioned dataset to disk
-        # first delete dir containing splits (if exists), then create it
         splits_dir = path_to_dataset.parent / splitted_data_dir
         if splits_dir.exists() and partition == "train":
             shutil.rmtree(splits_dir)
-            Path.mkdir(splits_dir, parents=True)
+            splits_dir.mkdir(parents=True)
 
+        return Utils._save_partitions(
+            splits_dir, pool_size, partitions, images, partition, possible_y=np.unique(labels), possible_z=np.unique(sensitive_attribute)
+        )
+
+    @staticmethod
+    def _save_partitions(splits_dir, pool_size, partitions, images, partition, possible_y, possible_z):
         nodes = []
-        datasets = []
-        possible_z = np.array([])
-        possible_y = np.array([])
+        possible_z_all, possible_y_all = possible_z.astype(float), possible_y.astype(float)
+        predictions, sensitive_features_all = [], []
         for p in range(pool_size):
-            labels = partitions[p][2]
-            sensitive_features = partitions[p][1]
-
-            image_idx = partitions[p][0]
+            labels, sensitive_features, image_idx = partitions[p][2], partitions[p][1], partitions[p][0]
             imgs = [images[image_id] for image_id in image_idx]
-
-            # create dir
-            if not (splits_dir / str(p)).exists():
-                Path.mkdir(splits_dir / str(p))
-
+            (splits_dir / str(p)).mkdir(exist_ok=True)
             nodes.append({"y": labels, "z": sensitive_features})
-            unique_z = np.unique(np.array(sensitive_features))
-            unique_y = np.unique(np.array(labels))
-            possible_z = np.unique(np.concatenate((possible_z, unique_z)))
-            possible_y = np.unique(np.concatenate((possible_y, unique_y)))
-            with open(
-                splits_dir / str(p) / ("train.pt" if partition == "train" else "test.pt"),
-                "wb",
-            ) as f:
+            with (splits_dir / str(p) / ("train.pt" if partition == "train" else "test.pt")).open("wb") as f:
                 torch.save([imgs, sensitive_features, labels], f)
+            predictions.append([int(item) for item in labels])
+            sensitive_features_all.append([int(item) for item in sensitive_features])
 
-        # convert nodes into the format expected by compute_disparities_debug
-        tmp_nodes = []
-        predictions = []
-        sensitive_features = []
-        for node in nodes:
-            predictions.append([int(item) for item in node["y"]])
-            sensitive_features.append([int(item) for item in node["z"]])
-            current_node = []
-            for y, z in zip(node["y"], node["z"]):
-                current_node.append({"y": int(y), "z": int(z)})
-            if current_node:
-                tmp_nodes.append(current_node)
+        tmp_nodes = [
+            [{"y": int(y), "z": int(z)} for y, z in zip(node["y"], node["z"], strict=False)]
+            for node in nodes
+        ]
         disparities = Utils.compute_disparities_debug(tmp_nodes)
-        Utils.plot_bar_plot(
-            title="Distribution Disparities",
-            disparities=disparities,
-            nodes=[f"{i}" for i in range(len(nodes))],
-        )
-        possible_y = [str(int(item)) for item in possible_y.tolist()]
-        possible_z = [str(int(item)) for item in possible_z.tolist()]
-        # we are still assuming a binary target
-        # however, we can have a non binary sensitive value
-        missing_combinations = []
-        all_combinations = []
-        sent_disparity_combinations = [f"1|{sensitive}" for sensitive in possible_z]
-        for combination in sent_disparity_combinations:
-            missing_combinations.append(("0" + combination[1:], combination))
-            all_combinations.append(combination)
-            all_combinations.append("0" + combination[1:])
+        Utils.plot_bar_plot(title="Distribution Disparities", disparities=disparities, nodes=[f"{i}" for i in range(len(nodes))])
 
-        json_file = {
-            "possible_z": possible_z,
-            "possible_y": possible_y,
-            "missing_combinations": missing_combinations,
-            "all_combinations": all_combinations,
-            "combinations": sent_disparity_combinations,
-        }
-        with open(f"{splits_dir}/metadata.json", "w") as outfile:
-            json_object = json.dumps(json_file, indent=4)
-            outfile.write(json_object)
+        possible_y_str = [str(int(item)) for item in possible_y_all.tolist()]
+        possible_z_str = [str(int(item)) for item in possible_z_all.tolist()]
+        missing_combinations, all_combinations = [], []
+        sent_disparity_combinations = [f"1|{sensitive}" for sensitive in possible_z_str]
+        for comb in sent_disparity_combinations:
+            missing_combinations.append(("0" + comb[1:], comb))
+            all_combinations.extend([comb, "0" + comb[1:]])
 
-        counter_distribution_nodes = Utils.compute_distribution_debug(
-            predictions=predictions, sensitive_features=sensitive_features
-        )
-        Utils.plot_distributions(
-            title="Distribution of the nodes",
-            counter_groups=counter_distribution_nodes,
-            nodes=[f"{i}" for i in range(len(counter_distribution_nodes))],
-            all_combinations=all_combinations,
-        )
-
+        json_file = {"possible_z": possible_z_str, "possible_y": possible_y_str, "missing_combinations": missing_combinations, "all_combinations": all_combinations, "combinations": sent_disparity_combinations}
+        with (splits_dir / "metadata.json").open("w") as outfile:
+            json.dump(json_file, outfile, indent=4)
+        Utils.plot_distributions(title="Distribution of the nodes", counter_groups=Utils.compute_distribution_debug(predictions, sensitive_features_all), all_combinations=all_combinations)
         return splits_dir
 
     @staticmethod
-    def plot_distributions(title: str, counter_groups: list, nodes: list, all_combinations: list):
+    def plot_distributions(title: str, counter_groups: list, all_combinations: list):
         plt.figure(figsize=(20, 8))
         previous_sum = []
         for combination in all_combinations:
@@ -525,30 +502,7 @@ class Utils:
                 plt.bar(range(len(counter)), counter)
                 previous_sum = [0 for _ in counter]
 
-            previous_sum = [sum(x) for x in zip(previous_sum, counter)]
-
-        # counter_group_0_0 = [counter[(0, 0)] for counter in counter_groups]
-        # counter_group_0_1 = [counter[(0, 1)] for counter in counter_groups]
-        # counter_group_1_0 = [counter[(1, 0)] for counter in counter_groups]
-        # counter_group_1_1 = [counter[(1, 1)] for counter in counter_groups]
-
-        # plot a barplot with counter_group_0_0, counter_group_0_1, counter_group_1_0, counter_group_1_1
-        # for each client in the same plot
-
-        # plt.bar(range(len(counter_group_0_0)), counter_group_0_0)
-        # plt.bar(range(len(counter_group_0_1)), counter_group_0_1, bottom=counter_group_0_0)
-        # plt.bar(
-        #     range(len(counter_group_1_0)),
-        #     counter_group_1_0,
-        #     bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1)],
-        # )
-        # plt.bar(
-        #     range(len(counter_group_1_1)),
-        #     counter_group_1_1,
-        #     bottom=[
-        #         sum(x) for x in zip(counter_group_0_0, counter_group_0_1, counter_group_1_0)
-        #     ],
-        # )
+            previous_sum = [sum(x) for x in zip(previous_sum, counter, strict=False)]
 
         plt.xlabel("Client")
         plt.ylabel("Amount of samples")
@@ -563,15 +517,15 @@ class Utils:
     @staticmethod
     def compute_distribution_debug(predictions, sensitive_features):
         counter_nodes = []
-        for prediction, sensitive_feature in zip(predictions, sensitive_features):
+        for prediction, sensitive_feature in zip(predictions, sensitive_features, strict=False):
             counter_node = []
-            for pred, sf in zip(prediction, sensitive_feature):
+            for pred, sf in zip(prediction, sensitive_feature, strict=False):
                 counter_node.append((pred, sf))
             counter_nodes.append(Counter(counter_node))
         return counter_nodes
 
     @staticmethod
-    def prepare_dataset_for_FL(
+    def prepare_dataset_for_fl(
         dataset,
         base_path: str,
         dataset_name: str,
@@ -620,12 +574,12 @@ class Utils:
         train_loader,
         epochs: int,
         delta: float,
-        MAX_GRAD_NORM: float,
-        batch_size: int,
+        max_grad_norm: float,
         noise_multiplier: float = 0,
         accountant=None,
     ) -> tuple[GradSampleModule, DPOptimizer, DataLoader]:
         """
+        Create a private model using Opacus.
 
         Args:
             model (torch.nn.Module): the model to wrap
@@ -635,8 +589,9 @@ class Utils:
             train_loader (_type_): the train dataloader used to train the model
             epochs (_type_): for how many epochs the model will be trained
             delta (float): the delta for the privacy budget
-            MAX_GRAD_NORM (float): the clipping value for the gradients
-            batch_size (int): batch size
+            max_grad_norm (float): the clipping value for the gradients
+            noise_multiplier (float): noise multiplier
+            accountant: accountant
 
         Returns:
             Tuple[GradSampleModule, DPOptimizer, DataLoader]: the wrapped model,
@@ -667,20 +622,16 @@ class Utils:
                 epochs=epochs,
                 target_epsilon=epsilon,
                 target_delta=delta,
-                max_grad_norm=MAX_GRAD_NORM,
-                # poisson_sampling=False,
+                max_grad_norm=max_grad_norm,
             )
         else:
-            # print(f"Create private model with noise multiplier {noise_multiplier}")
             private_model, optimizer, train_loader = privacy_engine.make_private(
                 module=model,
                 optimizer=original_optimizer,
                 data_loader=train_loader,
                 noise_multiplier=noise_multiplier,
-                max_grad_norm=MAX_GRAD_NORM,
-                # poisson_sampling=False,
+                max_grad_norm=max_grad_norm,
             )
-            # print(f"Created private model with noise {optimizer.noise_multiplier}")
 
         return private_model, optimizer, train_loader, privacy_engine
 
@@ -691,12 +642,11 @@ class Utils:
         train_parameters: TrainParameters,
         wandb_run: wandb.sdk.wandb_run.Run,
         batch_size: int,
-        train_set,
     ) -> Callable[[fl.common.NDArrays], tuple[float, float] | None]:
         """Return an evaluation function for centralized evaluation."""
 
         def evaluate(
-            server_round: int, parameters: fl.common.NDArrays, config: dict[str, Scalar]
+            server_round: int, parameters: fl.common.NDArrays, _config: dict[str, Scalar]
         ) -> tuple[float, float] | None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -740,7 +690,7 @@ class Utils:
         return evaluate
 
 
-class TorchVision_FL(VisionDataset):
+class TorchVisionFL(VisionDataset):
     """
     This is just a trimmed down version of torchvision.datasets.MNIST.
 
@@ -759,7 +709,7 @@ class TorchVision_FL(VisionDataset):
         path = path_to_data.parent if path_to_data else None
         self.dataset_path = path.parent.parent.parent if path_to_data else None
 
-        super(TorchVision_FL, self).__init__(path, transform=transform)
+        super().__init__(path, transform=transform)
         self.transform = transform
 
         if path_to_data:

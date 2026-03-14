@@ -5,8 +5,8 @@ Scenario: Cross-Device (150 clients)
 Target DP Levels: Medium (0.30)
 """
 
-import os
-import pandas as pd
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 
@@ -17,10 +17,9 @@ from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
 
 def create_benchmarks():
     num_clients = 150
-    output_base = "datasets/dutch/cross_device_attribute"
+    output_base = Path("datasets/dutch/cross_device_attribute")
 
-    if not os.path.exists(output_base):
-        os.makedirs(output_base)
+    output_base.mkdir(parents=True, exist_ok=True)
 
     levels = {
         "medium": {
@@ -95,7 +94,7 @@ def create_benchmarks():
         sens_atts = ["sex_binary", "Marital_status"]
 
         # Plot and compute DP
-        fig_dp, ax_dp, results_dp = plot_multi_attribute_fairness(
+        fig_dp, _ax_dp, results_dp = plot_multi_attribute_fairness(
             partitioner=fds.partitioners["train"],
             partitioner_test=fds.partitioners["train"],
             model=LogisticRegression(max_iter=1000, solver="liblinear"),
@@ -121,7 +120,7 @@ def create_benchmarks():
             plt.close(fig_acc)
 
         # Plot and compute EO
-        fig_eo, ax_eo, results_eo = plot_multi_attribute_fairness(
+        fig_eo, _ax_eo, results_eo = plot_multi_attribute_fairness(
             partitioner=fds.partitioners["train"],
             partitioner_test=fds.partitioners["train"],
             model=LogisticRegression(max_iter=1000, solver="liblinear"),

@@ -7,9 +7,8 @@ class LinearClassificationNet(nn.Module):
     """
 
     def __init__(self, input_size=11, output_size=2):
-        super(LinearClassificationNet, self).__init__()
+        super().__init__()
         self.layer1 = nn.Linear(input_size, output_size, bias=False)
 
     def forward(self, x):
-        x = self.layer1(x.float())
-        return x
+        return self.layer1(x.float())

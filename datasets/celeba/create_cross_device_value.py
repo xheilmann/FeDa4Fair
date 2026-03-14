@@ -5,14 +5,16 @@ Scenario: Cross-Device (150 clients)
 Target DP Level: Medium (0.30)
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import io
-import os
-import json
 import base64
-from datasets import load_dataset, concatenate_datasets
+import io
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.lines import Line2D
+
+from datasets import concatenate_datasets, load_dataset
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
@@ -27,10 +29,10 @@ def add_hair_color_multi(df):
     3: Gray_Hair
     4: Other
     """
-    c_black = (df["Black_Hair"] == 1) | (df["Black_Hair"] == True)
-    c_blond = (df["Blond_Hair"] == 1) | (df["Blond_Hair"] == True)
-    c_brown = (df["Brown_Hair"] == 1) | (df["Brown_Hair"] == True)
-    c_gray = (df["Gray_Hair"] == 1) | (df["Gray_Hair"] == True)
+    c_black = (df["Black_Hair"] == 1) | (df["Black_Hair"])
+    c_blond = (df["Blond_Hair"] == 1) | (df["Blond_Hair"])
+    c_brown = (df["Brown_Hair"] == 1) | (df["Brown_Hair"])
+    c_gray = (df["Gray_Hair"] == 1) | (df["Gray_Hair"])
 
     conditions = [c_black, c_blond, c_brown, c_gray]
     choices = [0, 1, 2, 3]
@@ -39,21 +41,16 @@ def add_hair_color_multi(df):
     return df
 
 
-def create_benchmarks():
-    num_clients = 150
-    output_base = "datasets/celeba/cross_device_value"
-    img_dict_path = "datasets/celeba/celeba_img_dict.json"
-
+def get_celeba_dataframe(img_dict_path):
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
-
     ds_merged = concatenate_datasets(list(ds_dict.values()))
 
     print("Adding image IDs...")
     ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
 
     # Check if image dict exists
-    if not os.path.exists(img_dict_path):
+    if not img_dict_path.exists():
         print(f"Creating image dictionary at {img_dict_path}...")
         img_map = {}
         for item in ds_merged:
@@ -65,8 +62,8 @@ def create_benchmarks():
             img_map[idx] = b64_str
 
         print("Saving JSON...")
-        os.makedirs(os.path.dirname(img_dict_path), exist_ok=True)
-        with open(img_dict_path, "w") as f:
+        img_dict_path.parent.mkdir(parents=True, exist_ok=True)
+        with img_dict_path.open("w") as f:
             json.dump(img_map, f)
         print("JSON saved.")
         del img_map
@@ -80,7 +77,81 @@ def create_benchmarks():
     df = ds_merged.to_pandas()
 
     print("Adding 'hair_color' attribute (multi-value)...")
-    df = add_hair_color_multi(df)
+    return add_hair_color_multi(df)
+
+
+def evaluate_benchmark(fds, output_base, level_name):
+    print(f"Evaluating {level_name} benchmark...")
+
+    sens_atts = ["hair_color"]
+    train_key = "train_train" if "train_train" in fds.partitioners else "train"
+
+    fig, _ax, results_dp_values = plot_multi_attribute_fairness(
+        partitioner=fds.partitioners[train_key],
+        partitioner_test=fds.partitioners[train_key],
+        model=None,
+        sens_atts=sens_atts,
+        fairness_metric="DP",
+        label_name="Smiling",
+        fds=fds,
+        split=train_key,
+        size_unit="value",
+    )
+    plt.close(fig)
+
+    hair_cols = [c for c in results_dp_values.columns if "hair_color" in c]
+    max_dp_per_client = results_dp_values[hair_cols].max(axis=1)
+    idxmax_per_client = results_dp_values[hair_cols].idxmax(axis=1)
+
+    def get_color(col_name):
+        if not isinstance(col_name, str):
+            return "gray"
+        if "_0_" in col_name or col_name.endswith("_0"):
+            return "red"
+        if "_1_" in col_name or col_name.endswith("_1"):
+            return "blue"
+        if "_2_" in col_name or col_name.endswith("_2"):
+            return "green"
+        if "_3_" in col_name or col_name.endswith("_3"):
+            return "orange"
+        return "gray"
+
+    colors = idxmax_per_client.apply(get_color)
+
+    fig_custom, ax_custom = plt.subplots(figsize=(16, 6))
+    max_dp_per_client.plot(kind="bar", ax=ax_custom, color=colors)
+    ax_custom.set_title(f"Max Unfairness (DP) per Client by Value ({level_name})")
+    ax_custom.set_xlabel("Client ID")
+    ax_custom.set_ylabel("Max DP across Hair Colors")
+
+    n = len(max_dp_per_client)
+    ax_custom.set_xticks(range(0, n, 10))
+    ax_custom.set_xticklabels(range(0, n, 10))
+
+    custom_lines = [
+        Line2D([0], [0], color="red", lw=4),
+        Line2D([0], [0], color="blue", lw=4),
+        Line2D([0], [0], color="green", lw=4),
+        Line2D([0], [0], color="orange", lw=4),
+    ]
+    ax_custom.legend(custom_lines, ["Black (0)", "Blond (1)", "Brown (2)", "Gray (3)"])
+
+    fig_custom.savefig(f"{output_base}/{level_name}_MaxDP.png")
+    plt.close(fig_custom)
+
+    results_dp_values["Max_DP"] = max_dp_per_client
+    eval_path = f"{output_base}/{level_name}_evaluation.csv"
+    results_dp_values.to_csv(eval_path)
+    print(f"Evaluation saved to {eval_path}\n")
+    print(f"Average Max DP across clients: {max_dp_per_client.mean():.4f}")
+
+
+def create_benchmarks():
+    num_clients = 150
+    output_base = "datasets/celeba/cross_device_value"
+    img_dict_path = Path("datasets/celeba/celeba_img_dict.json")
+
+    df = get_celeba_dataframe(img_dict_path)
 
     counts = df["hair_color"].value_counts()
     print("Hair Color Counts:\n", counts)
@@ -149,73 +220,7 @@ def create_benchmarks():
     )
 
     fds.prepare()
-
-    print(f"Evaluating {level_name} benchmark...")
-
-    sens_atts = ["hair_color"]
-    train_key = "train_train" if "train_train" in fds.partitioners else "train"
-
-    fig, ax, results_dp_values = plot_multi_attribute_fairness(
-        partitioner=fds.partitioners[train_key],
-        partitioner_test=fds.partitioners[train_key],
-        model=None,
-        sens_atts=sens_atts,
-        fairness_metric="DP",
-        label_name="Smiling",
-        fds=fds,
-        split=train_key,
-        size_unit="value",
-    )
-    plt.close(fig)
-
-    hair_cols = [c for c in results_dp_values.columns if "hair_color" in c]
-    max_dp_per_client = results_dp_values[hair_cols].max(axis=1)
-    idxmax_per_client = results_dp_values[hair_cols].idxmax(axis=1)
-
-    def get_color(col_name):
-        if not isinstance(col_name, str):
-            return "gray"
-        if "_0_" in col_name or col_name.endswith("_0"):
-            return "red"
-        if "_1_" in col_name or col_name.endswith("_1"):
-            return "blue"
-        if "_2_" in col_name or col_name.endswith("_2"):
-            return "green"
-        if "_3_" in col_name or col_name.endswith("_3"):
-            return "orange"
-        return "gray"
-
-    colors = idxmax_per_client.apply(get_color)
-
-    fig_custom, ax_custom = plt.subplots(figsize=(16, 6))
-    max_dp_per_client.plot(kind="bar", ax=ax_custom, color=colors)
-    ax_custom.set_title(f"Max Unfairness (DP) per Client by Value ({level_name})")
-    ax_custom.set_xlabel("Client ID")
-    ax_custom.set_ylabel("Max DP across Hair Colors")
-
-    n = len(max_dp_per_client)
-    ax_custom.set_xticks(range(0, n, 10))
-    ax_custom.set_xticklabels(range(0, n, 10))
-
-    from matplotlib.lines import Line2D
-
-    custom_lines = [
-        Line2D([0], [0], color="red", lw=4),
-        Line2D([0], [0], color="blue", lw=4),
-        Line2D([0], [0], color="green", lw=4),
-        Line2D([0], [0], color="orange", lw=4),
-    ]
-    ax_custom.legend(custom_lines, ["Black (0)", "Blond (1)", "Brown (2)", "Gray (3)"])
-
-    fig_custom.savefig(f"{output_base}/{level_name}_MaxDP.png")
-    plt.close(fig_custom)
-
-    results_dp_values["Max_DP"] = max_dp_per_client
-    eval_path = f"{output_base}/{level_name}_evaluation.csv"
-    results_dp_values.to_csv(eval_path)
-    print(f"Evaluation saved to {eval_path}\n")
-
-    print(f"Average Max DP across clients: {max_dp_per_client.mean():.4f}")
+    evaluate_benchmark(fds, output_base, level_name)
 
 
 if __name__ == "__main__":

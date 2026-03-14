@@ -6,6 +6,7 @@ from DPL.Regularization.RegularizationLoss import RegularizationLoss
 
 
 class Representative:
+    @staticmethod
     def do_partitioning(
         labels: np.ndarray,
         sensitive_features: np.ndarray,
@@ -15,18 +16,19 @@ class Representative:
         group_to_increment: tuple,
         ratio_unfair_nodes: float,
         ratio_unfairness: float,
-        number_of_samples_per_node: int = None,
+        number_of_samples_per_node: int | None = None,
         one_group_nodes: bool = False,
     ) -> list:
         sensitive_features = np.array([item.item() for item in sensitive_features])
-        labels = np.array([item for item in labels])
-        labels_and_sensitive = list(zip(labels, sensitive_features))
+        labels = np.array(list(labels))
+        labels_and_sensitive = list(zip(labels, sensitive_features, strict=False))
         indexes = list(range(len(labels)))
 
         samples_per_node = (
             number_of_samples_per_node if number_of_samples_per_node is not None else len(labels) // num_partitions
         )
-        np.random.shuffle(indexes)
+        rng = np.random.default_rng()
+        rng.shuffle(indexes)
 
         # Distribute the data among the nodes with a random sample from the dataset
         # considering the number of samples per node
@@ -62,12 +64,11 @@ class Representative:
 
         if one_group_nodes:
             new_unfair_nodes = []
-            for node_id, indexes in enumerate(unfair_nodes):
+            for _node_id, indexes in enumerate(unfair_nodes):
                 sensitive_features_list = sensitive_features[indexes]
                 labels_list = labels[indexes]
-                combinations = list(zip(labels_list, sensitive_features_list))
                 tmp_indexes = []
-                for sf, lb, index in zip(sensitive_features_list, labels_list, indexes):
+                for sf, lb, index in zip(sensitive_features_list, labels_list, indexes, strict=False):
                     if (sf, lb) != (1, 1):
                         tmp_indexes.append(index)
 
@@ -75,39 +76,24 @@ class Representative:
             unfair_nodes = new_unfair_nodes
 
         predictions = [labels[indexes] for indexes in fair_nodes + unfair_nodes]
-        sensitive_features = [sensitive_features[indexes] for indexes in fair_nodes + unfair_nodes]
+        sensitive_features_result = [sensitive_features[indexes] for indexes in fair_nodes + unfair_nodes]
 
-        disparities = Representative.compute_disparities_debug(
-            predictions=predictions, sensitive_features=sensitive_features
+        Representative.compute_disparities_debug(
+            predictions=predictions, sensitive_features=sensitive_features_result
         )
-        counter_distribution_nodes = Representative.compute_distribution_debug(
-            predictions=predictions, sensitive_features=sensitive_features
+        Representative.compute_distribution_debug(
+            predictions=predictions, sensitive_features=sensitive_features_result
         )
-        # Representative.plot_distributions(
-        #     title="Distribution of the nodes",
-        #     counter_groups=counter_distribution_nodes,
-        #     nodes=[f"{i}" for i in range(len(nodes))],
-        # )
-        # print(disparities)
-        # Representative.plot_bar_plot(
-        #     title="Disparities",
-        #     disparities=disparities,
-        #     nodes=[f"{i}" for i in range(len(nodes))],
-        # )
-        # size_of_each_client_data = [len(client) for client in fair_nodes + unfair_nodes]
-        # Representative.plot_bar_plot(
-        #     title="Client Size",
-        #     disparities=size_of_each_client_data,
-        #     nodes=[f"{i}" for i in range(len(nodes))],
-        # )
+
         return (
             fair_nodes + unfair_nodes,
             [0] * len(fair_nodes) + [1] * len(unfair_nodes),
         )
 
+    @staticmethod
     def compute_disparities_debug(predictions, sensitive_features):
         disparities = []
-        for prediction, sensitive_feature in zip(predictions, sensitive_features):
+        for prediction, sensitive_feature in zip(predictions, sensitive_features, strict=False):
             max_disparity = np.max(
                 [
                     RegularizationLoss().compute_violation_with_argmax(
@@ -124,16 +110,18 @@ class Representative:
         print(f"Mean of disparity {np.mean(disparities)} - std {np.std(disparities)}")
         return disparities
 
+    @staticmethod
     def compute_distribution_debug(predictions, sensitive_features):
         counter_nodes = []
-        for prediction, sensitive_feature in zip(predictions, sensitive_features):
+        for prediction, sensitive_feature in zip(predictions, sensitive_features, strict=False):
             counter_node = []
-            for pred, sf in zip(prediction, sensitive_feature):
+            for pred, sf in zip(prediction, sensitive_feature, strict=False):
                 counter_node.append((pred, sf))
             counter_nodes.append(Counter(counter_node))
         return counter_nodes
 
-    def plot_distributions(title: str, counter_groups: list, nodes: list):
+    @staticmethod
+    def plot_distributions(title: str, counter_groups: list, _nodes: list):
         counter_group_0_0 = [counter[(0, 0)] for counter in counter_groups]
         counter_group_0_1 = [counter[(0, 1)] for counter in counter_groups]
         counter_group_1_0 = [counter[(1, 0)] for counter in counter_groups]
@@ -148,12 +136,12 @@ class Representative:
         plt.bar(
             range(len(counter_group_1_0)),
             counter_group_1_0,
-            bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1)],
+            bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1, strict=False)],
         )
         plt.bar(
             range(len(counter_group_1_1)),
             counter_group_1_1,
-            bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1, counter_group_1_0)],
+            bottom=[sum(x) for x in zip(counter_group_0_0, counter_group_0_1, counter_group_1_0, strict=False)],
         )
 
         plt.xlabel("Client")
@@ -167,6 +155,7 @@ class Representative:
         plt.tight_layout()
 
     # plot the bar plot of the disparities
+    @staticmethod
     def plot_bar_plot(title: str, disparities: list, nodes: list):
         plt.figure(figsize=(20, 8))
         plt.bar(range(len(disparities)), disparities)
@@ -175,12 +164,12 @@ class Representative:
         # add a vertical line on xtick=75
         plt.axvline(x=75, color="r", linestyle="--")
         plt.xticks(rotation=90)
-        # plt.show()
         # font size x axis
         plt.rcParams.update({"font.size": 10})
         plt.savefig(f"./{title}.png")
         plt.tight_layout()
 
+    @staticmethod
     def create_unfair_nodes(
         fair_nodes: list,
         nodes_to_unfair: list,
@@ -205,13 +194,11 @@ class Representative:
             we could have (0,0), (0,1), (1,0) or (1,1)
         ratio_unfairness: tuple (min, max) where min is the minimum ratio of samples that we want to remove from the group_to_reduce
         """
-        # assert (
-        #     remaining_data[group_to_reduce] != []
-        # ), "Choose a different group to be unfair"
         # remove the samples from the group that we want to be unfair
         unfair_nodes = []
         number_of_samples_to_add = []
         removed_samples = []
+        rng = np.random.default_rng()
 
         for node in nodes_to_unfair:
             node_data = []
@@ -223,7 +210,7 @@ class Representative:
 
             # We compute the number of samples that we want to remove from the group_to_reduce
             # based on the ratio_unfairness
-            current_ratio = np.random.uniform(ratio_unfairness[0], ratio_unfairness[1])
+            current_ratio = rng.uniform(ratio_unfairness[0], ratio_unfairness[1])
             samples_to_be_removed = int(count_sensitive_group_samples * current_ratio)
             number_of_samples_to_add.append(samples_to_be_removed)
 
@@ -238,31 +225,28 @@ class Representative:
             unfair_nodes.append(node_data)
 
         # Now we have to distribute the removed samples among the fair nodes
-        max_samples_to_add = len(removed_samples) // len(fair_nodes)
-        for node in fair_nodes:
-            node.extend(removed_samples[:max_samples_to_add])
-            removed_samples = removed_samples[max_samples_to_add:]
+        if fair_nodes:
+            max_samples_to_add = len(removed_samples) // len(fair_nodes)
+            for node in fair_nodes:
+                node.extend(removed_samples[:max_samples_to_add])
+                removed_samples = removed_samples[max_samples_to_add:]
 
         if group_to_increment:
             # Now we have to remove the samples from the group_to_increment
             # from the fair_nodes based on the number_of_samples_to_add
-            for node in fair_nodes:
-                samples_to_remove = sum(number_of_samples_to_add) // len(fair_nodes)
-                for index, sample in enumerate(node):
-                    if combination[sample] == group_to_increment and samples_to_remove > 0:
-                        if combination[sample] not in remaining_data:
-                            remaining_data[group_to_increment] = []
-                        remaining_data[group_to_increment].append(sample)
-                        samples_to_remove -= 1
-                        node.pop(index)
-            #     if sum(number_of_samples_to_add) > 0:
-            #         assert samples_to_remove == 0, "Not enough samples to remove"
+            if fair_nodes:
+                for node in fair_nodes:
+                    samples_to_remove = sum(number_of_samples_to_add) // len(fair_nodes)
+                    for index, sample in enumerate(node):
+                        if combination[sample] == group_to_increment and samples_to_remove > 0:
+                            if combination[sample] not in remaining_data:
+                                remaining_data[group_to_increment] = []
+                            remaining_data[group_to_increment].append(sample)
+                            samples_to_remove -= 1
+                            node.pop(index)
 
-            # assert sum(number_of_samples_to_add) <= len(
-            #     remaining_data[group_to_increment]
-            # ), "Too many samples to add"
             # now we have to add the same amount of data taken from group_to_unfair
-            for node, samples_to_add in zip(unfair_nodes, number_of_samples_to_add):
+            for node, samples_to_add in zip(unfair_nodes, number_of_samples_to_add, strict=False):
                 node.extend(remaining_data[group_to_increment][:samples_to_add])
                 remaining_data[group_to_increment] = remaining_data[group_to_increment][samples_to_add:]
 

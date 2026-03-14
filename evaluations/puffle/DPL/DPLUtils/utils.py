@@ -7,9 +7,9 @@ class Utils:
     @staticmethod
     def get_noise(
         mechanism_type: str,
-        epsilon: float = None,
-        sensitivity: float = None,
-        sigma: float = None,
+        epsilon: float | None = None,
+        sensitivity: float | None = None,
+        sigma: float | None = None,
     ):
         if mechanism_type == "laplace":
             return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
@@ -18,7 +18,8 @@ class Utils:
             return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
         if mechanism_type == "gaussian":
             return np.random.normal(loc=0, scale=sigma, size=1)[0]
-        raise ValueError("The mechanism type must be either laplace, geometric or gaussian")
+        msg = "The mechanism type must be either laplace, geometric or gaussian"
+        raise ValueError(msg)
 
     @staticmethod
     def get_summed_grad(model, batch_size):
@@ -38,9 +39,8 @@ class Utils:
         for p in model.parameters():
             param_norm = p.grad.detach().data.norm(2)
             total_norm += param_norm.item() ** 2
-        total_norm = total_norm**0.5
+        return total_norm**0.5
 
-        return total_norm
 
     @staticmethod
     def compute_per_sample_gradient_norm(model: torch.nn.Module, batch_size: int):
@@ -52,9 +52,8 @@ class Utils:
                 param_norm = p.grad_sample[i].detach().data.norm(2)
                 tmp_norm += param_norm.item() ** 2
             total_norm = tmp_norm / batch_size
-        total_norm = total_norm**0.5
+        return total_norm**0.5
 
-        return total_norm
 
     @staticmethod
     def compute_max_and_min_per_sample_gradient(optimizer: DPOptimizer):
@@ -77,8 +76,8 @@ class Utils:
             model_2 (_type_): the second model
 
         """
-        for p1, p2 in zip(model_1.parameters(), model_2.parameters()):
+        for p1, p2 in zip(model_1.parameters(), model_2.parameters(), strict=False):
             p1.data = p2.data.clone()
 
-        for p1, p2 in zip(model_1.parameters(), model_2.parameters()):
+        for p1, p2 in zip(model_1.parameters(), model_2.parameters(), strict=False):
             assert torch.all(p1 == p2)

@@ -221,6 +221,78 @@ class LinearClassificationNet(nn.Module):
         return self.layer1(x.float())
 
 
+def _run_evaluation_loop(
+    net,
+    testloader,
+    device,
+    sensitive_attrs: dict[str, int],
+) -> tuple[float, float, dict]:
+    """
+    Run the evaluation loop and compute fairness metrics.
+
+    Parameters
+    ----------
+    net : torch.nn.Module
+        The neural network to evaluate.
+    testloader : DataLoader
+        DataLoader whose batches expose sensitive attributes as positional elements.
+    device : str | torch.device
+        Device to run inference on.
+    sensitive_attrs : dict[str, int]
+        Mapping of attribute name to the batch-tuple position that holds it.
+        For example ``{"SEX": 1, "MAR": 2}`` means ``batch[1]`` is SEX and
+        ``batch[2]`` is MAR (0 is always images, last is always labels).
+
+    Returns
+    -------
+    tuple[float, float, dict]
+        ``(total_loss, accuracy, unfairness_dict)`` where *unfairness_dict* has
+        keys ``<attr>_DP`` and ``<attr>_EO`` for each attribute.
+
+    """
+    criterion = torch.nn.CrossEntropyLoss()
+    correct, total_loss = 0, 0.0
+    net.to(device)
+    net.eval()
+
+    # Buffers: one list per sensitive attribute + ground-truth & predictions
+    sens_buffers: dict[str, list] = {name: [] for name in sensitive_attrs}
+    true_y: list = []
+    preds: list = []
+
+    with torch.no_grad():
+        for batch in testloader:
+            images = batch[0].to(device)
+            labels = batch[-1].to(device)
+            outputs = net(images)
+            total_loss += criterion(outputs, labels).item()
+            _, predicted = torch.max(outputs.data, 1)
+            correct += (predicted == labels).sum().item()
+            true_y.extend(labels.cpu())
+            preds.extend(predicted.cpu())
+            for attr_name, batch_idx in sensitive_attrs.items():
+                sens_buffers[attr_name].extend(batch[batch_idx])
+
+    sf_data = pd.DataFrame(
+        {name: [int(v) for v in vals] for name, vals in sens_buffers.items()}
+    )
+
+    unfairness_dict: dict = {}
+    for attr_name in sensitive_attrs:
+        for metric in ("DP", "EO"):
+            unfairness_dict[f"{attr_name}_{metric}"] = _compute_fairness(
+                y_true=true_y,
+                y_pred=preds,
+                sf_data=sf_data,
+                fairness_metric=metric,
+                sens_att=attr_name,
+                size_unit="value",
+            )
+
+    accuracy = correct / len(testloader.dataset)
+    return total_loss, accuracy, unfairness_dict
+
+
 def train(net, trainloader, optimizer, device="cpu"):
     """Train the network on the training set."""
     criterion = torch.nn.CrossEntropyLoss()
@@ -237,74 +309,18 @@ def train(net, trainloader, optimizer, device="cpu"):
 
 
 def test(net, testloader, device):
-    """Validate the network on the entire test set."""
-    criterion = torch.nn.CrossEntropyLoss()
-    correct, loss = 0, 0.0
-    net.to(device)
-    net.eval()
-    sex_list = []
-    mar_list = []
-    true_y = []
-    predictions = []
-    with torch.no_grad():
-        for batch in testloader:
-            images, sex, mar, labels = batch
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
-            sex_list.extend(sex)
-            mar_list.extend(mar)
-            true_y.extend(labels.cpu())
-            predictions.extend(predicted.cpu())
+    """
+    Validate the network on the entire test set.
 
-    sf_data = pd.DataFrame(
-        {
-            "SEX": [int(item) for item in sex_list],
-            "MAR": [int(item) for item in mar_list],
-        }
+    Batch convention: (images, sex, mar, labels)
+    """
+    # batch position 1 = SEX, position 2 = MAR
+    return _run_evaluation_loop(
+        net=net,
+        testloader=testloader,
+        device=device,
+        sensitive_attrs={"SEX": 1, "MAR": 2},
     )
-
-    unfairness_dict = {}
-
-    unfairness_dict["MAR_DP"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="DP",
-        sens_att="MAR",
-        size_unit="value",
-    )
-    unfairness_dict["SEX_DP"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="DP",
-        sens_att="SEX",
-        size_unit="value",
-    )
-    unfairness_dict["MAR_EO"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="EO",
-        sens_att="MAR",
-        size_unit="value",
-    )
-    unfairness_dict["SEX_EO"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="EO",
-        sens_att="SEX",
-        size_unit="value",
-    )
-
-    accuracy = correct / len(testloader.dataset)
-
-    return loss, accuracy, unfairness_dict
 
 
 def weighted_average(metrics: list[tuple[int, Metrics]]) -> Metrics:
@@ -356,8 +372,6 @@ class ImageDataset(Dataset):
         return image, sensitive, sensitive, label
 
 
-import pandas as pd
-from torch.utils.data import Dataset
 
 
 class CelebaDataset(Dataset):
@@ -448,57 +462,18 @@ class SimpleCNN(nn.Module):
 
 
 def test_image(net, testloader, device, sensitive_attribute_name="sensitive"):  # noqa: PT028
-    """Validate the network on the entire test set for image data."""
-    criterion = torch.nn.CrossEntropyLoss()
-    correct, loss = 0, 0.0
-    net.to(device)
-    net.eval()
-    sensitive_list = []
-    true_y = []
-    predictions = []
-    with torch.no_grad():
-        for batch in testloader:
-            images, sens1, labels = batch
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
-            sensitive_list.extend(sens1)
-            true_y.extend(labels.cpu())
-            predictions.extend(predicted.cpu())
+    """
+    Validate the network on the entire test set for image data.
 
-    sf_data = pd.DataFrame(
-        {
-            sensitive_attribute_name: [int(item) for item in sensitive_list],
-        }
+    Batch convention: (images, sensitive, labels)
+    """
+    # batch position 1 = sensitive attribute, position -1 = labels (handled by _run_evaluation_loop)
+    return _run_evaluation_loop(
+        net=net,
+        testloader=testloader,
+        device=device,
+        sensitive_attrs={sensitive_attribute_name: 1},
     )
-
-    unfairness_dict = {}
-
-    # Compute DP and EO for the single sensitive attribute
-    unfairness_dict[f"{sensitive_attribute_name}_DP"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="DP",
-        sens_att=sensitive_attribute_name,
-        size_unit="value",
-    )
-
-    unfairness_dict[f"{sensitive_attribute_name}_EO"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="EO",
-        sens_att=sensitive_attribute_name,
-        size_unit="value",
-    )
-
-    accuracy = correct / len(testloader.dataset)
-
-    return loss, accuracy, unfairness_dict
 
 
 def get_default_image_transform(image_size=(64, 64)):
@@ -528,53 +503,15 @@ def train_celeba(net, trainloader, optimizer, device="cpu"):
 
 
 def test_celeba(net, testloader, device):
-    """Validate the network on the entire test set."""
-    criterion = torch.nn.CrossEntropyLoss()
-    correct, loss = 0, 0.0
-    net.to(device)
-    net.eval()
-    sex_list = []
-    true_y = []
-    predictions = []
-    with torch.no_grad():
-        for batch in testloader:
-            images, sex, labels = batch
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
-            sex_list.extend(sex)
-            true_y.extend(labels.cpu())
-            predictions.extend(predicted.cpu())
+    """
+    Validate the network on the entire test set.
 
-    sf_data = pd.DataFrame(
-        {
-            "SEX": [int(item) for item in sex_list],
-        }
+    Batch convention: (images, sex, labels)
+    """
+    # batch position 1 = SEX, position -1 = labels (handled by _run_evaluation_loop)
+    return _run_evaluation_loop(
+        net=net,
+        testloader=testloader,
+        device=device,
+        sensitive_attrs={"SEX": 1},
     )
-
-    unfairness_dict = {}
-
-    unfairness_dict["SEX_DP"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="DP",
-        sens_att="SEX",
-        size_unit="value",
-    )
-
-    unfairness_dict["SEX_EO"] = _compute_fairness(
-        y_true=true_y,
-        y_pred=predictions,
-        sf_data=sf_data,
-        fairness_metric="EO",
-        sens_att="SEX",
-        size_unit="value",
-    )
-
-    accuracy = correct / len(testloader.dataset)
-
-    return loss, accuracy, unfairness_dict

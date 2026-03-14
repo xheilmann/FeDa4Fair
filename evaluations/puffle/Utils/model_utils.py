@@ -16,8 +16,7 @@ class ModelUtils:
         train_loader,
         epochs: int,
         delta: float,
-        MAX_GRAD_NORM: float,
-        batch_size: int,
+        max_grad_norm: float,
         noise_multiplier: float = 0,
     ) -> tuple[GradSampleModule, DPOptimizer, DataLoader]:
         """
@@ -30,8 +29,8 @@ class ModelUtils:
             train_loader (_type_): the train dataloader used to train the model
             epochs (_type_): for how many epochs the model will be trained
             delta (float): the delta for the privacy budget
-            MAX_GRAD_NORM (float): the clipping value for the gradients
-            batch_size (int): batch size
+            max_grad_norm (float): the clipping value for the gradients
+            noise_multiplier (float): the noise multiplier for the privacy budget
 
         Returns:
             Tuple[GradSampleModule, DPOptimizer, DataLoader]: the wrapped model,
@@ -59,7 +58,7 @@ class ModelUtils:
                 epochs=epochs,
                 target_epsilon=epsilon,
                 target_delta=delta,
-                max_grad_norm=MAX_GRAD_NORM,
+                max_grad_norm=max_grad_norm,
             )
         else:
             private_model, optimizer, train_loader = privacy_engine.make_private(
@@ -67,7 +66,7 @@ class ModelUtils:
                 optimizer=original_optimizer,
                 data_loader=train_loader,
                 noise_multiplier=noise_multiplier,
-                max_grad_norm=MAX_GRAD_NORM,
+                max_grad_norm=max_grad_norm,
             )
 
         return private_model, optimizer, train_loader
@@ -75,16 +74,18 @@ class ModelUtils:
     @staticmethod
     def get_model(
         dataset: str,
-        device: torch.device,
-        input_size: int = None,
-        output_size: int = None,
+        _device: torch.device,
+        _input_size: int | None = None,
+        _output_size: int | None = None,
     ) -> torch.nn.Module:
         """
         This function returns the model to train.
 
         Args:
             dataset (str): the name of the dataset
-            device (torch.device): the device where the model will be trained
+            _device (torch.device): the device where the model will be trained
+            _input_size (int | None): input size
+            _output_size (int | None): output size
 
         Raises:
             ValueError: if the dataset is not supported
@@ -111,4 +112,5 @@ class ModelUtils:
             return LinearClassificationNet(input_size=88, output_size=2)
         if dataset == "employment_NO_RACE":
             return LinearClassificationNet(input_size=80, output_size=2)
-        raise ValueError(f"Dataset {dataset} not supported")
+        msg = f"Dataset {dataset} not supported"
+        raise ValueError(msg)

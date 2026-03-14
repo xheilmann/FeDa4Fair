@@ -15,9 +15,9 @@
 """Flower server."""
 
 import concurrent.futures
-import os
 import timeit
 from logging import DEBUG, INFO
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -82,7 +82,6 @@ class Server:
         """Return ClientManager."""
         return self._client_manager
 
-    # pylint: disable=too-many-locals
     def fit(self, num_rounds: int, timeout: float | None) -> History:
         """Run federated averaging for a number of rounds."""
         history = History()
@@ -108,40 +107,7 @@ class Server:
         average_probabilities = None
         last_working_dataset_id = 0
         for current_round in range(1, num_rounds + 1):
-            if self.args.dataset == "continual_income" and self.args.switch_dataset:
-                dataset_id = int(current_round / self.args.switch_dataset)
-                for client_name in range(self.args.pool_size):
-                    if os.path.exists(
-                        f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/income_dataframes_{dataset_id}.npy"
-                    ):
-                        last_working_dataset_id = dataset_id
-                    else:
-                        dataset_id = last_working_dataset_id
-                    # open numpy arrays
-                    X = np.load(
-                        f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/income_dataframes_{dataset_id}.npy"
-                    )
-                    Y = np.load(
-                        f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/income_labels_{dataset_id}.npy"
-                    )
-                    Z = np.load(
-                        f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/income_groups_{dataset_id}.npy"
-                    )
-                    custom_dataset = TabularDataset(
-                        x=np.hstack((X, np.ones((X.shape[0], 1)))).astype(np.float32),
-                        z=[item.item() for item in Z],  # .astype(np.float32),
-                        y=[item.item() for item in Y],  # .astype(np.float32),
-                    )
-
-                    # remove the old train.pt
-                    if os.path.exists(f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/train.pt"):
-                        os.remove(f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/train.pt")
-
-                    torch.save(
-                        custom_dataset,
-                        f"{self.args.dataset_path}/{self.args.splitted_data_dir}/{client_name}/train.pt",
-                    )
-                print("----> Server update dataset_id", last_working_dataset_id)
+            last_working_dataset_id = self._maybe_update_datasets(current_round, last_working_dataset_id)
 
             # Train model and replace previous global model
             res_fit = self.fit_round(
@@ -203,6 +169,38 @@ class Server:
         elapsed = end_time - start_time
         log(INFO, "FL finished in %s", elapsed)
         return history
+
+    def _maybe_update_datasets(self, current_round, last_working_id):
+        if self.args.dataset != "continual_income" or not self.args.switch_dataset:
+            return last_working_id
+
+        dataset_id = int(current_round / self.args.switch_dataset)
+        base = Path(self.args.dataset_path) / self.args.splitted_data_dir
+        for client_name in range(self.args.pool_size):
+            c_dir = base / str(client_name)
+            feat_path = c_dir / f"income_dataframes_{dataset_id}.npy"
+            if feat_path.exists():
+                last_working_id = dataset_id
+            else:
+                dataset_id = last_working_id
+
+            x_arr = np.load(c_dir / f"income_dataframes_{dataset_id}.npy")
+            y_arr = np.load(c_dir / f"income_labels_{dataset_id}.npy")
+            z_arr = np.load(c_dir / f"income_groups_{dataset_id}.npy")
+
+            custom_ds = TabularDataset(
+                x=np.hstack((x_arr, np.ones((x_arr.shape[0], 1)))).astype(np.float32),
+                z=[item.item() for item in z_arr],
+                y=[item.item() for item in y_arr],
+            )
+
+            train_pt = c_dir / "train.pt"
+            if train_pt.exists():
+                train_pt.unlink()
+            torch.save(custom_ds, train_pt)
+
+        print("----> Server update dataset_id", last_working_id)
+        return last_working_id
 
     def test_round(
         self,
@@ -354,7 +352,7 @@ class Server:
     def disconnect_all_clients(self, timeout: float | None) -> None:
         """Send shutdown signal to all clients."""
         all_clients = self._client_manager.all()
-        clients = [all_clients[k] for k in all_clients.keys()]
+        clients = [all_clients[k] for k in all_clients]
         instruction = ReconnectIns(seconds=None)
         client_instructions = [(client_proxy, instruction) for client_proxy in clients]
         _ = reconnect_clients(
@@ -460,7 +458,7 @@ def fit_client(
 
 
 def _handle_finished_future_after_fit(
-    future: concurrent.futures.Future,  # type: ignore
+    future: concurrent.futures.Future,  # type: ignore[type-arg]
     results: list[tuple[ClientProxy, FitRes]],
     failures: list[tuple[ClientProxy, FitRes] | BaseException],
 ) -> None:
@@ -518,7 +516,7 @@ def evaluate_client(
 
 
 def _handle_finished_future_after_evaluate(
-    future: concurrent.futures.Future,  # type: ignore
+    future: concurrent.futures.Future,  # type: ignore[type-arg]
     results: list[tuple[ClientProxy, EvaluateRes]],
     failures: list[tuple[ClientProxy, EvaluateRes] | BaseException],
 ) -> None:

@@ -3,7 +3,13 @@ import unittest
 import pandas as pd
 import pytest
 
-from FeDa4Fair.utils.data_utils import balance_data, generate_bias_by_groups, generate_modification_dict
+from FeDa4Fair.utils.data_utils import (
+    balance_data,
+    drop_data,
+    flip_data,
+    generate_bias_by_groups,
+    generate_modification_dict,
+)
 
 
 class TestDataUtils(unittest.TestCase):
@@ -18,7 +24,7 @@ class TestDataUtils(unittest.TestCase):
         # Min pos = 25, Min neg = 25
         # Both groups should end up with 25 pos, 25 neg.
         # Total size per group = 50. Rate = 25/50 = 0.5
-        balanced_df, removed_count = balance_data(self.df, "sens", "label")
+        balanced_df, _removed_count = balance_data(self.df, "sens", "label")
 
         # Check rates
         s0 = balanced_df[balanced_df["sens"] == 0]
@@ -32,8 +38,10 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(len(balanced_df), 100)  # 50 from each group
 
     def test_balance_data_with_integer_labels(self):
-        """balance_data should work correctly when labels are integers (0/1),
-        not just booleans."""
+        """
+        balance_data should work correctly when labels are integers (0/1),
+        not just booleans.
+        """
         data = {
             "sens": [0] * 100 + [1] * 100,
             "label": [1] * 75 + [0] * 25 + [1] * 25 + [0] * 75,  # integers, not booleans
@@ -56,10 +64,10 @@ class TestDataUtils(unittest.TestCase):
         self.assertGreater(removed_count, 0)
 
     def test_drop_data_with_integer_labels(self):
-        """drop_data should only drop rows where label == 1,
-        not all truthy values."""
-        from FeDa4Fair.utils.data_utils import drop_data
-
+        """
+        drop_data should only drop rows where label == 1,
+        not all truthy values.
+        """
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels
@@ -76,8 +84,6 @@ class TestDataUtils(unittest.TestCase):
         self.assertLessEqual(dropped, 25)  # Can't drop more than matching rows
 
     def test_drop_data_with_integer_labels_count(self):
-        from FeDa4Fair.utils.data_utils import drop_data
-
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels
@@ -92,8 +98,6 @@ class TestDataUtils(unittest.TestCase):
 
     def test_flip_data_with_integer_labels(self):
         """flip_data should correctly flip integer labels from 1 to 0."""
-        from FeDa4Fair.utils.data_utils import flip_data
-
         data = {
             "sens": [1] * 50 + [2] * 50,
             "label": [0, 1] * 50,  # integer labels

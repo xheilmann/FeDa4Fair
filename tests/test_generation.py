@@ -2,7 +2,12 @@ import unittest
 
 import pandas as pd
 
-from FeDa4Fair.dataset.generation import _filter_states_by_fairness, preprocess_data_cross_silo, split_df
+from FeDa4Fair.dataset.generation import (
+    _filter_states_by_fairness,
+    _get_attribute_modifications,
+    preprocess_data_cross_silo,
+    split_df,
+)
 
 
 class TestGeneration(unittest.TestCase):
@@ -40,16 +45,16 @@ class TestGeneration(unittest.TestCase):
         datasets = []
         res = preprocess_data_cross_silo(df, datasets, "attribute", "State1")
         self.assertEqual(len(res), 1)
-        name, x_train, y_train, x_test, y_test, sf = res[0]
+        name, x_train, _y_train, _x_test, _y_test, sf = res[0]
         self.assertEqual(name, "State1")
         self.assertEqual(x_train.shape[1], 0)  # PINCP, SEX, MAR, RAC1P dropped
         self.assertIn("SEX", sf)
 
     def test_get_attribute_modifications_count_1(self):
-        from FeDa4Fair.dataset.generation import _get_attribute_modifications
-
-        """When count == 1 (only 1 model has sex_dp > race_dp),
-        should still use SEX attribute but NOT return None."""
+        """
+        When count == 1 (only 1 model has sex_dp > race_dp),
+        should still use SEX attribute but NOT return None.
+        """
         df_entry = pd.DataFrame(
             {
                 "DP_RACE": [0.05, 0.06],
@@ -62,8 +67,6 @@ class TestGeneration(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_get_attribute_modifications_count_2_high_dp(self):
-        from FeDa4Fair.dataset.generation import _get_attribute_modifications
-
         """When count == 2 and min_dp >= 0.09, should return None."""
         df_entry = pd.DataFrame(
             {
@@ -75,8 +78,6 @@ class TestGeneration(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_preprocess_data_cross_silo_no_mutation(self):
-        from FeDa4Fair.dataset.generation import preprocess_data_cross_silo
-
         """preprocess_data_cross_silo should not mutate the input DataFrame."""
         data = pd.DataFrame(
             {

@@ -13,9 +13,10 @@
 
 """Implements FairFederatedDataset as subclass of FederatedDataset."""
 
+import contextlib
+import copy
 import dataclasses
 import datetime
-import inspect
 import json
 import warnings
 from os import PathLike
@@ -38,20 +39,21 @@ TRAIN_VAL_TEST_SPLIT_LEN = 3
 
 def _clone_partitioner(obj: Any) -> Any:
     """
-    Creates a new instance of the same class as obj with the same arguments.
+    Return a deep copy of a partitioner instance.
 
-    Assumes that arguments to __init__ are stored as attributes in obj (possibly with a leading underscore).
+    Uses :func:`copy.deepcopy` so that all attributes — including those stored
+    under private or differently-named names — are cloned correctly.  The
+    returned instance has no ``dataset`` assigned yet and is therefore ready
+    to be attached to a new split.
     """
-    cls = obj.__class__
-    init_signature = inspect.signature(cls.__init__)
-    arg_names = [param for param in init_signature.parameters if param != "self"]
-    init_args = {}
-    for arg in arg_names:
-        if hasattr(obj, arg):
-            init_args[arg] = getattr(obj, arg)
-        elif hasattr(obj, f"_{arg}"):
-            init_args[arg] = getattr(obj, f"_{arg}")
-    return cls(**init_args)
+    cloned = copy.deepcopy(obj)
+    # Clear any already-assigned dataset so the clone is "fresh"
+    if hasattr(cloned, "_dataset"):
+        cloned._dataset = None
+    elif hasattr(cloned, "dataset"):
+        with contextlib.suppress(Exception):
+            cloned.dataset = None
+    return cloned
 
 
 class FairFederatedDataset(FederatedDataset):
@@ -689,22 +691,13 @@ class FairFederatedDataset(FederatedDataset):
 
         modifications = self._modification_dict[key]
 
-        # Correct logic based on original implementation:
+        # Delegate to _apply_single_modification to avoid duplicating logic
         for col_name, config in modifications.items():
             if config.get("mitigate", False):
                 data, removed = balance_data(data, col_name, self.label_column)
                 self._total_removed_samples += removed
             else:
-                drop_rate = config.get("drop_rate", 0)
-                flip_rate = config.get("flip_rate", 0)
-                value1 = config.get("value")
-                column2 = config.get("attribute")
-                value2 = config.get("attribute_value")
-
-                if drop_rate > 0:
-                    data = drop_data(data, drop_rate, col_name, value1, self.label_column, column2, value2)
-                if flip_rate > 0:
-                    data = flip_data(data, flip_rate, col_name, value1, self.label_column, column2, value2)
+                data = self._apply_single_modification(data, col_name, config)
 
         return data
 

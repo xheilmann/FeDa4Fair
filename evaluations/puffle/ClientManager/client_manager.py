@@ -16,6 +16,7 @@
 
 import random
 import threading
+from pathlib import Path
 
 import dill
 from flwr.server.client_manager import ClientManager
@@ -50,6 +51,11 @@ class SimpleClientManager(ClientManager):
         ----------
         num_clients : int
             The pool size.
+        node_shuffle_seed: int
+            The seed to use for shuffling the nodes.
+        seed: int
+            The seed that we used to split the dataset
+            and to assign nodes to the different sets.
         sort_clients : bool
             If True, the clients will be sorted by their id.
         num_training_nodes : int
@@ -58,11 +64,20 @@ class SimpleClientManager(ClientManager):
             The number of nodes to use for validation.
         num_test_nodes : int
             The number of nodes to use for testing.
-        node_shuffle_seed: int
-            The seed to use for shuffling the nodes.
-        seed: int
-            The seed that we used to split the dataset
-            and to assign nodes to the different sets.
+        fed_dir: str
+            Federated directory.
+        fraction_fit: float
+            Fraction of clients to use for fit.
+        fraction_evaluate: float
+            Fraction of clients to use for evaluate.
+        fraction_test: int
+            Fraction of clients to use for test.
+        ratio_unfair_nodes: float
+            Ratio of unfair nodes.
+        fl_rounds: int
+            Number of FL rounds.
+        cross_silo: bool
+            Whether to use cross-silo.
 
         """
         self.seed = seed
@@ -111,7 +126,6 @@ class SimpleClientManager(ClientManager):
         if phase == "validation":
             return len(self.validation_clients_list)
         return len(self.test_clients_list)
-        # return len(self)
 
     def wait_for(self, num_clients: int, timeout: int = 86400) -> bool:
         """
@@ -145,10 +159,7 @@ class SimpleClientManager(ClientManager):
             start = fl_round * num_fair_nodes_sampled % len(fair_group)
             end = (fl_round * num_fair_nodes_sampled + num_fair_nodes_sampled) % len(fair_group)
 
-            if start < end:
-                fair_nodes_sampled = fair_group[start:end]
-            else:
-                fair_nodes_sampled = fair_group[start:] + fair_group[:end]
+            fair_nodes_sampled = fair_group[start:end] if start < end else fair_group[start:] + fair_group[:end]
 
             if len(unfair_group) > 0:
                 start = fl_round * num_unfair_nodes_sampled % len(unfair_group)
@@ -165,13 +176,14 @@ class SimpleClientManager(ClientManager):
 
         return sampled_nodes
 
-    def register(self, client: ClientProxy) -> bool:
+    def register(self, client: ClientProxy) -> bool:  # noqa: PLR0915
         """
         Register Flower ClientProxy instance.
 
         Parameters
         ----------
         client : flwr.server.client_proxy.ClientProxy
+            The client to register.
 
         Returns
         -------
@@ -211,7 +223,7 @@ class SimpleClientManager(ClientManager):
                     client_list=self.training_clients_list,
                 )
 
-                with open(f"{self.fed_dir}/train_nodes.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/train_nodes.pkl").open("wb") as f:
                     dill.dump(sampled_nodes_train, f)
 
                 counter_sampling = {}
@@ -221,7 +233,7 @@ class SimpleClientManager(ClientManager):
                             counter_sampling[str(node)] = 0
                         counter_sampling[str(node)] += 1
 
-                with open(f"{self.fed_dir}/counter_sampling.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/counter_sampling.pkl").open("wb") as f:
                     dill.dump(counter_sampling, f)
 
                 if self.fraction_validation > 0:
@@ -232,7 +244,7 @@ class SimpleClientManager(ClientManager):
                         fair_group=fair_training_clients,
                         client_list=self.validation_clients_list,
                     )
-                    with open(f"{self.fed_dir}/validation_nodes.pkl", "wb") as f:
+                    with Path(f"{self.fed_dir}/validation_nodes.pkl").open("wb") as f:
                         dill.dump(sampled_nodes_validation, f)
 
                 sampled_nodes_test = self.pre_sample_clients(
@@ -243,7 +255,7 @@ class SimpleClientManager(ClientManager):
                     client_list=self.test_clients_list,
                 )
 
-                with open(f"{self.fed_dir}/test_nodes.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/test_nodes.pkl").open("wb") as f:
                     dill.dump(sampled_nodes_test, f)
 
                 print("Nodes in the training set: ", self.training_clients_list)
@@ -280,7 +292,7 @@ class SimpleClientManager(ClientManager):
                     client_list=self.test_clients_list,
                 )
 
-                with open(f"{self.fed_dir}/test_nodes.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/test_nodes.pkl").open("wb") as f:
                     dill.dump(sampled_nodes_test, f)
 
                 # remove from fair_group the nodes that are in the fair_test_clients
@@ -310,7 +322,7 @@ class SimpleClientManager(ClientManager):
                     fair_group=self.fair_training_clients,
                     client_list=self.training_clients_list,
                 )
-                with open(f"{self.fed_dir}/train_nodes.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/train_nodes.pkl").open("wb") as f:
                     dill.dump(sampled_nodes_train, f)
 
                 counter_sampling = {}
@@ -320,7 +332,7 @@ class SimpleClientManager(ClientManager):
                             counter_sampling[str(node)] = 0
                         counter_sampling[str(node)] += 1
 
-                with open(f"{self.fed_dir}/counter_sampling.pkl", "wb") as f:
+                with Path(f"{self.fed_dir}/counter_sampling.pkl").open("wb") as f:
                     dill.dump(counter_sampling, f)
 
                 print(sampled_nodes_train)
@@ -343,7 +355,7 @@ class SimpleClientManager(ClientManager):
                         fair_group=self.fair_validation_clients,
                         client_list=self.validation_clients_list,
                     )
-                    with open(f"{self.fed_dir}/validation_nodes.pkl", "wb") as f:
+                    with Path(f"{self.fed_dir}/validation_nodes.pkl").open("wb") as f:
                         dill.dump(sampled_nodes_validation, f)
 
                 random.seed(self.seed)
@@ -370,6 +382,7 @@ class SimpleClientManager(ClientManager):
         Parameters
         ----------
         client : flwr.server.client_proxy.ClientProxy
+            The client to unregister.
 
         """
         if client.cid in self.clients:
@@ -398,8 +411,8 @@ class SimpleClientManager(ClientManager):
         # Sample clients which meet the criterion
 
         if phase == "training":
-            with open(f"{self.fed_dir}/train_nodes.pkl", "rb") as f:
-                train_nodes = dill.load(f)
+            with Path(f"{self.fed_dir}/train_nodes.pkl").open("rb") as f:
+                train_nodes = dill.load(f)  # noqa: S301
 
             print("SAMPLING")
             sampled_clients = [self.clients[str(node)] for node in train_nodes[self.num_round_train]]
@@ -410,8 +423,8 @@ class SimpleClientManager(ClientManager):
                 [client.cid for client in sampled_clients],
             )
         elif phase == "validation":
-            with open(f"{self.fed_dir}/validation_nodes.pkl", "rb") as f:
-                validation_nodes = dill.load(f)
+            with Path(f"{self.fed_dir}/validation_nodes.pkl").open("rb") as f:
+                validation_nodes = dill.load(f)  # noqa: S301
 
             sampled_clients = [self.clients[str(node)] for node in validation_nodes[self.num_round_validation]]
             self.num_round_validation += 1
@@ -420,8 +433,8 @@ class SimpleClientManager(ClientManager):
                 [client.cid for client in sampled_clients],
             )
         else:
-            with open(f"{self.fed_dir}/test_nodes.pkl", "rb") as f:
-                test_nodes = dill.load(f)
+            with Path(f"{self.fed_dir}/test_nodes.pkl").open("rb") as f:
+                test_nodes = dill.load(f)  # noqa: S301
 
             sampled_clients = [self.clients[str(node)] for node in test_nodes[self.num_round_test]]
             self.num_round_test += 1

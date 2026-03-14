@@ -23,10 +23,6 @@ from fairlearn.metrics import MetricFrame, false_positive_rate, selection_rate, 
 from flwr_datasets.partitioner import Partitioner
 from sklearn.metrics import accuracy_score
 
-# Configure pandas display options
-pd.set_option("display.max_columns", 20)
-pd.set_option("display.width", 80)
-
 
 def _compute_fairness(
     y_true: Any,
@@ -112,9 +108,9 @@ def _compute_fairness(
             index=[f"{sens_att_name}_{fairness_metric}", f"{sens_att_name}_val"],
         )
     if size_unit == "attribute":
-        # Return only the max difference
+        # Return max difference and the pair responsible (idxmax)
         return pd.Series(
-            [diff_df.max(), diff_df.max()],
+            [diff_df.max(), diff_df.idxmax()],
             index=[f"{sens_att_name}_{fairness_metric}", f"{sens_att_name}_val"],
         )
 

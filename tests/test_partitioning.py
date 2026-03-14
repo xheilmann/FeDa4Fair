@@ -67,7 +67,7 @@ class TestRepresentativeDiversityPartitioner(unittest.TestCase):
     def test_missing_column(self):
         partitioner = RepresentativeDiversityPartitioner(num_partitions=2, partition_by="non_existent_column")
         partitioner.dataset = self.dataset
-        with pytest.raises(ValueError, match="Column .* not found"):
+        with pytest.raises(ValueError, match=r"Column .* not found"):
             partitioner.load_partition(0)
 
     def test_dataset_not_assigned(self):

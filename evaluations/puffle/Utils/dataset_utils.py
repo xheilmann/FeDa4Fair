@@ -13,7 +13,7 @@ class DatasetUtils:
     def load_celeba(
         train_csv: str,
         debug: bool,
-        test_csv: str = None,
+        test_csv: str | None = None,
         base_path: str = "../data/celeba",
     ) -> tuple[CelebaDataset, CelebaDataset]:
         """
@@ -21,6 +21,7 @@ class DatasetUtils:
 
         Args:
             train_csv (str): name of the train_csv
+            debug (bool): whether or not to load a subset of the dataset
             test_csv (str): name of the test csv
             base_path (str, optional): base path where the dataset is stored.
 
@@ -56,9 +57,9 @@ class DatasetUtils:
     @staticmethod
     def load_dataset(
         dataset_name: str,
-        train_csv: str = None,
+        train_csv: str | None = None,
         debug: bool = False,
-        test_csv: str = None,
+        test_csv: str | None = None,
         base_path: str = "../data/celeba",
     ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
         """
@@ -67,6 +68,7 @@ class DatasetUtils:
         Args:
             dataset_name (str): name of the dataset to load from disk
             train_csv (str): name of the train csv
+            debug (bool): whether or not to load a subset of the dataset
             test_csv (str): name of the test csv
             base_path (str, optional): base path where the dataset is stored.
 
@@ -93,9 +95,9 @@ class DatasetUtils:
             y = tmp[2]
             z = tmp[1]
 
-            xyz = list(zip(x, y, z))
+            xyz = list(zip(x, y, z, strict=False))
             random.shuffle(xyz)
-            x, y, z = zip(*xyz)
+            x, y, z = zip(*xyz, strict=False)
             train_size = int(len(y) * 0.8)
 
             x_train = np.array(x[:train_size])
@@ -118,7 +120,8 @@ class DatasetUtils:
             )
 
             return train_dataset, test_dataset
-        raise ValueError(f"Dataset {dataset_name} not supported")
+        msg = f"Dataset {dataset_name} not supported"
+        raise ValueError(msg)
 
     @staticmethod
     def prepare_datasets(
@@ -133,7 +136,7 @@ class DatasetUtils:
         Args:
             train_ds (torch.utils.data.Dataset): train dataset
             test_ds (torch.utils.data.Dataset): test dataset
-            batch_size (int):
+            batch_size (int): batch size to use
 
         Returns:
             Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:

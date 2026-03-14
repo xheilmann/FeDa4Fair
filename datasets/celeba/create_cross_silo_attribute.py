@@ -5,14 +5,15 @@ Scenario: Cross-Silo (50 clients)
 Target DP Level: Medium (0.30)
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import io
-import os
-import json
 import base64
-from datasets import load_dataset, concatenate_datasets
+import io
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from datasets import concatenate_datasets, load_dataset
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
 from FeDa4Fair.visualization.plots import plot_multi_attribute_fairness
@@ -30,22 +31,16 @@ def add_hair_color(df):
     return df
 
 
-def create_benchmarks():
-    num_clients = 50
-    output_base = "datasets/celeba/cross_silo_attribute"
-    img_dict_path = "datasets/celeba/celeba_img_dict.json"
-
-    # 1. Load and Preprocess Data
+def get_celeba_dataframe(img_dict_path):
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
-
     ds_merged = concatenate_datasets(list(ds_dict.values()))
 
     print("Adding image IDs...")
     ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
 
     # Check if image dict exists
-    if not os.path.exists(img_dict_path):
+    if not img_dict_path.exists():
         print(f"Creating image dictionary at {img_dict_path}...")
         img_map = {}
         for item in ds_merged:
@@ -57,8 +52,8 @@ def create_benchmarks():
             img_map[idx] = b64_str
 
         print("Saving JSON...")
-        os.makedirs(os.path.dirname(img_dict_path), exist_ok=True)
-        with open(img_dict_path, "w") as f:
+        img_dict_path.parent.mkdir(parents=True, exist_ok=True)
+        with img_dict_path.open("w") as f:
             json.dump(img_map, f)
         print("JSON saved.")
         del img_map
@@ -72,7 +67,49 @@ def create_benchmarks():
     df = ds_merged.to_pandas()
 
     print("Adding 'hair_color' attribute...")
-    df = add_hair_color(df)
+    return add_hair_color(df)
+
+
+def evaluate_benchmark(fds, output_base, level_name):
+    # Evaluation
+    print(f"Evaluating {level_name} benchmark...")
+
+    sens_atts = ["Male", "hair_color"]
+    train_key = "train_train"
+    if train_key not in fds.partitioners:
+        train_key = "train"
+
+    # Evaluate Data DP
+    fig, _ax, results_dp = plot_multi_attribute_fairness(
+        partitioner=fds.partitioners[train_key],
+        partitioner_test=fds.partitioners[train_key],
+        model=None,
+        sens_atts=sens_atts,
+        fairness_metric="DP",
+        label_name="Smiling",
+        fds=fds,
+        split="train_train",
+        size_unit="attribute",
+    )
+
+    fig.savefig(f"{output_base}/{level_name}_DP.png")
+    results_dp.to_csv(f"{output_base}/{level_name}_evaluation.csv")
+    plt.close(fig)
+
+    print(f"Evaluation saved to {output_base}/{level_name}_evaluation.csv\n")
+
+    if "DP" in results_dp.columns:
+        print("Metric Columns:", results_dp.columns)
+        numeric_cols = results_dp.select_dtypes(include=np.number).columns
+        print(f"Average DP across clients: {results_dp[numeric_cols].mean().mean():.4f}")
+
+
+def create_benchmarks():
+    num_clients = 50
+    output_base = "datasets/celeba/cross_silo_attribute"
+    img_dict_path = Path("datasets/celeba/celeba_img_dict.json")
+
+    df = get_celeba_dataframe(img_dict_path)
 
     # Tuning params for Target DP ~0.30
     level_name = "medium"
@@ -143,38 +180,7 @@ def create_benchmarks():
     )
 
     fds.prepare()
-
-    # Evaluation
-    print(f"Evaluating {level_name} benchmark...")
-
-    sens_atts = ["Male", "hair_color"]
-    train_key = "train_train"
-    if train_key not in fds.partitioners:
-        train_key = "train"
-
-    # Evaluate Data DP
-    fig, ax, results_dp = plot_multi_attribute_fairness(
-        partitioner=fds.partitioners[train_key],
-        partitioner_test=fds.partitioners[train_key],
-        model=None,
-        sens_atts=sens_atts,
-        fairness_metric="DP",
-        label_name="Smiling",
-        fds=fds,
-        split="train_train",
-        size_unit="attribute",
-    )
-
-    fig.savefig(f"{output_base}/{level_name}_DP.png")
-    results_dp.to_csv(f"{output_base}/{level_name}_evaluation.csv")
-    plt.close(fig)
-
-    print(f"Evaluation saved to {output_base}/{level_name}_evaluation.csv\n")
-
-    if "DP" in results_dp.columns:
-        print("Metric Columns:", results_dp.columns)
-        numeric_cols = results_dp.select_dtypes(include=np.number).columns
-        print(f"Average DP across clients: {results_dp[numeric_cols].mean().mean():.4f}")
+    evaluate_benchmark(fds, output_base, level_name)
 
 
 if __name__ == "__main__":

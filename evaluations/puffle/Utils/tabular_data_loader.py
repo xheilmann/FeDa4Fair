@@ -1,16 +1,14 @@
-import base64
-import io
 import json
-import os
 import random
+import shutil
 from collections import Counter
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from matplotlib.pyplot import figure
-from PIL import Image
 from scipy.io import arff
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
@@ -29,7 +27,7 @@ def plot_distribution(distributions, title):
     for distribution in distributions:
         counter = Counter(distribution)
         nodes_data.append(counter)
-        for key, value in counter.items():
+        for key in counter:
             key_list.add(key)
 
     for node_data in nodes_data:
@@ -66,8 +64,6 @@ def plot_distribution(distributions, title):
 
 
 def get_tabular_data(
-    num_clients: int,
-    do_iid_split: bool,
     dataset_name: str,
     num_sensitive_features: int,
     approach: str,
@@ -76,25 +72,25 @@ def get_tabular_data(
     opposite_direction: bool,
     ratio_unfairness: tuple,
     dataset_path=None,
-    group_to_reduce: tuple = None,
-    group_to_increment: tuple = None,
-    number_of_samples_per_node: int = None,
-    opposite_group_to_reduce: tuple = None,
-    opposite_group_to_increment: tuple = None,
-    opposite_ratio_unfairness: tuple = None,
+    group_to_reduce: tuple | None = None,
+    group_to_increment: tuple | None = None,
+    number_of_samples_per_node: int | None = None,
+    opposite_group_to_reduce: tuple | None = None,
+    opposite_group_to_increment: tuple | None = None,
+    opposite_ratio_unfairness: tuple | None = None,
     one_group_nodes: bool = False,
 ):
-    X, z, y = get_tabular_numpy_dataset(
+    x_data, z, y = get_tabular_numpy_dataset(
         dataset_name=dataset_name,
         num_sensitive_features=num_sensitive_features,
         dataset_path=dataset_path,
     )
     z = z[:, 0]
-    print(f"Data shapes: x={X.shape}, y={y.shape}, z={z.shape}")
+    print(f"Data shapes: x={x_data.shape}, y={y.shape}, z={z.shape}")
     # Prepare training data held by each client
     # Metadata is a list with 0 if the client is fair, 0 otherwise
     client_data, metadata = generate_clients_biased_data_mod(
-        X=X,
+        x_data=x_data,
         y=y,
         z=z,
         approach=approach,
@@ -121,23 +117,23 @@ def get_tabular_data(
     return client_data, disparities, metadata  # , N_is, props_positive
 
 
-def egalitarian_approach(X, y, z, num_nodes, number_of_samples_per_node=None):
+def egalitarian_approach(x_data, y, z, num_nodes, number_of_samples_per_node=None):
     """
     With this approach we want to distribute the data among the nodes in an egalitarian way.
     This means that each node has the same amount of data and the same ratio of each group
 
     params:
-    X: numpy array of shape (N, D) where N is the number of samples and D is the number of features
+    x_data: numpy array of shape (N, D) where N is the number of samples and D is the number of features
     y: numpy array of shape (N, ) where N is the number of samples. Here we have the samples labels
     z: numpy array of shape (N, ) where N is the number of samples. Here we have the samples sensitive features
     num_nodes: number of nodes to generate
     number_of_samples_per_node: number of samples that we want in each node. Can be None, in this case we just use
         len(y)//num_nodes
     """
-    combinations = [(target, sensitive_value) for target, sensitive_value in zip(y, z)]
+    combinations = [(target, sensitive_value) for target, sensitive_value in zip(y, z, strict=False)]
     possible_combinations = set(combinations)
     data = {}
-    for combination, x_, y_, z_ in zip(combinations, X, y, z):
+    for combination, x_, y_, z_ in zip(combinations, x_data, y, z, strict=False):
         if combination not in data:
             data[combination] = []
         data[combination].append({"x": x_, "y": y_, "z": z_})
@@ -145,14 +141,13 @@ def egalitarian_approach(X, y, z, num_nodes, number_of_samples_per_node=None):
     samples_from_each_group = min(list(Counter(combinations).values())) // num_nodes
 
     if number_of_samples_per_node:
-        assert samples_from_each_group * len(possible_combinations) >= number_of_samples_per_node, (
-            "Too many samples per node, choose a different number of samples per node"
+        if samples_from_each_group * len(possible_combinations) < number_of_samples_per_node:
+            msg = "Too many samples per node, choose a different number of samples per node"
+            raise ValueError(msg)
+        to_be_removed = (samples_from_each_group * len(possible_combinations) - number_of_samples_per_node) // len(
+            possible_combinations
         )
-        if samples_from_each_group * len(possible_combinations) >= number_of_samples_per_node:
-            to_be_removed = (samples_from_each_group * len(possible_combinations) - number_of_samples_per_node) // len(
-                possible_combinations
-            )
-            samples_from_each_group -= to_be_removed
+        samples_from_each_group -= to_be_removed
 
     # create the nodes
     nodes = []
@@ -166,6 +161,28 @@ def egalitarian_approach(X, y, z, num_nodes, number_of_samples_per_node=None):
     return nodes, data
 
 
+def _process_single_unfair_node(node, group_to_reduce, ratio_unfairness):
+    node_data = []
+    count_sensitive_group_samples = 0
+    for sample in node:
+        if (sample["y"], sample["z"]) == group_to_reduce:
+            count_sensitive_group_samples += 1
+
+    rng = np.random.default_rng()
+    current_ratio = rng.uniform(ratio_unfairness[0], ratio_unfairness[1])
+    samples_to_be_removed = int(count_sensitive_group_samples * current_ratio)
+    samples_to_add = samples_to_be_removed
+
+    removed_samples = []
+    for sample in node:
+        if (sample["y"], sample["z"]) == group_to_reduce and samples_to_be_removed > 0:
+            samples_to_be_removed -= 1
+            removed_samples.append(sample)
+        else:
+            node_data.append(sample)
+    return node_data, removed_samples, samples_to_add
+
+
 def create_unfair_nodes(
     fair_nodes: list,
     nodes_to_unfair: list,
@@ -175,94 +192,62 @@ def create_unfair_nodes(
     ratio_unfairness: tuple,
 ):
     """
-    This function creates the unfair nodes. It takes the nodes that we want to be unfair and the remaining data
-    and it returns the unfair nodes created by reducing the group_to_reduce and incrementing the group_to_increment
-    based on the ratio_unfairness
-
-    params:
-    nodes_to_unfair: list of nodes that we want to make unfair
-    remaining_data: dictionary with the remaining data that we will use to replace the
-        samples that we remove from the nodes_to_unfair
-    group_to_reduce: the group that we want to be unfair. For instance, in the case of binary target and binary sensitive value
-        we could have (0,0), (0,1), (1,0) or (1,1)
-    group_to_increment: the group that we want to increment. For instance, in the case of binary target and binary sensitive value
-        we could have (0,0), (0,1), (1,0) or (1,1)
-    ratio_unfairness: tuple (min, max) where min is the minimum ratio of samples that we want to remove from the group_to_reduce
+    This function creates the unfair nodes.
     """
-    # assert (
-    #     remaining_data[group_to_reduce] != []
-    # ), "Choose a different group to be unfair"
-    # remove the samples from the group that we want to be unfair
     unfair_nodes = []
     number_of_samples_to_add = []
-    removed_samples = []
+    all_removed_samples = []
 
     for node in nodes_to_unfair:
-        node_data = []
-        count_sensitive_group_samples = 0
-        # We count how many sample each node has from the group that we want to reduce
-        for sample in node:
-            if (sample["y"], sample["z"]) == group_to_reduce:
-                count_sensitive_group_samples += 1
-
-        # We compute the number of samples that we want to remove from the group_to_reduce
-        # based on the ratio_unfairness
-        current_ratio = np.random.uniform(ratio_unfairness[0], ratio_unfairness[1])
-        samples_to_be_removed = int(count_sensitive_group_samples * current_ratio)
-        number_of_samples_to_add.append(samples_to_be_removed)
-
-        for sample in node:
-            # Now we remove the samples from the group_to_reduce
-            # and we store them in removed_samples
-            if (
-                sample["y"],
-                sample["z"],
-            ) == group_to_reduce and samples_to_be_removed > 0:
-                samples_to_be_removed -= 1
-                removed_samples.append(sample)
-            else:
-                node_data.append(sample)
+        node_data, removed, to_add = _process_single_unfair_node(node, group_to_reduce, ratio_unfairness)
         unfair_nodes.append(node_data)
+        all_removed_samples.extend(removed)
+        number_of_samples_to_add.append(to_add)
 
     # Now we have to distribute the removed samples among the fair nodes
-    max_samples_to_add = len(removed_samples) // len(fair_nodes)
-    for node in fair_nodes:
-        node.extend(removed_samples[:max_samples_to_add])
-        removed_samples = removed_samples[max_samples_to_add:]
+    if fair_nodes:
+        max_samples_to_add = len(all_removed_samples) // len(fair_nodes)
+        for node in fair_nodes:
+            node.extend(all_removed_samples[:max_samples_to_add])
+            all_removed_samples = all_removed_samples[max_samples_to_add:]
 
     if group_to_increment:
-        # Now we have to remove the samples from the group_to_increment
-        # from the fair_nodes based on the number_of_samples_to_add
-        for node in fair_nodes:
-            samples_to_remove = sum(number_of_samples_to_add) // len(fair_nodes)
-            for index, sample in enumerate(node):
-                if (
-                    sample["y"],
-                    sample["z"],
-                ) == group_to_increment and samples_to_remove > 0:
-                    if (sample["y"], sample["z"]) not in remaining_data:
-                        remaining_data[group_to_increment] = []
-                    remaining_data[group_to_increment].append(sample)
-                    samples_to_remove -= 1
-                    node.pop(index)
-            if sum(number_of_samples_to_add) > 0:
-                assert samples_to_remove == 0, "Not enough samples to remove"
-        assert sum(number_of_samples_to_add) <= len(remaining_data[group_to_increment]), "Too many samples to add"
-        # now we have to add the same amount of data taken from group_to_unfair
-        for node, samples_to_add in zip(unfair_nodes, number_of_samples_to_add):
-            node.extend(remaining_data[group_to_increment][:samples_to_add])
-            remaining_data[group_to_increment] = remaining_data[group_to_increment][samples_to_add:]
+        _increment_unfair_groups(fair_nodes, unfair_nodes, remaining_data, group_to_increment, number_of_samples_to_add)
 
     return fair_nodes, unfair_nodes
 
 
-def representative_diversity_approach(X, y, z, num_nodes, number_of_samples_per_node):
+def _increment_unfair_groups(fair_nodes, unfair_nodes, remaining_data, group_to_increment, number_of_samples_to_add):
+    total_to_add = sum(number_of_samples_to_add)
+    for node in fair_nodes:
+        samples_to_remove = total_to_add // len(fair_nodes)
+        for index, sample in enumerate(node):
+            if (sample["y"], sample["z"]) == group_to_increment and samples_to_remove > 0:
+                if group_to_increment not in remaining_data:
+                    remaining_data[group_to_increment] = []
+                remaining_data[group_to_increment].append(sample)
+                samples_to_remove -= 1
+                node.pop(index)
+        if total_to_add > 0 and samples_to_remove != 0:
+            msg = "Not enough samples to remove"
+            raise ValueError(msg)
+
+    if total_to_add > len(remaining_data.get(group_to_increment, [])):
+        msg = "Too many samples to add"
+        raise ValueError(msg)
+
+    for node, samples_to_add in zip(unfair_nodes, number_of_samples_to_add, strict=False):
+        node.extend(remaining_data[group_to_increment][:samples_to_add])
+        remaining_data[group_to_increment] = remaining_data[group_to_increment][samples_to_add:]
+
+
+def representative_diversity_approach(x_data, y, z, num_nodes, number_of_samples_per_node):
     """
     With this approach we want to distribute the data among the nodes in a representative diversity way.
     This means that each node has the same ratio of each group that we are observing in the dataset
 
     params:
-    X: numpy array of shape (N, D) where N is the number of samples and D is the number of features
+    x_data: numpy array of shape (N, D) where N is the number of samples and D is the number of features
     y: numpy array of shape (N, ) where N is the number of samples. Here we have the samples labels
     z: numpy array of shape (N, ) where N is the number of samples. Here we have the samples sensitive features
     num_nodes: number of nodes to generate
@@ -271,9 +256,10 @@ def representative_diversity_approach(X, y, z, num_nodes, number_of_samples_per_
     """
     samples_per_node = number_of_samples_per_node if number_of_samples_per_node else len(y) // num_nodes
     # create the nodes sampling from the dataset wihout replacement
-    dataset = [{"x": x_, "y": y_, "z": z_} for x_, y_, z_ in zip(X, y, z)]
+    dataset = [{"x": x_, "y": y_, "z": z_} for x_, y_, z_ in zip(x_data, y, z, strict=False)]
     # shuffle the dataset
-    np.random.shuffle(dataset)
+    rng = np.random.default_rng()
+    rng.shuffle(dataset)
 
     # Distribute the data among the nodes with a random sample from the dataset
     # considering the number of samples per node
@@ -294,7 +280,7 @@ def representative_diversity_approach(X, y, z, num_nodes, number_of_samples_per_
 
 
 def generate_clients_biased_data_mod(
-    X,
+    x_data,
     y,
     z,
     approach: str,
@@ -302,19 +288,19 @@ def generate_clients_biased_data_mod(
     ratio_unfair_nodes: float,
     opposite_direction: bool,
     ratio_unfairness: tuple,
-    group_to_reduce: tuple = None,
-    group_to_increment: tuple = None,
-    number_of_samples_per_node: int = None,
-    opposite_group_to_reduce: tuple = None,
-    opposite_group_to_increment: tuple = None,
-    opposite_ratio_unfairness: tuple = None,
+    group_to_reduce: tuple | None = None,
+    group_to_increment: tuple | None = None,
+    number_of_samples_per_node: int | None = None,
+    opposite_group_to_reduce: tuple | None = None,
+    opposite_group_to_increment: tuple | None = None,
+    opposite_ratio_unfairness: tuple | None = None,
     one_group_nodes: bool = False,
 ):
     """
     This function generates the data for the clients.
 
     params:
-    X: numpy array of shape (N, D) where N is the number of samples and D is the number of features
+    x_data: numpy array of shape (N, D) where N is the number of samples and D is the number of features
     y: numpy array of shape (N, ) where N is the number of samples. Here we have the samples labels
     z: numpy array of shape (N, ) where N is the number of samples. Here we have the samples sensitive features
     num_nodes: number of nodes to generate
@@ -330,31 +316,45 @@ def generate_clients_biased_data_mod(
     """
     # check if the number of samples that we want in each node is
     # greater than the number of samples we have in the dataset
-    if number_of_samples_per_node:
-        assert number_of_samples_per_node < len(y) // num_nodes, "Too many samples per node"
-    # check if the ratio_fair_nodes is between 0 and 1
-    assert ratio_unfair_nodes <= 1, "ratio_unfair_nodes must be less or equal than 1"
-    assert ratio_unfair_nodes >= 0, "ratio_unfair_nodes must be greater or equal than 0"
-    assert group_to_reduce, "group_to_reduce must be specified"
-    assert group_to_increment, "group_to_increment must be specified"
+    if number_of_samples_per_node and number_of_samples_per_node >= len(y) // num_nodes:
+            msg = "Too many samples per node"
+            raise ValueError(msg)    # check if the ratio_fair_nodes is between 0 and 1
+    if ratio_unfair_nodes > 1:
+        msg = "ratio_unfair_nodes must be less or equal than 1"
+        raise ValueError(msg)
+    if ratio_unfair_nodes < 0:
+        msg = "ratio_unfair_nodes must be greater or equal than 0"
+        raise ValueError(msg)
+    if not group_to_reduce:
+        msg = "group_to_reduce must be specified"
+        raise ValueError(msg)
+    if not group_to_increment:
+        msg = "group_to_increment must be specified"
+        raise ValueError(msg)
     # check if the approach type is egalitarian or representative
-    assert approach in [
+    if approach not in [
         "egalitarian",
         "representative",
-    ], "Approach must be egalitarian or representative"
+    ]:
+        msg = "Approach must be egalitarian or representative"
+        raise ValueError(msg)
 
     number_unfair_nodes = int(num_nodes * ratio_unfair_nodes)
     number_fair_nodes = num_nodes - number_unfair_nodes
     if approach == "egalitarian":
         # first split the data among the nodes in an egalitarian way
         # each node has the same amount of data and the same ratio of each group
-        nodes, remaining_data = egalitarian_approach(X, y, z, num_nodes, number_of_samples_per_node)
+        nodes, remaining_data = egalitarian_approach(x_data, y, z, num_nodes, number_of_samples_per_node)
     else:
-        nodes, remaining_data = representative_diversity_approach(X, y, z, num_nodes, number_of_samples_per_node)
+        nodes, remaining_data = representative_diversity_approach(x_data, y, z, num_nodes, number_of_samples_per_node)
 
     if opposite_direction:
-        assert opposite_group_to_reduce, "opposite_group_to_reduce must be specified"
-        assert opposite_group_to_increment, "opposite_group_to_increment must be specified"
+        if not opposite_group_to_reduce:
+            msg = "opposite_group_to_reduce must be specified"
+            raise ValueError(msg)
+        if not opposite_group_to_increment:
+            msg = "opposite_group_to_increment must be specified"
+            raise ValueError(msg)
         group_size = number_unfair_nodes // 2
         unfair_nodes_direction_1 = create_unfair_nodes(
             nodes_to_unfair=nodes[number_fair_nodes : number_fair_nodes + group_size],
@@ -393,18 +393,10 @@ def generate_clients_biased_data_mod(
     )
 
 
-def create_one_group_nodes(fair_nodes, unfair_nodes, ratio_unfair_nodes):
-    # num_one_group_nodes = int(
-    #     (len(fair_nodes) + len(unfair_nodes)) * ratio_one_group_nodes
-    # )
+def create_one_group_nodes(fair_nodes, unfair_nodes, _ratio_unfair_nodes):
     num_one_group_nodes_fair = len(fair_nodes)  # int(num_one_group_nodes * (1 - ratio_unfair_nodes))
-    # if num_one_group_nodes_fair % 2 != 0:
-    #     num_one_group_nodes_fair = num_one_group_nodes_fair - 1
-    num_one_group_nodes_unfair = len(unfair_nodes)  # num_one_group_nodes - num_one_group_nodes_fair
-    # if num_one_group_nodes_unfair % 2 != 0:
-    #     num_one_group_nodes_unfair = num_one_group_nodes_unfair - 1
+    len(unfair_nodes)  # num_one_group_nodes - num_one_group_nodes_fair
 
-    # modified_nodes = []
     removed_samples = {"0": [], "1": []}
     number_removed_samples = {}
 
@@ -415,12 +407,6 @@ def create_one_group_nodes(fair_nodes, unfair_nodes, ratio_unfair_nodes):
         tmp_removed_samples = []
         tmp_samples = []
         for sample in node:
-            # if node_id % 2 == 0:
-            #     if sample["z"] == 0:
-            #         tmp_removed_samples.append(sample)
-            #     else:
-            #         tmp_samples.append(sample)
-            # else:
             if sample["z"] == 1 and node_id % 2 == 0:
                 tmp_removed_samples.append(sample)
             else:
@@ -436,9 +422,9 @@ def create_one_group_nodes(fair_nodes, unfair_nodes, ratio_unfair_nodes):
 def load_dutch(dataset_path):
     data = arff.loadarff(dataset_path + "dutch_census.arff")
     dutch_df = pd.DataFrame(data[0]).astype("int32")
-    # dutch_df = pd.read_csv(dataset_path + "dutch_census_removed.csv")
 
-    dutch_df["occupation_binary"] = np.where(dutch_df["occupation"] >= 300, 1, 0)
+    OCCUPATION_THRESHOLD = 300
+    dutch_df["occupation_binary"] = np.where(dutch_df["occupation"] >= OCCUPATION_THRESHOLD, 1, 0)
 
     del dutch_df["sex"]
     del dutch_df["occupation"]
@@ -497,39 +483,35 @@ def dataset_to_numpy(
     _X = _X.drop(columns=_metadata["protected_atts"][:num_sensitive_features])
 
     # 1-hot encode and scale features
-    if "dummy_cols" in _metadata:
-        dummy_cols = _metadata["dummy_cols"]
-    else:
-        dummy_cols = None
+    dummy_cols = _metadata.get("dummy_cols")
     _X2 = pd.get_dummies(_X, columns=dummy_cols, drop_first=False)
     esc = MinMaxScaler()
     _X = esc.fit_transform(_X2)
 
     # original
+    BINARY_CARDINALITY = 2
     # current implementation assumes each sensitive feature is binary
-    for i, tmp in enumerate(_metadata["protected_atts"][:num_sensitive_features]):
-        assert len(_Z[tmp].unique()) == 2, "Sensitive feature is not binary!"
+    for _i, tmp in enumerate(_metadata["protected_atts"][:num_sensitive_features]):
+        if len(_Z[tmp].unique()) != BINARY_CARDINALITY:
+            msg = "Sensitive feature is not binary!"
+            raise ValueError(msg)
 
     # 1-hot sensitive features, (optionally) swap ordering so privileged class feature == 1 is always last, preceded by the corresponding unprivileged feature
     _Z2 = pd.get_dummies(_Z, columns=_Z.columns, drop_first=False)
-    # print(_Z2.head(), _Z2.shape)
     if sensitive_features_last:
         for i, tmp in enumerate(_Z.columns):
-            assert _metadata["protected_att_values"][i] in _Z[tmp].unique(), (
-                "Protected attribute value not found in data!"
-            )
+            if _metadata["protected_att_values"][i] not in _Z[tmp].unique():
+                msg = "Protected attribute value not found in data!"
+                raise ValueError(msg)
             if not np.allclose(float(_metadata["protected_att_values"][i]), 0):
                 # swap columns
                 _Z2.iloc[:, [2 * i, 2 * i + 1]] = _Z2.iloc[:, [2 * i + 1, 2 * i]]
     # change booleans to floats
-    # _Z2 = _Z2.astype(float)
 
     # original
     _Z = _Z2.to_numpy()
 
-    # _Z = _Z.to_numpy()
-
-    _y = _df[_metadata["target_variable"]].values
+    _y = _df[_metadata["target_variable"]].to_numpy()
     return _X, _Z, _y
 
 
@@ -558,46 +540,42 @@ def dataset_to_numpy_mod(
     print(f"Using {_metadata['protected_atts'][:num_sensitive_features]} as sensitive feature(s).")
     num_sensitive_features = min(num_sensitive_features, len(_metadata["protected_atts"]))
     _Z = _X[_metadata["protected_atts"][:num_sensitive_features]]
-    # _X = _X.drop(columns=_metadata["protected_atts"][:num_sensitive_features])
 
     my_sensitive_features = _X[["edu_level"]]
 
     # 1-hot encode and scale features
-    if "dummy_cols" in _metadata:
-        dummy_cols = _metadata["dummy_cols"]
-    else:
-        dummy_cols = None
+    dummy_cols = _metadata.get("dummy_cols")
     _X2 = pd.get_dummies(_X, columns=dummy_cols, drop_first=False)
     esc = MinMaxScaler()
     _X = esc.fit_transform(_X2)
 
     # original
+    BINARY_CARDINALITY = 2
     # current implementation assumes each sensitive feature is binary
-    for i, tmp in enumerate(_metadata["protected_atts"][:num_sensitive_features]):
-        assert len(_Z[tmp].unique()) == 2, "Sensitive feature is not binary!"
+    for _i, tmp in enumerate(_metadata["protected_atts"][:num_sensitive_features]):
+        if len(_Z[tmp].unique()) != BINARY_CARDINALITY:
+            msg = "Sensitive feature is not binary!"
+            raise ValueError(msg)
 
     # 1-hot sensitive features, (optionally) swap ordering so privileged class feature == 1 is always last, preceded by the corresponding unprivileged feature
     _Z2 = pd.get_dummies(_Z, columns=_Z.columns, drop_first=False)
-    # print(_Z2.head(), _Z2.shape)
     if sensitive_features_last:
         for i, tmp in enumerate(_Z.columns):
-            assert _metadata["protected_att_values"][i] in _Z[tmp].unique(), (
-                "Protected attribute value not found in data!"
-            )
+            if _metadata["protected_att_values"][i] not in _Z[tmp].unique():
+                msg = "Protected attribute value not found in data!"
+                raise ValueError(msg)
             if not np.allclose(float(_metadata["protected_att_values"][i]), 0):
                 # swap columns
                 _Z2.iloc[:, [2 * i, 2 * i + 1]] = _Z2.iloc[:, [2 * i + 1, 2 * i]]
     # change booleans to floats
-    # _Z2 = _Z2.astype(float)
 
     # original
     _Z = _Z2.to_numpy()
 
-    # _Z = _Z.to_numpy()
     _Z = my_sensitive_features.to_numpy()
     print(_Z)
 
-    _y = _df[_metadata["target_variable"]].values
+    _y = _df[_metadata["target_variable"]].to_numpy()
     return _X, _Z, _y
 
 
@@ -605,9 +583,235 @@ def get_tabular_numpy_dataset(dataset_name, num_sensitive_features, dataset_path
     if dataset_name == "dutch":
         tmp = load_dutch(dataset_path=dataset_path)
     else:
-        raise ValueError("Unknown dataset name!")
+        msg = "Unknown dataset name!"
+        raise ValueError(msg)
     _X, _Z, _y = dataset_to_numpy(*tmp, num_sensitive_features=num_sensitive_features)
     return _X, _Z, _y
+
+
+def _prepare_income_like_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed):
+    for client_name in range(num_nodes):
+        client_dir = Path(dataset_path) / splitted_data_dir / str(client_name)
+        train_pt = client_dir / "train.pt"
+        if train_pt.exists():
+            train_pt.unlink()
+
+        X_train = np.load(client_dir / f"income_dataframes_{client_name}_train.npy", allow_pickle=True)
+        Y_train = np.load(client_dir / f"income_labels_{client_name}_train.npy", allow_pickle=True)
+        Z_train = np.load(client_dir / f"income_groups_{client_name}_train.npy", allow_pickle=True)
+        W_train = np.load(client_dir / f"income_second_groups_{client_name}_train.npy", allow_pickle=True)
+        T_train = np.load(client_dir / f"income_third_groups_{client_name}_train.npy", allow_pickle=True)
+
+        if cross_silo:
+            X_test = np.load(client_dir / f"income_dataframes_{client_name}_test.npy", allow_pickle=True)
+            Y_test = np.load(client_dir / f"income_labels_{client_name}_test.npy", allow_pickle=True)
+            Z_test = np.load(client_dir / f"income_groups_{client_name}_test.npy", allow_pickle=True)
+            W_test = np.load(client_dir / f"income_second_groups_{client_name}_test.npy", allow_pickle=True)
+            T_test = np.load(client_dir / f"income_third_groups_{client_name}_test.npy", allow_pickle=True)
+
+            if sweep:
+                (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
+                    X_train, Y_train, Z_train, W_train, T_train, test_size=0.2, random_state=validation_seed
+                )
+                val_dataset = TabularDataset(
+                    x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
+                    z=[item.item() for item in Z_val],
+                    w=[item.item() for item in W_val],
+                    t=[item.item() for item in T_val],
+                    y=[item.item() for item in Y_val],
+                )
+                torch.save(val_dataset, client_dir / "val.pt")
+
+            train_dataset = TabularDataset(
+                x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
+                z=[item.item() for item in Z_train],
+                w=[item.item() for item in W_train],
+                t=[item.item() for item in T_train],
+                y=[item.item() for item in Y_train],
+            )
+            random.seed(validation_seed)
+            train_dataset.shuffle(seed=validation_seed)
+            random.seed(seed)
+            torch.save(train_dataset, client_dir / "train.pt")
+
+            test_dataset = TabularDataset(
+                x=np.hstack((X_test, np.ones((X_test.shape[0], 1)))).astype(np.float32),
+                z=[item.item() for item in Z_test],
+                w=[item.item() for item in W_test],
+                t=[item.item() for item in T_test],
+                y=[item.item() for item in Y_test],
+            )
+            torch.save(test_dataset, client_dir / "test.pt")
+        else:
+            if sweep:
+                (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
+                    X_train, Y_train, Z_train, W_train, T_train, test_size=0.2, random_state=validation_seed
+                )
+                val_dataset = TabularDataset(
+                    x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
+                    z=[item.item() for item in Z_val],
+                    w=[item.item() for item in W_val],
+                    t=[item.item() for item in T_val],
+                    y=[item.item() for item in Y_val],
+                )
+                torch.save(val_dataset, client_dir / "val.pt")
+
+            train_dataset = TabularDataset(
+                x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
+                z=[item.item() for item in Z_train],
+                w=[item.item() for item in W_train],
+                t=[item.item() for item in T_train],
+                y=[item.item() for item in Y_train],
+            )
+            random.seed(validation_seed)
+            train_dataset.shuffle(seed=validation_seed)
+            random.seed(seed)
+            torch.save(train_dataset, client_dir / "train.pt")
+
+    return f"{dataset_path}/{splitted_data_dir}"
+
+
+def _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed):
+    for client_name in range(num_nodes):
+        if cross_silo:
+            path_train = Path(dataset_path) / f"train_train_{client_name}.csv"
+            path_test = Path(dataset_path) / f"train_test_{client_name}.csv"
+            if not path_train.exists() or not path_test.exists():
+                continue
+            df_train, df_test = pd.read_csv(path_train), pd.read_csv(path_test)
+            len_train = len(df_train)
+            dutch_df = pd.concat([df_train, df_test], ignore_index=True)
+        else:
+            path_train = Path(dataset_path) / f"train_{client_name}.csv"
+            if not path_train.exists():
+                continue
+            dutch_df = pd.read_csv(path_train)
+            len_train = len(dutch_df)
+
+        dutch_df = dutch_df.astype("int32")
+        for col in ["sex", "occupation"]:
+            if col in dutch_df.columns:
+                del dutch_df[col]
+
+        feature_cols = [
+            "age", "household_position", "household_size", "prev_residence_place",
+            "citizenship", "country_birth", "edu_level", "economic_status",
+            "cur_eco_activity", "Marital_status", "sex_binary"
+        ]
+        metadata = {
+            "name": "Dutch census", "code": ["DU1"], "protected_atts": ["sex_binary"],
+            "protected_att_values": [0], "protected_att_descriptions": ["Gender = Female"],
+            "target_variable": "occupation_binary",
+        }
+
+        z_full = dutch_df["sex_binary"].to_numpy().astype(np.float32)
+        w_full = dutch_df["Marital_status"].to_numpy().astype(np.float32)
+        x_full, _, y_full = dataset_to_numpy(dutch_df, feature_cols, metadata, num_sensitive_features=1)
+
+        x_train_raw = x_full[:len_train]
+        z_train_raw = z_full[:len_train]
+        y_train_raw = y_full[:len_train]
+        w_train_raw = w_full[:len_train]
+
+        client_dir = Path(dataset_path) / splitted_data_dir / str(client_name)
+        client_dir.mkdir(parents=True, exist_ok=True)
+        for f in client_dir.glob("*.pt"):
+            f.unlink()
+
+        if sweep:
+            X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val = train_test_split(
+                x_train_raw, y_train_raw, z_train_raw, w_train_raw, test_size=0.2, random_state=validation_seed
+            )
+            val_ds = TabularDataset(x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32), z=Z_val, y=Y_val, w=W_val)
+            torch.save(val_ds, client_dir / "val.pt")
+        else:
+            X_train, Y_train, Z_train, W_train = x_train_raw, y_train_raw, z_train_raw, w_train_raw
+
+        train_ds = TabularDataset(x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32), z=Z_train, y=Y_train, w=W_train)
+        random.seed(seed)
+        train_ds.shuffle(seed=seed)
+        torch.save(train_ds, client_dir / "train.pt")
+
+        if cross_silo:
+            test_ds = TabularDataset(
+                x=np.hstack((x_full[len_train:], np.ones((x_full[len_train:].shape[0], 1)))).astype(np.float32),
+                z=z_full[len_train:], y=y_full[len_train:], w=w_full[len_train:]
+            )
+            torch.save(test_ds, client_dir / "test.pt")
+
+    return f"{dataset_path}/{splitted_data_dir}"
+
+
+def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed):
+    clean_path = Path(dataset_path.rstrip("/"))
+    celeba_root = clean_path.parent.parent
+    json_path = celeba_root / "celeba_img_dict.json"
+    img_map = {}
+    if json_path.exists():
+        with json_path.open() as f:
+            img_map = json.load(f)
+
+    for client_name in range(num_nodes):
+        client_dir = Path(dataset_path) / splitted_data_dir / str(client_name)
+        client_dir.mkdir(parents=True, exist_ok=True)
+        for f in client_dir.glob("*.pt"):
+            f.unlink()
+
+        transform = transforms.Compose([
+            transforms.Resize((64, 64)), transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+        splits = [("train", f"{dataset_path}/train_train_{client_name}.csv"), ("test", f"{dataset_path}/train_test_{client_name}.csv")] if cross_silo else [("train", f"{dataset_path}/train_{client_name}.csv")]
+
+        processed_data = {}
+        for split_name, csv_path_str in splits:
+            csv_path = Path(csv_path_str)
+            if not csv_path.exists():
+                processed_data[split_name] = None
+                continue
+            df = pd.read_csv(csv_path)
+            labels = df["Smiling"].tolist()
+            male_attr = df["Male"].tolist()
+            hair_attr = df["hair_color"].tolist() if "hair_color" in df.columns else [0] * len(labels)
+            is_val_exp = "value" in dataset_path.lower()
+            z_attr = hair_attr if is_val_exp else male_attr
+            w_attr = male_attr if is_val_exp else hair_attr
+            img_ids = df["celeb_id"].tolist() if "celeb_id" in df.columns else []
+            processed_data[split_name] = {"image_ids": img_ids, "labels": labels, "sensitive": z_attr, "second_sensitive": w_attr}
+
+        if processed_data.get("train"):
+            t_data = processed_data["train"]
+            if sweep:
+                X_tr, X_va, y_tr, y_va, z_tr, z_va, w_tr, w_va = train_test_split(
+                    t_data["image_ids"], t_data["labels"], t_data["sensitive"], t_data["second_sensitive"],
+                    test_size=0.2, random_state=validation_seed
+                )
+                torch.save(CelebaPreparedDataset(X_va, img_map, y_va, z_va, w_va, transform), client_dir / "val.pt")
+                t_data.update({"image_ids": X_tr, "labels": y_tr, "sensitive": z_tr, "second_sensitive": w_tr})
+            torch.save(CelebaPreparedDataset(t_data["image_ids"], img_map, t_data["labels"], t_data["sensitive"], t_data["second_sensitive"], transform), client_dir / "train.pt")
+
+        if processed_data.get("test"):
+            t_data = processed_data["test"]
+            torch.save(CelebaPreparedDataset(t_data["image_ids"], img_map, t_data["labels"], t_data["sensitive"], t_data["second_sensitive"], transform), client_dir / "test.pt")
+
+    return f"{dataset_path}/{splitted_data_dir}"
+
+
+def _save_fed_metadata(data_dir, possible_z, possible_y, client_data):
+    possible_y_str = [str(int(item)) for item in possible_y.tolist()]
+    possible_z_str = [str(int(item)) for item in possible_z.tolist()]
+    all_combinations, missing_combinations, sent_disparity_combinations = [], [], [f"1|{s}" for s in possible_z_str]
+    for comb in sent_disparity_combinations:
+        missing_combinations.append(("0" + comb[1:], comb))
+        all_combinations.extend([comb, "0" + comb[1:]])
+
+    with (data_dir / "metadata.json").open("w") as f:
+        json.dump({"possible_z": possible_z_str, "possible_y": possible_y_str, "missing_combinations": missing_combinations, "all_combinations": all_combinations, "combinations": sent_disparity_combinations}, f, indent=4)
+
+    preds = [[int(y) for y in c["y"]] for c in client_data]
+    sfs = [[int(z) for z in c["z"]] for c in client_data]
+    Utils.plot_distributions("Distribution of the nodes", Utils.compute_distribution_debug(preds, sfs), [f"{i}" for i in range(len(client_data))], all_combinations)
 
 
 def prepare_tabular_data(
@@ -618,461 +822,29 @@ def prepare_tabular_data(
     ratio_unfair_nodes: float,
     opposite_direction: bool,
     ratio_unfairness: tuple,
-    group_to_reduce: tuple = None,
-    group_to_increment: tuple = None,
-    number_of_samples_per_node: int = None,
-    opposite_group_to_reduce: tuple = None,
-    opposite_group_to_increment: tuple = None,
-    opposite_ratio_unfairness: tuple = None,
-    do_iid_split: bool = False,
+    group_to_reduce: tuple | None = None,
+    group_to_increment: tuple | None = None,
+    number_of_samples_per_node: int | None = None,
+    opposite_group_to_reduce: tuple | None = None,
+    opposite_group_to_increment: tuple | None = None,
+    opposite_ratio_unfairness: tuple | None = None,
     one_group_nodes: bool = False,
-    splitted_data_dir: str = None,
+    splitted_data_dir: str | None = None,
     cross_silo: bool = False,
     sweep: bool = False,
     seed: int = 42,
     validation_seed: int = 42,
 ):
-    if (
-        dataset_name == "income"
-        or dataset_name == "employment"
-        or dataset_name == "employment_NO_RACE"
-        or dataset_name == "income_NO_RACE"
-        or dataset_name == "income_cross_device"
-    ):
-        for client_name in range(num_nodes):
-            if os.path.exists(f"{dataset_path}/{splitted_data_dir}/{client_name}/train.pt"):
-                os.system(f"rm -rf {dataset_path}/{splitted_data_dir}/{client_name}/train.pt")
+    if dataset_name in {"income", "employment", "employment_NO_RACE", "income_NO_RACE", "income_cross_device"}:
+        return _prepare_income_like_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed), None
 
-            # open numpy arrays
-            X_train = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_dataframes_{client_name}_train.npy",
-                allow_pickle=True,
-            )
-            Y_train = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_labels_{client_name}_train.npy",
-                allow_pickle=True,
-            )
-            Z_train = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_groups_{client_name}_train.npy",
-                allow_pickle=True,
-            )
-            W_train = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_second_groups_{client_name}_train.npy",
-                allow_pickle=True,
-            )
-            T_train = np.load(
-                f"{dataset_path}/{splitted_data_dir}/{client_name}/income_third_groups_{client_name}_train.npy",
-                allow_pickle=True,
-            )
+    if dataset_name == "dutch_prepared":
+        return _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed), None
 
-            if cross_silo:
-                X_test = np.load(
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_dataframes_{client_name}_test.npy",
-                    allow_pickle=True,
-                )
-                Y_test = np.load(
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_labels_{client_name}_test.npy",
-                    allow_pickle=True,
-                )
-                Z_test = np.load(
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_groups_{client_name}_test.npy",
-                    allow_pickle=True,
-                )
-                W_test = np.load(
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_second_groups_{client_name}_test.npy",
-                    allow_pickle=True,
-                )
-                T_test = np.load(
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/income_third_groups_{client_name}_test.npy",
-                    allow_pickle=True,
-                )
+    if dataset_name == "celeba_prepared":
+        return _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed), None
 
-                if sweep:
-                    (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
-                        X_train,
-                        Y_train,
-                        Z_train,
-                        W_train,
-                        T_train,
-                        test_size=0.2,
-                        random_state=validation_seed,
-                    )
-
-                    custom_dataset = TabularDataset(
-                        x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
-                        z=[item.item() for item in Z_val],  # .astype(np.float32),
-                        w=[item.item() for item in W_val],  # .astype(np.float32),
-                        t=[item.item() for item in T_val],  # .astype(np.float32),
-                        y=[item.item() for item in Y_val],  # .astype(np.float32),
-                    )
-                    torch.save(
-                        custom_dataset,
-                        f"{dataset_path}/{splitted_data_dir}/{client_name}/val.pt",
-                    )
-
-                # save train
-                custom_dataset = TabularDataset(
-                    x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
-                    z=[item.item() for item in Z_train],  # .astype(np.float32),
-                    w=[item.item() for item in W_train],  # .astype(np.float32),
-                    t=[item.item() for item in T_train],  # .astype(np.float32),
-                    y=[item.item() for item in Y_train],  # .astype(np.float32),
-                )
-
-                # shuffle the custom_dataset based on validation_seed
-                random.seed(validation_seed)
-                np.random.seed(validation_seed)
-                custom_dataset.shuffle()
-                random.seed(seed)
-                np.random.seed(seed)
-
-                torch.save(
-                    custom_dataset,
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/train.pt",
-                )
-                # save test
-                custom_dataset = TabularDataset(
-                    x=np.hstack((X_test, np.ones((X_test.shape[0], 1)))).astype(np.float32),
-                    z=[item.item() for item in Z_test],  # .astype(np.float32),
-                    w=[item.item() for item in W_test],  # .astype(np.float32),
-                    t=[item.item() for item in T_test],  # .astype(np.float32),
-                    y=[item.item() for item in Y_test],  # .astype(np.float32),
-                )
-                torch.save(
-                    custom_dataset,
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/test.pt",
-                )
-            else:
-                if sweep:
-                    (X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val, T_train, T_val) = train_test_split(
-                        X_train,
-                        Y_train,
-                        Z_train,
-                        W_train,
-                        T_train,
-                        test_size=0.2,
-                        random_state=validation_seed,
-                    )
-
-                    custom_dataset = TabularDataset(
-                        x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
-                        z=[item.item() for item in Z_val],  # .astype(np.float32),
-                        w=[item.item() for item in W_val],  # .astype(np.float32),
-                        t=[item.item() for item in T_val],  # .astype(np.float32),
-                        y=[item.item() for item in Y_val],  # .astype(np.float32),
-                    )
-                    torch.save(
-                        custom_dataset,
-                        f"{dataset_path}/{splitted_data_dir}/{client_name}/val.pt",
-                    )
-
-                # save train
-                custom_dataset = TabularDataset(
-                    x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
-                    z=[item.item() for item in Z_train],  # .astype(np.float32),
-                    w=[item.item() for item in W_train],  # .astype(np.float32),
-                    t=[item.item() for item in T_train],  # .astype(np.float32),
-                    y=[item.item() for item in Y_train],  # .astype(np.float32),
-                )
-
-                # shuffle the custom_dataset based on validation_seed
-                random.seed(validation_seed)
-                np.random.seed(validation_seed)
-                custom_dataset.shuffle()
-                random.seed(seed)
-                np.random.seed(seed)
-
-                torch.save(
-                    custom_dataset,
-                    f"{dataset_path}/{splitted_data_dir}/{client_name}/train.pt",
-                )
-
-        fed_dir = f"{dataset_path}/{splitted_data_dir}"
-        return fed_dir, None
-
-    elif dataset_name == "dutch_prepared":
-        for client_name in range(num_nodes):
-            if cross_silo:
-                path_train = f"{dataset_path}/train_train_{client_name}.csv"
-                path_test = f"{dataset_path}/train_test_{client_name}.csv"
-
-                if not os.path.exists(path_train) or not os.path.exists(path_test):
-                    print(f"Warning: Client {client_name} files not found at {path_train} or {path_test}")
-                    continue
-
-                df_train = pd.read_csv(path_train)
-                df_test = pd.read_csv(path_test)
-                len_train = len(df_train)
-
-                dutch_df = pd.concat([df_train, df_test], ignore_index=True)
-            else:
-                path_train = f"{dataset_path}/train_{client_name}.csv"
-                if not os.path.exists(path_train):
-                    print(f"Warning: Client {client_name} file not found at {path_train}")
-                    continue
-                dutch_df = pd.read_csv(path_train)
-                len_train = len(dutch_df)
-
-            dutch_df = dutch_df.astype("int32")
-
-            if "sex" in dutch_df.columns:
-                del dutch_df["sex"]
-            if "occupation" in dutch_df.columns:
-                del dutch_df["occupation"]
-
-            dutch_df_feature_columns = [
-                "age",
-                "household_position",
-                "household_size",
-                "prev_residence_place",
-                "citizenship",
-                "country_birth",
-                "edu_level",
-                "economic_status",
-                "cur_eco_activity",
-                "Marital_status",
-                "sex_binary",
-            ]
-
-            metadata_dutch = {
-                "name": "Dutch census",
-                "code": ["DU1"],
-                "protected_atts": ["sex_binary"],
-                "protected_att_values": [0],
-                "protected_att_descriptions": ["Gender = Female"],
-                "target_variable": "occupation_binary",
-            }
-
-            Z_full = dutch_df["sex_binary"].values.astype(np.float32)
-            W_full = dutch_df["Marital_status"].values.astype(np.float32)
-
-            X_full, _, Y_full = dataset_to_numpy(
-                dutch_df, dutch_df_feature_columns, metadata_dutch, num_sensitive_features=1
-            )
-
-            if cross_silo:
-                X_train_raw = X_full[:len_train]
-                Z_train_raw = Z_full[:len_train]
-                Y_train_raw = Y_full[:len_train]
-                W_train_raw = W_full[:len_train]
-
-                X_test = X_full[len_train:]
-                Z_test = Z_full[len_train:]
-                Y_test = Y_full[len_train:]
-                W_test = W_full[len_train:]
-            else:
-                X_train_raw = X_full
-                Z_train_raw = Z_full
-                Y_train_raw = Y_full
-                W_train_raw = W_full
-
-            client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
-            if not os.path.exists(client_dir):
-                os.makedirs(client_dir)
-
-            os.system(f"rm -rf {client_dir}/*.pt")
-
-            if sweep:
-                (
-                    X_train,
-                    X_val,
-                    Y_train,
-                    Y_val,
-                    Z_train,
-                    Z_val,
-                    W_train,
-                    W_val,
-                ) = train_test_split(
-                    X_train_raw,
-                    Y_train_raw,
-                    Z_train_raw,
-                    W_train_raw,
-                    test_size=0.2,
-                    random_state=validation_seed,
-                )
-
-                val_dataset = TabularDataset(
-                    x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32),
-                    z=Z_val,
-                    y=Y_val,
-                    w=W_val,
-                )
-                torch.save(val_dataset, f"{client_dir}/val.pt")
-            else:
-                X_train, Y_train, Z_train, W_train = X_train_raw, Y_train_raw, Z_train_raw, W_train_raw
-
-            train_dataset = TabularDataset(
-                x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32),
-                z=Z_train,
-                y=Y_train,
-                w=W_train,
-            )
-
-            random.seed(seed)
-            np.random.seed(seed)
-            train_dataset.shuffle()
-
-            torch.save(train_dataset, f"{client_dir}/train.pt")
-
-            if cross_silo:
-                test_dataset = TabularDataset(
-                    x=np.hstack((X_test, np.ones((X_test.shape[0], 1)))).astype(np.float32),
-                    z=Z_test,
-                    y=Y_test,
-                    w=W_test,
-                )
-                torch.save(test_dataset, f"{client_dir}/test.pt")
-
-        fed_dir = f"{dataset_path}/{splitted_data_dir}"
-        return fed_dir, None
-
-    elif dataset_name == "celeba_prepared":
-        # Load image dict once
-        # dataset_path is like .../datasets/celeba/cross_device_attribute/medium
-        # json is at .../datasets/celeba/celeba_img_dict.json
-        # We need to go up from 'medium' (parent) then 'cross_device_attribute' (parent) -> celeba
-        # Check if dataset_path ends with slash or not
-        clean_path = dataset_path.rstrip("/")
-        celeba_root = os.path.dirname(os.path.dirname(clean_path))
-        json_path = os.path.join(celeba_root, "celeba_img_dict.json")
-
-        if not os.path.exists(json_path):
-            # Fallback or error? Try direct path if relative logic fails
-            # Maybe user passed base_path differently.
-            # Let's try to assume standard structure.
-            print(f"Warning: Image dictionary not found at {json_path}")
-            img_map = {}
-        else:
-            print(f"Loading image dictionary from {json_path}...")
-            with open(json_path, "r") as f:
-                img_map = json.load(f)
-
-        for client_name in range(num_nodes):
-            client_dir = f"{dataset_path}/{splitted_data_dir}/{client_name}"
-            if not os.path.exists(client_dir):
-                os.makedirs(client_dir)
-            os.system(f"rm -rf {client_dir}/*.pt")
-
-            transform = transforms.Compose(
-                [
-                    transforms.Resize((64, 64)),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                ]
-            )
-
-            datasets_to_process = []
-            if cross_silo:
-                datasets_to_process.append(("train", f"{dataset_path}/train_train_{client_name}.csv"))
-                datasets_to_process.append(("test", f"{dataset_path}/train_test_{client_name}.csv"))
-            else:
-                datasets_to_process.append(("train", f"{dataset_path}/train_{client_name}.csv"))
-
-            processed_data = {}
-
-            for split_name, csv_path in datasets_to_process:
-                if not os.path.exists(csv_path):
-                    print(f"Warning: File {csv_path} not found.")
-                    processed_data[split_name] = None
-                    continue
-
-                df = pd.read_csv(csv_path)
-
-                labels = df["Smiling"].tolist()
-
-                # Extract potential sensitive attributes
-                male_attr = df["Male"].tolist()
-                # Use hair_color if available, otherwise 0s
-                hair_attr = df["hair_color"].tolist() if "hair_color" in df.columns else [0] * len(labels)
-
-                # Determine which is main (z) and which is second (w) based on experiment type
-                # Heuristic: check if path contains "value" (for value-based fairness) vs "attribute"
-                is_value_experiment = "value" in dataset_path.lower()
-
-                if is_value_experiment:
-                    sensitive_attributes = hair_attr
-                    second_sensitive_attributes = male_attr
-                else:
-                    sensitive_attributes = male_attr
-                    second_sensitive_attributes = hair_attr
-
-                image_ids = []
-                # Use image_id to look up bytes
-                if "celeb_id" in df.columns:
-                    image_ids = df["celeb_id"].tolist()
-                else:
-                    print(f"Error: 'celeb_id' column missing in {csv_path}")
-                    # Handle error or empty list?
-                    # If empty, dataset will be empty/invalid
-
-                processed_data[split_name] = {
-                    "image_ids": image_ids,
-                    "labels": labels,
-                    "sensitive": sensitive_attributes,
-                    "second_sensitive": second_sensitive_attributes,
-                }
-
-            # Handle Train/Val Split (Sweep)
-            if processed_data.get("train") is not None:
-                train_data = processed_data["train"]
-
-                if sweep:
-                    (X_train, X_val, y_train, y_val, z_train, z_val, w_train, w_val) = train_test_split(
-                        train_data["image_ids"],
-                        train_data["labels"],
-                        train_data["sensitive"],
-                        train_data["second_sensitive"],
-                        test_size=0.2,
-                        random_state=validation_seed,
-                    )
-
-                    val_dataset = CelebaPreparedDataset(
-                        image_ids=X_val,
-                        images_dict=img_map,
-                        labels=y_val,
-                        sensitive_attributes=z_val,
-                        second_sensitive_attributes=w_val,
-                        transform=transform,
-                    )
-                    torch.save(val_dataset, f"{client_dir}/val.pt")
-
-                    # Update train
-                    train_data["image_ids"] = X_train
-                    train_data["labels"] = y_train
-                    train_data["sensitive"] = z_train
-                    train_data["second_sensitive"] = w_train
-
-                # Save Train
-                train_dataset = CelebaPreparedDataset(
-                    image_ids=train_data["image_ids"],
-                    images_dict=img_map,
-                    labels=train_data["labels"],
-                    sensitive_attributes=train_data["sensitive"],
-                    second_sensitive_attributes=train_data["second_sensitive"],
-                    transform=transform,
-                )
-                torch.save(train_dataset, f"{client_dir}/train.pt")
-
-            # Save Test
-            if processed_data.get("test") is not None:
-                test_data = processed_data["test"]
-                test_dataset = CelebaPreparedDataset(
-                    image_ids=test_data["image_ids"],
-                    images_dict=img_map,
-                    labels=test_data["labels"],
-                    sensitive_attributes=test_data["sensitive"],
-                    second_sensitive_attributes=test_data["second_sensitive"],
-                    transform=transform,
-                )
-                torch.save(test_dataset, f"{client_dir}/test.pt")
-
-        fed_dir = f"{dataset_path}/{splitted_data_dir}"
-        return fed_dir, None
-
-    # client_data, N_is, props_positive = get_tabular_data(
     client_data, disparities, metadata = get_tabular_data(
-        num_clients=num_nodes,
-        do_iid_split=do_iid_split,
         dataset_name=dataset_name,
         num_sensitive_features=1,
         dataset_path=dataset_path,
@@ -1090,90 +862,35 @@ def prepare_tabular_data(
         one_group_nodes=one_group_nodes,
     )
 
-    # transform client data so that they are compatiblw with the
-    # other functions
-    tmp_data = []
-    possible_z = np.array([])
-    possible_y = np.array([])
+    client_data_formatted = []
+    possible_z, possible_y = np.array([]), np.array([])
     for client in client_data:
-        tmp_x = []
-        tmp_y = []
-        tmp_z = []
+        tmp_x, tmp_y, tmp_z = [], [], []
         for sample in client:
             tmp_x.append(sample["x"])
             tmp_y.append(sample["y"])
             tmp_z.append(sample["z"])
+        client_data_formatted.append({"x": np.array(tmp_x), "y": np.array(tmp_y), "z": np.array(tmp_z)})
+        possible_z = np.unique(np.concatenate((possible_z, np.unique(tmp_z))))
+        possible_y = np.unique(np.concatenate((possible_y, np.unique(tmp_y))))
 
-        tmp_data.append({"x": np.array(tmp_x), "y": np.array(tmp_y), "z": np.array(tmp_z)})
-        unique_z = np.unique(np.array(tmp_z))
-        unique_y = np.unique(np.array(tmp_y))
-        possible_z = np.unique(np.concatenate((possible_z, unique_z)))
-        possible_y = np.unique(np.concatenate((possible_y, unique_y)))
-    client_data = tmp_data
+    data_dir = Path(dataset_path) / splitted_data_dir
+    if data_dir.exists():
+        for f in data_dir.glob("*"):
+            if f.is_dir():
+                shutil.rmtree(f)
+            else:
+                f.unlink()
 
-    predictions = []
-    sensitive_features = []
+    for client_name, (client, client_disparity, client_metadata) in enumerate(
+        zip(client_data_formatted, disparities, metadata, strict=False)
+    ):
+        client_dir = data_dir / str(client_name)
+        client_dir.mkdir(parents=True, exist_ok=True)
+        custom_dataset = TabularDataset(x=np.hstack((client["x"], np.ones((client["x"].shape[0], 1)))).astype(np.float32), z=client["z"], y=client["y"])
+        torch.save(custom_dataset, client_dir / "train.pt")
+        with (client_dir / "metadata.json").open("w") as outfile:
+            json.dump(Utils.get_dataset_statistics(custom_dataset, client_disparity, client_metadata), outfile, indent=4)
 
-    # remove the old files in the data folder
-    os.system(f"rm -rf {dataset_path}/{splitted_data_dir}/*")
-    for client_name, (client, client_disparity, client_metadata) in enumerate(zip(client_data, disparities, metadata)):
-        # Append 1 to each samples
-
-        custom_dataset = TabularDataset(
-            x=np.hstack((client["x"], np.ones((client["x"].shape[0], 1)))).astype(np.float32),
-            z=client["z"],  # .astype(np.float32),
-            y=client["y"],  # .astype(np.float32),
-        )
-        # Create the folder for the user client_name
-        os.system(f"mkdir {dataset_path}/{splitted_data_dir}/{client_name}")
-        # store the dataset in the client folder with the name "train.pt"
-        torch.save(
-            custom_dataset,
-            f"{dataset_path}/{splitted_data_dir}/{client_name}/train.pt",
-        )
-        # store statistics about the dataset in the same folder
-        statistics = Utils.get_dataset_statistics(custom_dataset, client_disparity, client_metadata)
-        with open(f"{dataset_path}/{splitted_data_dir}/{client_name}/metadata.json", "w") as outfile:
-            print(statistics)
-            json_object = json.dumps(statistics, indent=4)
-            outfile.write(json_object)
-
-        predictions.append(list(client["y"]))
-        sensitive_features.append(list(client["z"]))
-
-    counter_distribution_nodes = Utils.compute_distribution_debug(
-        predictions=predictions, sensitive_features=sensitive_features
-    )
-
-    possible_y = [str(int(item)) for item in possible_y.tolist()]
-    possible_z = [str(int(item)) for item in possible_z.tolist()]
-    # we are still assuming a binary target
-    # however, we can have a non binary sensitive value
-    missing_combinations = []
-    all_combinations = []
-    sent_disparity_combinations = [f"1|{sensitive}" for sensitive in possible_z]
-    for combination in sent_disparity_combinations:
-        missing_combinations.append(("0" + combination[1:], combination))
-        all_combinations.append(combination)
-        all_combinations.append("0" + combination[1:])
-
-    fed_dir = f"{dataset_path}/{splitted_data_dir}"
-    json_file = {
-        "possible_z": possible_z,
-        "possible_y": possible_y,
-        "missing_combinations": missing_combinations,
-        "all_combinations": all_combinations,
-        "combinations": sent_disparity_combinations,
-    }
-    with open(f"{fed_dir}/metadata.json", "w") as outfile:
-        json_object = json.dumps(json_file, indent=4)
-        outfile.write(json_object)
-
-    Utils.plot_distributions(
-        title="Distribution of the nodes",
-        counter_groups=counter_distribution_nodes,
-        nodes=[f"{i}" for i in range(len(counter_distribution_nodes))],
-        all_combinations=all_combinations,
-    )
-
-    return fed_dir, client_data
+    _save_fed_metadata(data_dir, possible_z, possible_y, client_data_formatted)
+    return str(data_dir), client_data_formatted

@@ -1,7 +1,7 @@
 import argparse
 import json
-import os
-from collections import Counter
+import re
+from pathlib import Path
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -26,21 +26,19 @@ def compute_differences(df1, df2, join_col="dataset"):
         df2 = df2.reset_index()
 
     # Merge to ensure alignment
-    merged = pd.merge(df1, df2, on=join_col, suffixes=("_local", "_fl"))
+    merged = df1.merge(df2, on=join_col, suffixes=("_local", "_fl"))
 
     # Compute differences (Local - FL) or (FL - Local)?
     # Notebook: 'DP_RACE': df1['DP_RACE'] - df2['DP_RACE'] (Local - FL)
     # df1 is usually the centralized/local model in the notebook examples.
 
-    diff_df = pd.DataFrame(
+    return pd.DataFrame(
         {
             join_col: merged[join_col],
             "DP_RACE": merged["DP_RACE_local"] - merged["DP_RACE_fl"],
             "DP_SEX": merged["DP_SEX_local"] - merged["DP_SEX_fl"],
         }
     )
-
-    return diff_df
 
 
 def bar_plot_differences(
@@ -105,7 +103,7 @@ def bar_plot_differences(
             ax_legend.axis("off")
             fig_legend.tight_layout()
             # Construct legend path
-            legend_path = os.path.join(os.path.dirname(fig_path), legend_name + ".pdf")
+            legend_path = Path(fig_path).parent / f"{legend_name}.pdf"
             plt.savefig(legend_path, bbox_inches="tight", dpi=150)
             plt.close(fig_legend)
 
@@ -124,24 +122,25 @@ def create_value_plot(
     font_size_labels: int = 22,
     font_size_title: int = 22,
     font_size_ticks: int = 22,
-    file_name: str = None,
+    file_name: str | None = None,
     save: bool = False,
-    save_path: str = None,
-    custom_labels: dict = None,
+    save_path: str | None = None,
+    custom_labels: dict | None = None,
     jitter_amount: float = 0.1,
 ):
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, _ax = plt.subplots(figsize=(6, 6))
 
     # Define a color-blind-friendly color
     marker_face_color = "#56B4E9"  # Blue from ColorBrewer Set2
     marker_edge_color = "black"  # Black edges for visibility
 
     unique_vals = sorted(df["Value"].unique())
+    rng = np.random.default_rng()
     for val in unique_vals:
         subset = df[df["Value"] == val]
         y_vals = subset[attribute]
         x_base = int(float(val))
-        jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
+        jitter = rng.uniform(-jitter_amount, jitter_amount, len(y_vals))
         x_vals = [x_base + j for j in jitter]
         plt.scatter(
             x_vals,
@@ -166,14 +165,14 @@ def create_value_plot(
         plt.xticks(ticks=unique_vals, labels=[str(int(float(v))) for v in unique_vals], fontsize=font_size_ticks)
 
     plt.yticks(fontsize=font_size_ticks)
-    plt.grid(True)
+    plt.grid(visible=True)
 
     if save:
         # Use save_path if provided, otherwise file_name in ./images/
         if save_path:
             plt.savefig(save_path, bbox_inches="tight", dpi=150)
         elif file_name:
-            plt.savefig(f"./images/{file_name}.pdf", bbox_inches="tight", dpi=150)
+            plt.savefig(Path("images") / f"{file_name}.pdf", bbox_inches="tight", dpi=150)
         plt.close(fig)
     else:
         plt.tight_layout()
@@ -192,8 +191,8 @@ def visualize_value_change(
     initial_state: str = "",
     jitter_amount: float = 0.1,
     legend_filename: str = "value_change_legend.pdf",
-    save_path: str = None,
-    custom_labels: dict = None,
+    save_path: str | None = None,
+    custom_labels: dict | None = None,
 ) -> plt.Figure:
     """
     Visualizes the change in a specified sensitive column across different value
@@ -201,9 +200,9 @@ def visualize_value_change(
     Arrows are drawn only if the 'Value' is different between the two connected states.
     """
     # Merge the two dataframes based on the common columns
-    merged_df = pd.merge(df1, df2, on="dataset", suffixes=("_df1", "_df2"))
+    merged_df = df1.merge(df2, on="dataset", suffixes=("_df1", "_df2"))
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, _ax = plt.subplots(figsize=(12, 5))
 
     # Styling for the initial state scatter plot
     marker_face_color = "#004D40"
@@ -222,18 +221,20 @@ def visualize_value_change(
     pos_map_df1 = {}
     pos_map_df2 = {}
 
+    rng = np.random.default_rng()
+
     # Plot the initial state with jitter
     unique_vals = sorted(df1[value_col].unique())
     for val in unique_vals:
         subset = df1[df1[value_col] == val]
         y_vals = subset[sensitive_col].astype(float)
         x_base = int(float(val))
-        jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
+        jitter = rng.uniform(-jitter_amount, jitter_amount, len(y_vals))
         x_vals = [x_base + j for j in jitter]
 
         # Store positions
         for i, dataset_id in enumerate(subset["dataset"]):
-            pos_map_df1[dataset_id] = (x_vals[i], y_vals.values[i])
+            pos_map_df1[dataset_id] = (x_vals[i], y_vals.to_numpy()[i])
 
         plt.scatter(
             x_vals,
@@ -253,12 +254,12 @@ def visualize_value_change(
         subset = df2[df2[value_col] == val]
         y_vals = subset[sensitive_col].astype(float)
         x_base = int(float(val))
-        jitter = np.random.uniform(-jitter_amount, jitter_amount, len(y_vals))
+        jitter = rng.uniform(-jitter_amount, jitter_amount, len(y_vals))
         x_vals = [x_base + j for j in jitter]
 
         # Store positions
         for i, dataset_id in enumerate(subset["dataset"]):
-            pos_map_df2[dataset_id] = (x_vals[i], y_vals.values[i])
+            pos_map_df2[dataset_id] = (x_vals[i], y_vals.to_numpy()[i])
 
         plt.scatter(
             x_vals,
@@ -272,7 +273,7 @@ def visualize_value_change(
         )
 
     # Draw arrows based on the 'dataset' identifier
-    for index, row in merged_df.iterrows():
+    for _index, row in merged_df.iterrows():
         dataset_id = row["dataset"]
 
         if dataset_id in pos_map_df1 and dataset_id in pos_map_df2:
@@ -280,7 +281,10 @@ def visualize_value_change(
             final_x, final_y = pos_map_df2[dataset_id]
 
             # Only draw arrow if there is a significant change in position
-            if abs(initial_x - final_x) > 0.01 or abs(initial_y - final_y) > 0.001:
+            # Magic values 0.01 and 0.001 are kept for now but could be constants.
+            x_threshold = 0.01
+            y_threshold = 0.001
+            if abs(initial_x - final_x) > x_threshold or abs(initial_y - final_y) > y_threshold:
                 plt.arrow(
                     initial_x,
                     initial_y,
@@ -308,26 +312,20 @@ def visualize_value_change(
     plt.xlabel("Sensitive Group Value", fontsize=font_size)
     plt.ylabel(y_label, fontsize=font_size)
     plt.title(title, fontsize=font_size)
-    plt.grid(True)
+    plt.grid(visible=True)
 
     # Create a separate figure for the legend
     if save_path:
         fig_legend = plt.figure(figsize=(6, 1))
         ax_legend = fig_legend.add_subplot(111)
         initial_patch = mpatches.Patch(facecolor="#004D40", edgecolor="black", alpha=0.6, label=initial_state)
-        fedavg_patch = mpatches.Patch(
-            facecolor="#FFC107",
-            edgecolor="black",
-            alpha=0.8,
-            label=str(title).split(" ")[-1] if "FedAvg" not in title else "FedAvg",
-        )  # Rough fallback
         # Better label handling needed, but for now:
         fedavg_patch = mpatches.Patch(facecolor="#FFC107", edgecolor="black", alpha=0.8, label="FedAVG")
 
         ax_legend.legend(handles=[initial_patch, fedavg_patch], fontsize=20, loc="center", frameon=False, ncol=2)
         ax_legend.axis("off")
 
-        legend_path = os.path.join(os.path.dirname(save_path), legend_filename)
+        legend_path = Path(save_path).parent / legend_filename
         fig_legend.tight_layout()
         fig_legend.savefig(legend_path)
         plt.close(fig_legend)
@@ -336,10 +334,9 @@ def visualize_value_change(
         plt.savefig(save_path, bbox_inches="tight", dpi=150)
         plt.close(fig)
         return fig
-    else:
-        plt.tight_layout()
-        plt.show()
-        return fig
+    plt.tight_layout()
+    plt.show()
+    return fig
 
 
 def local_client_fairness_plot(
@@ -354,11 +351,11 @@ def local_client_fairness_plot(
     title_font_size: int = 25,
     label_font_size: int = 25,
     ticks_font_size: int = 20,
-    unfairness_distribution: dict = None,
-    legend_labels: dict = None,
-    save_path: str = None,
-    x_lim: float = None,
-    y_lim: float = None,
+    unfairness_distribution: dict | None = None,
+    legend_labels: dict | None = None,
+    save_path: str | None = None,
+    x_lim: float | None = None,
+    y_lim: float | None = None,
 ) -> plt.Figure:
     """
     Plot a scatter comparison of fairness values from two dataframes,
@@ -366,9 +363,7 @@ def local_client_fairness_plot(
     df1: Local/Centralized
     df2: Federated
     """
-
-    merged = pd.merge(
-        df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}),
+    merged = df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}).merge(
         df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
         on=client_column,
     )
@@ -399,11 +394,6 @@ def local_client_fairness_plot(
         race_states = unfairness_distribution.get("race_state", [])
         sex_states = unfairness_distribution.get("sex_states", [])
         for i, client in enumerate(clients):
-            # Check for partial matches if needed, or exact matches
-            # The notebook used exact match: `if client in race_states:`
-            # But sometimes datasets have suffixes (e.g. AL_2).
-            # Assuming exact match for now as per notebook logic.
-
             # Ensure client is string for comparison
             client_str = str(client)
 
@@ -417,14 +407,14 @@ def local_client_fairness_plot(
                 is_sex = base_client in sex_states
 
             if is_race:
-                race_x.append(fairness2[i])
-                race_y.append(fairness1[i])
+                race_x.append(fairness2.iloc[i])
+                race_y.append(fairness1.iloc[i])
             elif is_sex:
-                sex_x.append(fairness2[i])
-                sex_y.append(fairness1[i])
+                sex_x.append(fairness2.iloc[i])
+                sex_y.append(fairness1.iloc[i])
             else:
-                default_x.append(fairness2[i])
-                default_y.append(fairness1[i])
+                default_x.append(fairness2.iloc[i])
+                default_y.append(fairness1.iloc[i])
     else:
         # No distribution provided, all default
         default_x = list(fairness2)
@@ -488,7 +478,7 @@ def local_client_fairness_plot(
     ax.set_xlabel(xlabel, fontsize=label_font_size)
     ax.set_ylabel(ylabel, fontsize=label_font_size)
     ax.set_title(title, fontsize=title_font_size)
-    ax.grid(True)
+    ax.grid(visible=True)
 
     # Save logic
     if save_path:
@@ -504,7 +494,7 @@ def local_client_fairness_plot(
             ax_legend.legend(handles=[race_patch, sex_patch], fontsize=24, loc="center", frameon=False, ncol=2)
             ax_legend.axis("off")
             fig_legend.tight_layout()
-            legend_path = os.path.join(os.path.dirname(save_path), "legend_blue_red.pdf")
+            legend_path = Path(save_path).parent / "legend_blue_red.pdf"
             fig_legend.savefig(legend_path, bbox_inches="tight", dpi=150)
             plt.close(fig_legend)
 
@@ -516,8 +506,8 @@ def local_client_fairness_plot(
 def scatter_fairness_plot(
     df1: pd.DataFrame,
     client_column: str = "Partition ID",
-    fairness_column_Y: str = "RAC1P_DP",
-    fairness_column_X: str = "RAC1P_DP",
+    fairness_column_y: str = "RAC1P_DP",
+    fairness_column_x: str = "RAC1P_DP",
     title: str = "Fairness Comparison",
     figsize: tuple = (6, 6),
     ylabel: str = "Fairness Metric Y",
@@ -525,19 +515,17 @@ def scatter_fairness_plot(
     title_font_size: int = 25,
     label_font_size: int = 25,
     ticks_font_size: int = 20,
-    unfairness_distribution: dict = None,
-    legend_labels: dict = None,
+    unfairness_distribution: dict | None = None,
+    legend_labels: dict | None = None,
     legend_filename: str = "fairness_plot_legend.png",
-    save_path: str = None,
+    save_path: str | None = None,
 ) -> plt.Figure:
     """
     Plot a scatter comparison of two fairness metrics from the same DataFrame,
     coloring points based on state lists, with the legend saved separately.
     """
-    # assert df1[client_column].is_unique, "The client ID column must be unique."
-
-    fairness_x = df1[fairness_column_X]
-    fairness_y = df1[fairness_column_Y]
+    fairness_x = df1[fairness_column_x]
+    fairness_y = df1[fairness_column_y]
     clients = df1[client_column]
 
     min_val = min(fairness_x.min(), fairness_y.min())
@@ -607,7 +595,7 @@ def scatter_fairness_plot(
         ax.set_xlabel(xlabel, fontsize=label_font_size)
         ax.set_ylabel(ylabel, fontsize=label_font_size)
         ax.set_title(title, fontsize=title_font_size)
-        ax.grid(True)
+        ax.grid(visible=True)
 
         if save_path:
             plt.tight_layout()
@@ -658,7 +646,7 @@ def scatter_fairness_plot(
     ax.set_xlabel(xlabel, fontsize=label_font_size)
     ax.set_ylabel(ylabel, fontsize=label_font_size)
     ax.set_title(title, fontsize=title_font_size)
-    ax.grid(True)
+    ax.grid(visible=True)
 
     if save_path:
         # Create a separate figure for the legend
@@ -674,7 +662,7 @@ def scatter_fairness_plot(
         ax_legend.axis("off")  # Turn off the axes for the legend
 
         fig_legend.tight_layout()
-        legend_path = os.path.join(os.path.dirname(save_path), legend_filename)
+        legend_path = Path(save_path).parent / legend_filename
         fig_legend.savefig(legend_path, bbox_inches="tight", dpi=150)
         plt.close(fig_legend)
 
@@ -708,7 +696,7 @@ def bar_plot_value_distribution(df, attribute, title, save_path=None):
     try:
         df_plot["dataset_int"] = df_plot["dataset"].astype(int)
         df_plot = df_plot.sort_values("dataset_int")
-    except:
+    except (ValueError, TypeError):
         df_plot = df_plot.sort_values("dataset")
 
     # Use plt.bar directly for more control over colors
@@ -720,7 +708,8 @@ def bar_plot_value_distribution(df, attribute, title, save_path=None):
 
     # Ticks
     n = len(df_plot)
-    if n > 50:
+    max_clients_for_full_ticks = 50
+    if n > max_clients_for_full_ticks:
         ax.set_xticks(range(0, n, 10))
         ax.set_xticklabels(df_plot["dataset"].iloc[::10].astype(str), rotation=45)
     else:
@@ -728,9 +717,6 @@ def bar_plot_value_distribution(df, attribute, title, save_path=None):
         ax.set_xticklabels(df_plot["dataset"].astype(str), rotation=90)
 
     ax.tick_params(axis="both", which="major", labelsize=16)
-
-    # Add legend
-    import matplotlib.patches as mpatches
 
     patches = [mpatches.Patch(color="red", label="Group 0"), mpatches.Patch(color="blue", label="Group 1")]
     ax.legend(handles=patches, loc="upper right", fontsize=18)
@@ -803,8 +789,6 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
 
     # If partition_names is not provided, detect nodes from columns
     if partition_names is None:
-        import re
-
         node_ids = set()
         # Look for pattern: "Attribute Name <number> - "
         pattern = re.compile(rf"^{re.escape(attribute_name)} (\d+)")
@@ -817,7 +801,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
     results = {}
 
     # Iterate through nodes.
-    for node_id_str in partition_names.keys():
+    for node_id_str in partition_names:
         node = int(node_id_str)
         # Check if any attribute column exists for this node
         # If not, skip (maybe this node wasn't in this run?)
@@ -830,7 +814,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
             current_attribute = f"{attribute_name} {node} {attribute}"
             if current_attribute in df.columns:
                 node_has_data = True
-                values = df[current_attribute].values
+                values = df[current_attribute].to_numpy()
                 values = values[~pd.isna(values)]
                 if len(values) > 0:
                     temp_res[mapping[attribute]] = values[-1]
@@ -865,7 +849,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
 
 def load_local_results(file_path):
     if file_path.endswith(".json"):
-        with open(file_path, "r") as f:
+        with Path(file_path).open() as f:
             data = json.load(f)
 
         # Check for "medium", "small", "large" nesting (Dutch Cross-Device style)
@@ -921,9 +905,8 @@ def load_local_results(file_path):
                     df.index.name = "dataset"
                     df = df.reset_index()
                 return df
-            else:
-                return pd.DataFrame([data])
-        elif isinstance(data, list):
+            return pd.DataFrame([data])
+        if isinstance(data, list):
             return pd.DataFrame(data)
 
     elif file_path.endswith(".csv"):
@@ -940,7 +923,8 @@ def load_local_results(file_path):
 
         return df
 
-    raise ValueError(f"Unsupported file type: {file_path}")
+    msg = f"Unsupported file type: {file_path}"
+    raise ValueError(msg)
 
 
 # --- Main ---
@@ -973,15 +957,15 @@ def main():
     args = parser.parse_args()
 
     # 1. Setup Directories
-    base_output_dir = os.path.join("experiments_plots", args.dataset_name, args.experiment_name, args.experiment_type)
-    os.makedirs(base_output_dir, exist_ok=True)
+    base_output_dir = Path("experiments_plots") / args.dataset_name / args.experiment_name / args.experiment_type
+    base_output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Output directory: {base_output_dir}")
 
     # 2. Load Partition Names
     partition_names = None
     if args.partition_names_path:
-        with open(args.partition_names_path, "r") as f:
+        with Path(args.partition_names_path).open() as f:
             partition_names = json.load(f)
 
     # Load States Unfairness if provided
@@ -989,13 +973,13 @@ def main():
     legend_labels = None
 
     if args.states_unfairness_path:
-        with open(args.states_unfairness_path, "r") as f:
+        with Path(args.states_unfairness_path).open() as f:
             states_unfairness = json.load(f)
     elif args.dataset_name and "dutch" in args.dataset_name.lower():
         # Dutch logic: 0 to N/2-1 is Sex, N/2 to N is Marital (mapped to race_state key)
         half_clients = args.num_clients // 2
         states_unfairness = {
-            "sex_states": [str(i) for i in range(0, half_clients)],
+            "sex_states": [str(i) for i in range(half_clients)],
             "race_state": [str(i) for i in range(half_clients, args.num_clients)],
         }
         legend_labels = {"race": "Marital-Biased Client", "sex": "Sex-Biased Client"}
@@ -1117,20 +1101,20 @@ def main():
                 diff_df = diff_df.dropna(subset=cols_to_check)
 
             if not diff_df.empty and cols_to_check:
-                plot_path = os.path.join(base_output_dir, f"diff_hist_{safe_model_name}.pdf")
+                plot_path = base_output_dir / f"diff_hist_{safe_model_name}.pdf"
                 bar_plot_differences(
                     diff_df,
                     list(diff_df["dataset"]),
                     title=f"{display_model_name} - {fl_method_label} Unfairness Difference",
                     y_axis="Dem. Disparity Difference",
                     save=True,
-                    fig_path=plot_path,
+                    fig_path=str(plot_path),
                 )
                 print(f"Saved Difference Histogram: {plot_path}")
             else:
                 print(f"No matching data or columns for Difference Histogram for model {model}")
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             print(f"Error creating difference histogram for {model}: {e}")
 
         # B) Distribution Dots (Scatter Comparison)
@@ -1138,7 +1122,7 @@ def main():
         # Race / Marital
         if "DP_RACE" in model_df.columns and "DP_RACE" in fl_df.columns:
             try:
-                plot_path = os.path.join(base_output_dir, f"scatter_race_{safe_model_name}.pdf")
+                plot_path = base_output_dir / f"scatter_race_{safe_model_name}.pdf"
 
                 # Dutch specific limits
                 x_limit = 0.6 if args.dataset_name and "dutch" in args.dataset_name.lower() else None
@@ -1155,12 +1139,12 @@ def main():
                     else "RACE Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
-                    save_path=plot_path,
+                    save_path=str(plot_path),
                     x_lim=x_limit,
                     y_lim=y_limit,
                 )
                 print(f"Saved Scatter Plot (Race/MAR): {plot_path}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating scatter plot (Race) for {model}: {e}")
         else:
             print(f"Skipping Race/MAR scatter plot for {model} (DP_RACE missing)")
@@ -1168,7 +1152,7 @@ def main():
         # Sex
         if "DP_SEX" in model_df.columns and "DP_SEX" in fl_df.columns:
             try:
-                plot_path = os.path.join(base_output_dir, f"scatter_sex_{safe_model_name}.pdf")
+                plot_path = base_output_dir / f"scatter_sex_{safe_model_name}.pdf"
 
                 # Dutch specific limits
                 x_limit = 0.3 if args.dataset_name and "dutch" in args.dataset_name.lower() else None
@@ -1183,12 +1167,12 @@ def main():
                     title="SEX Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
-                    save_path=plot_path,
+                    save_path=str(plot_path),
                     x_lim=x_limit,
                     y_lim=y_limit,
                 )
                 print(f"Saved Scatter Plot (Sex): {plot_path}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating scatter plot (Sex) for {model}: {e}")
         else:
             print(f"Skipping Sex scatter plot for {model} (DP_SEX missing)")
@@ -1196,7 +1180,7 @@ def main():
         # Attribute Bias Distribution (Scatter DP_RACE vs DP_SEX for Local Models)
         if "DP_RACE" in model_df.columns and "DP_SEX" in model_df.columns:
             try:
-                plot_path = os.path.join(base_output_dir, f"attribute_bias_dist_{safe_model_name}.pdf")
+                plot_path = base_output_dir / f"attribute_bias_dist_{safe_model_name}.pdf"
 
                 scatter_fairness_plot(
                     df1=model_df,
@@ -1208,11 +1192,11 @@ def main():
                     title="Attribute Bias Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
-                    save_path=plot_path,
+                    save_path=str(plot_path),
                     legend_filename=f"attribute_bias_legend_{safe_model_name}.pdf",
                 )
                 print(f"Saved Attribute Bias Distribution Plot: {plot_path}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating attribute bias distribution plot for {model}: {e}")
 
         # C) Value Plots (if applicable)
@@ -1221,7 +1205,7 @@ def main():
         if "Value" in fl_df.columns:
             generate_value_plots = True
             if "Value" not in model_df.columns:
-                model_df_with_val = pd.merge(model_df, fl_df[["dataset", "Value"]], on="dataset", how="left")
+                model_df_with_val = model_df.merge(fl_df[["dataset", "Value"]], on="dataset", how="left")
             else:
                 model_df_with_val = model_df.copy()
 
@@ -1236,7 +1220,7 @@ def main():
             try:
                 model_df_with_val["dataset_int"] = model_df_with_val["dataset"].astype(int)
                 model_df_with_val = model_df_with_val.sort_values("dataset_int")
-            except:
+            except (ValueError, TypeError):
                 model_df_with_val = model_df_with_val.sort_values("dataset")
 
             num_clients = len(model_df_with_val["dataset"].unique())
@@ -1272,11 +1256,11 @@ def main():
                         title="Value Bias Distribution (Sex)",
                         attribute="DP_SEX",
                         save=True,
-                        save_path=os.path.join(base_output_dir, f"value_dist_sex_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"value_dist_sex_{safe_model_name}.pdf"),
                         custom_labels=custom_xticklabels,
                     )
                     print(f"Saved Value Distribution Plot (Sex) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating value distribution plot (Sex) for {model}: {e}")
 
                 try:
@@ -1284,10 +1268,10 @@ def main():
                         model_df_with_val,
                         attribute="DP_SEX",
                         title="Value Based Distribution (Sex)",
-                        save_path=os.path.join(base_output_dir, f"value_based_dist_sex_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"value_based_dist_sex_{safe_model_name}.pdf"),
                     )
                     print(f"Saved Value Based Distribution Plot (Sex) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating value based distribution plot (Sex) for {model}: {e}")
 
             if "DP_RACE" in model_df_with_val.columns:
@@ -1298,10 +1282,10 @@ def main():
                         title="Value Bias Distribution (Race/Mar)",
                         attribute="DP_RACE",
                         save=True,
-                        save_path=os.path.join(base_output_dir, f"value_dist_race_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"value_dist_race_{safe_model_name}.pdf"),
                     )
                     print(f"Saved Value Distribution Plot (Race) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating value distribution plot (Race) for {model}: {e}")
 
                 try:
@@ -1309,10 +1293,10 @@ def main():
                         model_df_with_val,
                         attribute="DP_RACE",
                         title="Value Based Distribution (Race/Mar)",
-                        save_path=os.path.join(base_output_dir, f"value_based_dist_race_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"value_based_dist_race_{safe_model_name}.pdf"),
                     )
                     print(f"Saved Value Based Distribution Plot (Race) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating value based distribution plot (Race) for {model}: {e}")
 
             # 2. Value Change Arrows (Local -> FL)
@@ -1330,15 +1314,15 @@ def main():
                         df2=fl_df,
                         sensitive_col="DP_SEX",
                         value_col="Value",
-                        title=f"Change in Max. Value Disparity (Sex)",
+                        title="Change in Max. Value Disparity (Sex)",
                         y_label="Dem. Disparity",
                         initial_state=model,
                         legend_filename=f"arrow_legend_sex_{safe_model_name}.pdf",
-                        save_path=os.path.join(base_output_dir, f"arrow_sex_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"arrow_sex_{safe_model_name}.pdf"),
                         custom_labels=custom_xticklabels,
                     )
                     print(f"Saved Arrow Plot (Sex) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating arrow plot (Sex) for {model}: {e}")
             else:
                 print(f"Skipping Arrow Plot (Sex) for {model}. Missing cols.")
@@ -1351,14 +1335,14 @@ def main():
                         df2=fl_df,
                         sensitive_col="DP_RACE",
                         value_col="Value",
-                        title=f"Change in Max. Value Disparity (Race/Mar)",
+                        title="Change in Max. Value Disparity (Race/Mar)",
                         y_label="Dem. Disparity",
                         initial_state=model,
                         legend_filename=f"arrow_legend_race_{safe_model_name}.pdf",
-                        save_path=os.path.join(base_output_dir, f"arrow_race_{safe_model_name}.pdf"),
+                        save_path=str(base_output_dir / f"arrow_race_{safe_model_name}.pdf"),
                     )
                     print(f"Saved Arrow Plot (Race) for {model}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     print(f"Error creating arrow plot (Race) for {model}: {e}")
             else:
                 print(f"Skipping Arrow Plot (Race) for {model}. Missing cols.")
@@ -1385,15 +1369,15 @@ def main():
                     df2=fl_dir_df,
                     sensitive_col="DP_SEX",
                     value_col="Bias_Direction",
-                    title=f"Change in Bias Direction (Sex)",
+                    title="Change in Bias Direction (Sex)",
                     y_label="Dem. Disparity",
                     initial_state=display_model_name,
                     legend_filename=f"arrow_bias_dir_legend_sex_{safe_model_name}.pdf",
-                    save_path=os.path.join(base_output_dir, f"arrow_bias_dir_sex_{safe_model_name}.pdf"),
+                    save_path=str(base_output_dir / f"arrow_bias_dir_sex_{safe_model_name}.pdf"),
                     custom_labels=custom_labels,
                 )
                 print(f"Saved Bias Direction Arrow Plot (Sex) for {model}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating bias direction arrow plot (Sex) for {model}: {e}")
 
         # Race
@@ -1413,15 +1397,15 @@ def main():
                     df2=fl_dir_df,
                     sensitive_col="DP_RACE",
                     value_col="Bias_Direction",
-                    title=f"Change in Bias Direction (Race/Mar)",
+                    title="Change in Bias Direction (Race/Mar)",
                     y_label="Dem. Disparity",
                     initial_state=display_model_name,
                     legend_filename=f"arrow_bias_dir_legend_race_{safe_model_name}.pdf",
-                    save_path=os.path.join(base_output_dir, f"arrow_bias_dir_race_{safe_model_name}.pdf"),
+                    save_path=str(base_output_dir / f"arrow_bias_dir_race_{safe_model_name}.pdf"),
                     custom_labels=custom_labels,
                 )
                 print(f"Saved Bias Direction Arrow Plot (Race) for {model}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating bias direction arrow plot (Race) for {model}: {e}")
         else:
             print(f"Skipping Value Plots for {model}. 'Value' column not found in FL results.")
@@ -1460,18 +1444,16 @@ def main():
                     df2=fl_dom_df,
                     sensitive_col="Max_Unfairness",
                     value_col="Dominant_Source",
-                    title=f"Change in Dominant Bias Source",
+                    title="Change in Dominant Bias Source",
                     y_label="Max Dem. Disparity",
                     initial_state=display_model_name,
                     legend_filename=f"arrow_dominant_legend_{safe_model_name}.pdf",
-                    save_path=os.path.join(base_output_dir, f"arrow_dominant_bias_{safe_model_name}.pdf"),
+                    save_path=str(base_output_dir / f"arrow_dominant_bias_{safe_model_name}.pdf"),
                     custom_labels=custom_labels,
                 )
                 print(f"Saved Dominant Bias Arrow Plot for {model}")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 print(f"Error creating dominant bias arrow plot for {model}: {e}")
-
-    # End of Main Loop
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import base64
 import io
-import os
-from typing import Callable
+from collections.abc import Callable
+from pathlib import Path
 
 import pandas as pd
 import torchvision
@@ -29,6 +29,8 @@ class CelebaDataset(Dataset):
             image_path (str): path of the images
             transform (torchvision.transforms, optional): Transformation to apply
             to the images. Defaults to None.
+            debug (bool, optional): If True, the images are loaded when needed.
+            Defaults to True.
 
         """
         dataframe = pd.read_csv(csv_path)
@@ -36,18 +38,17 @@ class CelebaDataset(Dataset):
         smiling_dict = {-1: 0, 1: 1}
         targets = [smiling_dict[item] for item in dataframe["Smiling"].tolist()]
         self.targets = targets
-        # self.sensitive_attributes = [smiling_dict[item] for item in dataframe["Gender"].tolist()]
         self.sensitive_attributes = dataframe["Male"].tolist()
         self.samples = list(dataframe["image_id"])
         self.n_samples = len(dataframe)
         self.transform = transform
-        self.image_path = image_path
+        self.image_path = Path(image_path)
         self.debug = debug
         self.indexes = range(len(self.samples))
 
         if not self.debug:
             self.images = [
-                Image.open(os.path.join(self.image_path, sample)).convert(
+                Image.open(self.image_path / sample).convert(
                     "RGB",
                 )
                 for sample in self.samples
@@ -58,19 +59,18 @@ class CelebaDataset(Dataset):
         Returns a sample from the dataset.
 
         Args:
-            idx (_type_): index of the sample we want to retrieve
+            index (int): index of the sample we want to retrieve
 
         Returns:
         -------
             _type_: sample we want to retrieve
 
         """
-        if self.debug:
-            img = Image.open(os.path.join(self.image_path, self.samples[index])).convert(
-                "RGB",
-            )
-        else:
-            img = self.images[index]
+        img = (
+            Image.open(self.image_path / self.samples[index]).convert("RGB")
+            if self.debug
+            else self.images[index]
+        )
 
         if self.transform:
             img = self.transform(img)
@@ -102,7 +102,7 @@ class CelebaPreparedDataset(Dataset):
         images_dict: dict,
         labels: list,
         sensitive_attributes: list,
-        second_sensitive_attributes: list = None,
+        second_sensitive_attributes: list | None = None,
         transform: Callable | None = None,
     ) -> None:
         """

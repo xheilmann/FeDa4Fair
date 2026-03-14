@@ -21,9 +21,9 @@ Paper: https://arxiv.org/abs/1602.05629
 from collections import OrderedDict
 from collections.abc import Callable
 from logging import WARNING
+from typing import TYPE_CHECKING
 
 import flwr as fl
-import numpy as np
 import torch
 from flwr.common import (
     EvaluateIns,
@@ -42,6 +42,9 @@ from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 from flwr.server.strategy.strategy import Strategy
+
+if TYPE_CHECKING:
+    import numpy as np
 
 WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW = """
 Setting `min_available_clients` lower than `min_fit_clients` or
@@ -73,9 +76,9 @@ class FedAvg(Strategy):
         evaluate_metrics_aggregation_fn: MetricsAggregationFn | None = None,
         test_metrics_aggregation_fn: MetricsAggregationFn | None = None,
         current_max_epsilon: float = 0.0,
-        fed_dir: str = None,
+        fed_dir: str | None = None,
         model=None,
-        file_name: str = None,
+        file_name: str | None = None,
         store_model: bool = False,
         wandb=None,
         args=None,
@@ -96,6 +99,8 @@ class FedAvg(Strategy):
             Fraction of clients used during validation. In case `min_evaluate_clients`
             is larger than `fraction_evaluate * available_clients`, `min_evaluate_clients`
             will still be sampled. Defaults to 1.0.
+        fraction_test : float, optional
+            Fraction of clients used during testing. Defaults to 1.0.
         min_fit_clients : int, optional
             Minimum number of clients used during training. Defaults to 2.
         min_evaluate_clients : int, optional
@@ -118,6 +123,22 @@ class FedAvg(Strategy):
             Metrics aggregation function, optional.
         test_metrics_aggregation_fn : Optional[MetricsAggregationFn]
             Metrics aggregation function, optional.
+        current_max_epsilon : float, optional
+            Maximum epsilon value. Defaults to 0.0.
+        fed_dir : str, optional
+            Path to the federated directory. Defaults to None.
+        model : torch.nn.Module, optional
+            Model used for training. Defaults to None.
+        file_name : str, optional
+            File name for storing model. Defaults to None.
+        store_model : bool, optional
+            Whether to store the model. Defaults to False.
+        wandb : wandb.run, optional
+            Wandb run object. Defaults to None.
+        args : argparse.Namespace, optional
+            Arguments. Defaults to None.
+        train_parameters : TrainParameters, optional
+            Training parameters. Defaults to None.
 
         """
         super().__init__()
@@ -149,8 +170,7 @@ class FedAvg(Strategy):
         self.train_parameters = train_parameters
 
     def __repr__(self) -> str:
-        rep = f"FedAvg(accept_failures={self.accept_failures})"
-        return rep
+        return f"FedAvg(accept_failures={self.accept_failures})"
 
     def num_fit_clients(self, num_available_clients: int) -> tuple[int, int]:
         """
@@ -315,7 +335,7 @@ class FedAvg(Strategy):
             aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(parameters_aggregated)
 
             # Convert `List[np.ndarray]` to PyTorch`state_dict`
-            params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
+            params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays, strict=False)
             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
             self.model.load_state_dict(state_dict, strict=True)
 

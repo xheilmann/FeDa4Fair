@@ -44,12 +44,13 @@ class TabularDataset(Dataset):
 
         return x_sample, z_sample, w_sample, t_sample, y_sample
 
-    def shuffle(self):
+    def shuffle(self, seed=None):
         """
         Shuffle the dataset.
         """
         self.indexes = list(self.indexes)
-        np.random.shuffle(self.indexes)
+        rng = np.random.default_rng(seed)
+        rng.shuffle(self.indexes)
         self.samples = [self.samples[i] for i in self.indexes]
         self.sensitive_features = [self.sensitive_features[i] for i in self.indexes]
         self.sensitive_features_2 = [self.sensitive_features_2[i] for i in self.indexes]

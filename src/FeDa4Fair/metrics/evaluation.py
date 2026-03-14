@@ -144,6 +144,11 @@ def evaluate_fairness(
     if isinstance(sens_columns, str):
         sens_columns = [sens_columns]
 
+    # Define output_path unconditionally so it is always available
+    # for the fairness-distribution loop that follows.
+    output_path = Path(path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
     for label in sens_columns:
         fig_dis, axes_dis, df_list_dis = plot_comparison_label_distribution(
             partitioner_list=list(partitioner_dict.values()),
@@ -164,8 +169,6 @@ def evaluate_fairness(
         )
 
         merged_df = merge_dataframes_with_names(df_list_dis, list(partitioner_dict.keys()))
-        output_path = Path(path)
-        output_path.mkdir(parents=True, exist_ok=True)
         merged_df.to_csv(output_path / f"{label}_count_df.csv")
         fig_dis.savefig(output_path / f"{label}_count_fig.pdf", dpi=1200)
 
@@ -279,13 +282,14 @@ def local_client_fairness_plot(
     return fig
 
 
-# Dictionary of models to evaluate
-MODELS = {
-    "LogisticRegression": LogisticRegression(max_iter=5000),
-}
-
-if XGBOOST_AVAILABLE:
-    MODELS["XGBoost"] = XGBClassifier(eval_metric="logloss")  # type: ignore[no-redef]
+def _get_models() -> dict[str, Any]:
+    """Return fresh, unfitted model instances for each evaluation."""
+    models: dict[str, Any] = {
+        "LogisticRegression": LogisticRegression(max_iter=5000),
+    }
+    if XGBOOST_AVAILABLE:
+        models["XGBoost"] = XGBClassifier(eval_metric="logloss")  # type: ignore[no-redef]
+    return models
 
 
 def evaluate_model(
@@ -324,9 +328,10 @@ def evaluate_models_on_datasets(
 ) -> tuple[pd.DataFrame, Any]:
     """Evaluates multiple models on multiple datasets in parallel."""
     tasks = []
+    models = _get_models()
 
     for _name, x_train, y_train, x_test, y_test, sf_data in datasets:
-        for model_name, model in MODELS.items():
+        for model_name, model in models.items():
             tasks.append(
                 delayed(evaluate_model)(
                     model_name,
@@ -345,7 +350,7 @@ def evaluate_models_on_datasets(
 
     expanded_results = []
     for i, res in enumerate(results):
-        dataset_index = i // len(MODELS)
+        dataset_index = i // len(models)
         dataset_name = datasets[dataset_index][0]
         res["dataset"] = dataset_name
         expanded_results.append(res)

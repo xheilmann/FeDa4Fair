@@ -10,12 +10,12 @@ Code developed by L. Corbucci, 2024
 import argparse
 import json
 import logging
-import os
 import signal
 import sys
 import time
 import warnings
 from logging import INFO
+from pathlib import Path
 
 import flwr as fl
 import numpy as np
@@ -34,11 +34,10 @@ from Utils.train_parameters import TrainParameters
 from Utils.utils import Utils
 
 
-def signal_handler(sig, frame):
+def signal_handler(_sig, _frame):
     print("Gracefully stopping your experiment! Keep calm!")
-    global wandb_run
-    if wandb_run:
-        wandb_run.finish()
+    if "wandb_run" in globals() and globals()["wandb_run"]:
+        globals()["wandb_run"].finish()
     sys.exit(0)
 
 
@@ -70,15 +69,10 @@ parser.add_argument("--perfect_probability_estimation", type=bool, default=False
 # ----------------------
 # Privacy Settings
 parser.add_argument("--regularization", type=bool, default=False)  # If we want to use DPL Regularization
-# parser.add_argument("--private", type=bool, default=True)  # If we want to use DP-SGD
 parser.add_argument("--epsilon", type=float, default=None)  # Target Epsilon for DP-SGD
 parser.add_argument("--epsilon_lambda", type=float, default=None)  # Target Epsilon for Lambda computation
 parser.add_argument("--epsilon_statistics", type=float, default=None)  # Target Epsilon for statistics sharing
-# parser.add_argument(
-#     "--noise_multiplier", type=float, default=None
-# )  # Noise multiplier for DP-SGD
 parser.add_argument("--clipping", type=float, default=1000000000)  # Clipping value for DP-SGD
-# parser.add_argument("--delta", type=float, default=None)
 
 # ----------------------
 # Dataset/Distribution Settings
@@ -223,10 +217,16 @@ if __name__ == "__main__":
         args.node_shuffle_seed = node_shuffle_seed
 
     if args.dataset == "celeba":
-        print(f"Removing files in {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl")
-        os.system(f"rm -rf {args.dataset_path}/celeba-10-batches-py/{args.splitted_data_dir}/*.pkl")
+        target_dir = Path(args.dataset_path) / "celeba-10-batches-py" / args.splitted_data_dir
+        print(f"Removing files in {target_dir}/*.pkl")
+        if target_dir.exists():
+            for pkl in target_dir.glob("*.pkl"):
+                pkl.unlink()
     else:
-        os.system(f"rm -rf {args.dataset_path}{args.splitted_data_dir}/*.pkl")
+        target_dir = Path(args.dataset_path) / args.splitted_data_dir
+        if target_dir.exists():
+            for pkl in target_dir.glob("*.pkl"):
+                pkl.unlink()
 
     Utils.seed_everything(args.seed)
 
@@ -241,15 +241,17 @@ if __name__ == "__main__":
 
     # We check if we pass parameters that are not compatible with each other
     if args.regularization_mode == "fixed" and args.regularization_lambda is None:
-        raise Exception("Starting lambda value must be specified when using fixed mode")
+        msg = "Starting lambda value must be specified when using fixed mode"
+        raise ValueError(msg)
     elif args.regularization_mode is None:
         DPL_value = 0
         args.regularization_lambda = 0
     elif args.regularization_mode == "fixed" and args.regularization_lambda:
         DPL_value = args.regularization_lambda
-    elif args.regularization_mode != "fixed" and args.regularization_mode != "tunable":
-        raise Exception(
-            f"Starting lambda mode not recognized, your value is {args.regularization_mode}. You need to use either fixed or tunable "
+    elif args.regularization_mode not in {"fixed", "tunable"}:
+        msg = f"Starting lambda mode not recognized, your value is {args.regularization_mode}. You need to use either fixed or tunable "
+        raise ValueError(
+            msg
         )
 
     print("The regularization_lambda is: ", args.regularization_lambda)
@@ -259,11 +261,11 @@ if __name__ == "__main__":
     num_validation_nodes = int(args.pool_size * args.validation_nodes)
     num_test_nodes = int(args.pool_size * args.test_nodes)
 
-    if os.path.exists(f"{args.dataset_path}/federated/"):
-        path_to_remove = os.listdir(f"{args.dataset_path}/federated/")
-        for item in path_to_remove:
-            if item.endswith(".pkl"):
-                os.remove(os.path.join(f"{args.dataset_path}/federated/", item))
+    fed_path = Path(args.dataset_path) / "federated"
+    if fed_path.exists():
+        for item in fed_path.iterdir():
+            if item.suffix == ".pkl":
+                item.unlink()
 
     train_parameters = TrainParameters(
         epochs=args.epochs,
@@ -298,7 +300,6 @@ if __name__ == "__main__":
         fed_dir, _ = prepare_tabular_data(
             dataset_path=args.dataset_path,
             dataset_name=dataset_name,
-            do_iid_split=True,
             approach=args.approach,
             num_nodes=args.pool_size,
             ratio_unfair_nodes=args.ratio_unfair_nodes,
@@ -337,11 +338,9 @@ if __name__ == "__main__":
             base_path=args.base_path,
         )
         # Partitioning the training dataset
-        fed_dir = Utils.do_fl_partitioning(
+        fed_dir = Utils.perform_fl_partitioning(
             train_path,
             pool_size=pool_size,
-            num_classes=2,
-            val_ratio=0,
             partition_type=args.partition_type,
             alpha=args.alpha,
             train_parameters=train_parameters,
@@ -353,12 +352,12 @@ if __name__ == "__main__":
             one_group_nodes=args.one_group_nodes,
             splitted_data_dir=args.splitted_data_dir,
         )
-        path_to_remove = os.listdir(fed_dir)
-        for item in path_to_remove:
-            if item.endswith(".pkl"):
-                os.remove(os.path.join(fed_dir, item))
+        fed_dir_path = Path(fed_dir)
+        for item in fed_dir_path.iterdir():
+            if item.suffix == ".pkl":
+                item.unlink()
 
-    wandb_run = Utils.setup_wandb(args, train_parameters) if args.wandb else None
+    wandb_run = Utils.setup_wandb(args) if args.wandb else None
 
     def client_fn(cid: str):
         client_generator = np.random.default_rng(seed=[args.seed, cid])
@@ -373,7 +372,8 @@ if __name__ == "__main__":
                 lr=args.lr,
                 client_generator=client_generator,
             )
-        raise Exception("Metric not recognized")
+        msg = "Metric not recognized"
+        raise ValueError(msg)
 
     model = ModelUtils.get_model(
         dataset_name,
@@ -385,22 +385,20 @@ if __name__ == "__main__":
 
     def fit_config(server_round: int = 0) -> dict[str, Scalar]:
         """Return a configuration with static batch size and (local) epochs."""
-        config = {
+        return {
             "epochs": args.epochs,  # number of local epochs
             "batch_size": args.batch_size,
             "dataset": args.dataset,
             "server_round": server_round,
         }
-        return config
 
-    def evaluate_config(server_round: int = 0) -> dict[str, Scalar]:
+    def evaluate_config(_server_round: int = 0) -> dict[str, Scalar]:
         """Return a configuration with static batch size and (local) epochs."""
-        config = {
+        return {
             "epochs": args.epochs,  # number of local epochs
             "batch_size": args.batch_size,
             "dataset": args.dataset,
         }
-        return config
 
     log(
         INFO,
@@ -473,7 +471,7 @@ if __name__ == "__main__":
         "all_combinations": ["1|0", "0|0", "1|1", "0|1"],
         "combinations": ["1|0", "1|1"],
     }
-    with open(os.path.join(args.dataset_path, "federated", "metadata.json"), "w") as f:
+    with (Path(args.dataset_path) / "federated" / "metadata.json").open("w") as f:
         json.dump(metadata, f, indent=4)
 
     fl.simulation.start_simulation(

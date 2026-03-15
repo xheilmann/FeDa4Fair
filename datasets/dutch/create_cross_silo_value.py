@@ -21,7 +21,7 @@ def evaluate_level(fds, level_name, output_base):
     # Evaluation
     print(f"Evaluating {level_name} benchmark...")
 
-    sens_atts = ["sex_binary"]
+    sens_atts = ["sex_binary", "Marital_status"]
     train_key = "train_train"
     if train_key not in fds.partitioners:
         train_key = next(iter(fds.partitioners.keys()))
@@ -39,37 +39,39 @@ def evaluate_level(fds, level_name, output_base):
         size_unit="attribute-value",
     )
 
-    # Plot Data Bias (Two bars per partition)
-    fig_dp, ax_dp = plt.subplots(figsize=(14, 6))
-    att = "sex_binary"
-    cols = results_dp.columns
+    # Plot Data Bias for each attribute
+    for att in sens_atts:
+        fig_dp, ax_dp = plt.subplots(figsize=(14, 6))
+        cols = results_dp.columns
 
-    # sex_binary_0.0_1.0 -> Bias toward 0 (Favors Female)
-    c_toward_0 = next((c for c in cols if c.startswith(f"{att}_") and ("_0.0_1.0" in c or "_0_1" in c)), None)
-    # sex_binary_1.0_0.0 -> Bias toward 1 (Favors Male)
-    c_toward_1 = next((c for c in cols if c.startswith(f"{att}_") and ("_1.0_0.0" in c or "_1_0" in c)), None)
+        # Find columns for bias toward values
+        c_toward_0 = next((c for c in cols if c.startswith(f"{att}_") and ("_0.0_1.0" in c or "_0_1" in c)), None)
+        c_toward_1 = next((c for c in cols if c.startswith(f"{att}_") and ("_1.0_0.0" in c or "_1_0" in c)), None)
 
-    if c_toward_0 and c_toward_1:
-        df_plot = pd.DataFrame(
-            {
-                "Bias Toward 0 (Red)": results_dp[c_toward_0].clip(lower=0),
-                "Bias Toward 1 (Blue)": results_dp[c_toward_1].clip(lower=0),
-            },
-            index=results_dp.index,
-        )
+        if c_toward_0 and c_toward_1:
+            df_plot = pd.DataFrame(
+                {
+                    "Bias Toward 0 (Red)": results_dp[c_toward_0].clip(lower=0),
+                    "Bias Toward 1 (Blue)": results_dp[c_toward_1].clip(lower=0),
+                },
+                index=results_dp.index,
+            )
 
-        df_plot.plot(kind="bar", ax=ax_dp, color=["red", "blue"], width=0.8)
-        ax_dp.set_title(f"Data Demographic Parity Distribution ({level_name})")
-        ax_dp.set_ylabel("DP Difference (Data Bias)")
-        ax_dp.set_xlabel("Partition ID")
-        ax_dp.grid(axis="y", linestyle="--", alpha=0.7)
-        fig_dp.savefig(f"{output_base}/{level_name}_DP.png")
-    else:
-        print(f"Warning: Could not find DP columns. Cols: {cols}")
-    plt.close(fig_dp)
+            df_plot.plot(kind="bar", ax=ax_dp, color=["red", "blue"], width=0.8)
+            ax_dp.set_title(f"Data Demographic Parity Distribution: {att} ({level_name})")
+            ax_dp.set_ylabel("DP Difference (Data Bias)")
+            ax_dp.set_xlabel("Partition ID")
+            ax_dp.grid(axis="y", linestyle="--", alpha=0.7)
+            fig_dp.savefig(f"{output_base}/{level_name}_{att}_DP.png")
+            
+            # Print stats
+            max_dp = results_dp[[c_toward_0, c_toward_1]].max(axis=1)
+            print(f"  {att} (Data Bias): Avg DP={max_dp.mean():.4f}")
+        else:
+            print(f"Warning: Could not find DP columns for {att}. Cols: {cols}")
+        plt.close(fig_dp)
 
     # Plot Accuracy (Need to train model now)
-    # We perform a separate pass for Model Evaluation to get Accuracy and Model Fairness
     results_model = compute_multi_fairness(
         partitioner=fds.partitioners[train_key],
         partitioner_test=fds.partitioners[train_key],
@@ -107,19 +109,13 @@ def evaluate_level(fds, level_name, output_base):
     fig_eo.savefig(f"{output_base}/{level_name}_EO.png")
     plt.close(fig_eo)
 
-    # Save merged results (Data DP + Model Accuracy + Model EO)
-    results = results_dp.copy()  # Start with Data DP
-    results["Accuracy"] = results_model["Accuracy"]  # Add Model Accuracy
+    # Save merged results
+    results = results_dp.copy()
+    results["Accuracy"] = results_model["Accuracy"]
 
     for col in results_eo.columns:
         if col not in results.columns:
-            results[col] = results_eo[col]  # Add Model EO
-
-    # Print stats from Data DP
-    if c_toward_0 and c_toward_1:
-        max_dp = results[[c_toward_0, c_toward_1]].max(axis=1)
-        avg_val = max_dp.mean()
-        print(f"  {att} (Data Bias): Avg DP={avg_val:.4f}")
+            results[col] = results_eo[col]
 
     eval_path = f"{output_base}/{level_name}_evaluation.csv"
     results.to_csv(eval_path)
@@ -133,9 +129,6 @@ def create_benchmarks():
     output_base.mkdir(parents=True, exist_ok=True)
 
     # Tuning params:
-    # Baseline: SR(0)=0.67, SR(1)=0.37. Bias toward 0 (Favors Female) = 0.30.
-    # To get Bias toward 1 (Favors Male): Need SR(0) < SR(1). Need to drop SR(0) drastically.
-    # To get Bias toward 0 (Favors Female): Need SR(0) > SR(1). Need to drop SR(1) (reinforce).
     levels = {
         "medium": {
             "drop_mean": 0.5,
@@ -154,7 +147,7 @@ def create_benchmarks():
 
         group_configs = [
             {
-                "group_id": "value_0_bias",  # Target 0 (Flip 0) -> Low SR(0) -> Bias toward 1 (Blue)
+                "group_id": "value_0_bias",
                 "num_clients": half_clients,
                 "configs": [
                     {
@@ -169,7 +162,7 @@ def create_benchmarks():
                 ],
             },
             {
-                "group_id": "value_1_bias",  # Target 1 (Flip 1) -> Low SR(1) -> Bias toward 0 (Red)
+                "group_id": "value_1_bias",
                 "num_clients": num_clients - half_clients,
                 "configs": [
                     {
@@ -188,11 +181,11 @@ def create_benchmarks():
         mod_dict = generate_multiobjective_bias(num_clients, group_configs)
 
         fds = FairFederatedDataset(
-            dataset="lucacorbucci/Dutch_census_binary_marital_status",
+            dataset="lucacorbucci/Dutch_census",
             split="all",
             partitioners={"train": num_clients},
             label_name="occupation_binary",
-            sensitive_attributes=["sex_binary"],
+            sensitive_attributes=["sex_binary", "Marital_status"],
             modification_dict=mod_dict,
             fl_setting="cross-silo",
             perc_train_val_test=[0.8, 0.2],

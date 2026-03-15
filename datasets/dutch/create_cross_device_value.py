@@ -182,7 +182,7 @@ def create_benchmarks():
         mod_dict = generate_multiobjective_bias(num_clients, group_configs)
 
         fds = FairFederatedDataset(
-            dataset="lucacorbucci/Dutch_census_binary_marital_status",
+            dataset="lucacorbucci/Dutch_census",
             split="all",
             partitioners={"train": num_clients},
             label_name="occupation_binary",

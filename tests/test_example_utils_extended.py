@@ -13,9 +13,9 @@ from FeDa4Fair.utils.example_utils import (
     LinearClassificationNet,
     SimpleCNN,
     TabularDataset,
-    test,
-    test_celeba,
-    test_image,
+    evaluate_celeba,
+    evaluate_image,
+    evaluate_tabular,
     train,
     train_celeba,
 )
@@ -23,6 +23,7 @@ from FeDa4Fair.utils.example_utils import (
 # ---------------------------------------------------------------------------
 # Minimal data helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_tabular_loader(n: int = 16, input_size: int = 11, batch_size: int = 8) -> DataLoader:
     """Build a DataLoader whose batches match the (images, sex, mar, labels) convention in train/test."""
@@ -39,7 +40,8 @@ def _make_celeba_loader(n: int = 8, batch_size: int = 4) -> DataLoader:
     images = [np.zeros((64, 64, 3), dtype=np.uint8) for _ in range(n)]
     labels = [i % 2 == 0 for i in range(n)]
     sensitive = [i % 2 == 0 for i in range(n)]
-    ds = CelebaDataset(images=images, labels=labels, sensitive_attributes=sensitive)
+    transform = transforms.Compose([transforms.ToTensor()])
+    ds = CelebaDataset(images=images, labels=labels, sensitive_attributes=sensitive, transform=transform)
     return DataLoader(ds, batch_size=batch_size)
 
 
@@ -126,23 +128,25 @@ class TestTrainAndTest(unittest.TestCase):
         params_before = [p.clone().detach() for p in self.net.parameters()]
         train(self.net, self.trainloader, self.optimizer, device="cpu")
         params_after = list(self.net.parameters())
-        changed = any(not torch.equal(p_before, p_after) for p_before, p_after in zip(params_before, params_after, strict=False))
+        changed = any(
+            not torch.equal(p_before, p_after) for p_before, p_after in zip(params_before, params_after, strict=False)
+        )
         self.assertTrue(changed)
 
     def test_test_returns_correct_structure(self):
         """test() should return (loss: float, accuracy: float, unfairness_dict: dict)."""
-        loss, accuracy, unfairness_dict = test(self.net, self.testloader, device="cpu")
+        loss, accuracy, unfairness_dict = evaluate_tabular(self.net, self.testloader, device="cpu")
         self.assertIsInstance(loss, float)
         self.assertIsInstance(accuracy, float)
         self.assertIsInstance(unfairness_dict, dict)
 
     def test_test_accuracy_in_valid_range(self):
-        _loss, accuracy, _ = test(self.net, self.testloader, device="cpu")
+        _loss, accuracy, _ = evaluate_tabular(self.net, self.testloader, device="cpu")
         self.assertGreaterEqual(accuracy, 0.0)
         self.assertLessEqual(accuracy, 1.0)
 
     def test_test_unfairness_dict_contains_expected_keys(self):
-        _, _, unfairness_dict = test(self.net, self.testloader, device="cpu")
+        _, _, unfairness_dict = evaluate_tabular(self.net, self.testloader, device="cpu")
         self.assertIn("SEX_DP", unfairness_dict)
         self.assertIn("MAR_DP", unfairness_dict)
         self.assertIn("SEX_EO", unfairness_dict)
@@ -150,7 +154,7 @@ class TestTrainAndTest(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# train_celeba / test_celeba
+# train_celeba / evaluate_celeba
 # ---------------------------------------------------------------------------
 
 
@@ -164,24 +168,24 @@ class TestTrainAndTestCeleba(unittest.TestCase):
         train_celeba(self.net, self.loader, self.optimizer, device="cpu")
 
     def test_test_celeba_returns_correct_types(self):
-        loss, accuracy, unfairness_dict = test_celeba(self.net, self.loader, device="cpu")
+        loss, accuracy, unfairness_dict = evaluate_celeba(self.net, self.loader, device="cpu")
         self.assertIsInstance(loss, float)
         self.assertIsInstance(accuracy, float)
         self.assertIsInstance(unfairness_dict, dict)
 
     def test_test_celeba_accuracy_in_valid_range(self):
-        _, accuracy, _ = test_celeba(self.net, self.loader, device="cpu")
+        _, accuracy, _ = evaluate_celeba(self.net, self.loader, device="cpu")
         self.assertGreaterEqual(accuracy, 0.0)
         self.assertLessEqual(accuracy, 1.0)
 
     def test_test_celeba_unfairness_dict_has_sex_keys(self):
-        _, _, unfairness_dict = test_celeba(self.net, self.loader, device="cpu")
+        _, _, unfairness_dict = evaluate_celeba(self.net, self.loader, device="cpu")
         self.assertIn("SEX_DP", unfairness_dict)
         self.assertIn("SEX_EO", unfairness_dict)
 
 
 # ---------------------------------------------------------------------------
-# test_image
+# evaluate_image
 # ---------------------------------------------------------------------------
 
 
@@ -191,18 +195,18 @@ class TestTestImage(unittest.TestCase):
         self.loader = _make_image_loader(n=8, batch_size=4)
 
     def test_test_image_returns_correct_types(self):
-        loss, accuracy, unfairness_dict = test_image(self.net, self.loader, device="cpu")
+        loss, accuracy, unfairness_dict = evaluate_image(self.net, self.loader, device="cpu")
         self.assertIsInstance(loss, float)
         self.assertIsInstance(accuracy, float)
         self.assertIsInstance(unfairness_dict, dict)
 
     def test_test_image_accuracy_in_valid_range(self):
-        _, accuracy, _ = test_image(self.net, self.loader, device="cpu")
+        _, accuracy, _ = evaluate_image(self.net, self.loader, device="cpu")
         self.assertGreaterEqual(accuracy, 0.0)
         self.assertLessEqual(accuracy, 1.0)
 
     def test_test_image_unfairness_dict_has_sensitive_keys(self):
-        _, _, unfairness_dict = test_image(self.net, self.loader, device="cpu", sensitive_attribute_name="sensitive")
+        _, _, unfairness_dict = evaluate_image(self.net, self.loader, device="cpu", sensitive_attribute_name="sensitive")
         self.assertIn("sensitive_DP", unfairness_dict)
         self.assertIn("sensitive_EO", unfairness_dict)
 

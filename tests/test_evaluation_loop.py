@@ -15,7 +15,7 @@ from FeDa4Fair.utils.example_utils import (
     LinearClassificationNet,
     TabularDataset,
     _run_evaluation_loop,
-    test,
+    evaluate_tabular,
 )
 
 
@@ -131,7 +131,7 @@ class TestRunEvaluationLoop(unittest.TestCase):
         loader = self._make_loader(n=16, input_size=11, batch_size=16)
 
         # Both should produce the same numbers
-        loss_old, acc_old, _ = test(net, loader, device="cpu")
+        loss_old, acc_old, _ = evaluate_tabular(net, loader, device="cpu")
         # Reset the model to the same state for fair comparison
         loss_new, acc_new, _ = _run_evaluation_loop(
             net=net,

@@ -118,7 +118,8 @@ def partition(x: np.ndarray, y: np.ndarray, z: np.ndarray, num_partitions: int) 
         zip(
             np.split(x, num_partitions),
             np.split(y, num_partitions),
-            np.split(z, num_partitions), strict=False,
+            np.split(z, num_partitions),
+            strict=False,
         ),
     )
 
@@ -267,13 +268,9 @@ def split_array_at_indices(x: np.ndarray, split_idx: np.ndarray) -> list[list[np
         msg = "First value of `split_idx` must be 0."
         raise ValueError(msg)
     if split_idx[-1] >= x.shape[0]:
-        msg = (
-            """Last value in `split_idx` must be less than
+        msg = """Last value in `split_idx` must be less than
             the number of samples in `x`."""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
     if not np.all(split_idx[:-1] <= split_idx[1:]):
         msg = "Items in `split_idx` must be in increasing order."
         raise ValueError(msg)
@@ -314,13 +311,9 @@ def exclude_classes_and_normalize(distribution: np.ndarray, exclude_dims: list[b
         raise ValueError(msg)
 
     if distribution.size != len(exclude_dims):
-        msg = (
-            """Length of distribution must be equal
+        msg = """Length of distribution must be equal
             to the length `exclude_dims`."""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
     if eps < 0:
         msg = """The value of `eps` must be positive and small."""
         raise ValueError(msg)
@@ -329,7 +322,6 @@ def exclude_classes_and_normalize(distribution: np.ndarray, exclude_dims: list[b
     distribution[exclude_dims] = 0.0
     sum_rows = np.sum(distribution) + np.finfo(float).eps
     return distribution / sum_rows
-
 
 
 def sample_without_replacement(
@@ -536,14 +528,10 @@ def create_lda_partitions(
     x, y, z = sort_by_label(x, y, z)
 
     if (x.shape[0] % num_partitions) and (not accept_imbalanced):
-        msg = (
-            """Total number of samples must be a multiple of `num_partitions`.
+        msg = """Total number of samples must be a multiple of `num_partitions`.
                If imbalanced classes are allowed, set
                `accept_imbalanced=True`."""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     num_samples = num_partitions * [0]
     for j in range(x.shape[0]):
@@ -587,14 +575,10 @@ def create_lda_partitions(
         dirichlet_dist = np.random.default_rng(seed).dirichlet(alpha=concentration, size=num_partitions)
 
     if dirichlet_dist.size != 0 and dirichlet_dist.shape != (num_partitions, classes.size):
-        msg = (
-            f"""The shape of the provided dirichlet distribution
+        msg = f"""The shape of the provided dirichlet distribution
                  ({dirichlet_dist.shape}) must match the provided number
                   of partitions and classes ({num_partitions},{classes.size})"""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     # Assuming balanced distribution
     empty_classes = classes.size * [False]
@@ -642,14 +626,10 @@ def create_sensitive_partition(
     x, y, z = sort_by_sensitive_value(x, y, z)
 
     if (x.shape[0] % num_partitions) and (not accept_imbalanced):
-        msg = (
-            """Total number of samples must be a multiple of `num_partitions`.
+        msg = """Total number of samples must be a multiple of `num_partitions`.
                If imbalanced classes are allowed, set
                `accept_imbalanced=True`."""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     num_samples = num_partitions * [0]
     for j in range(x.shape[0]):
@@ -694,14 +674,10 @@ def create_sensitive_partition(
         )
 
     if dirichlet_dist.size != 0 and dirichlet_dist.shape != (num_partitions, sensitive_values.size):
-        msg = (
-            f"""The shape of the provided dirichlet distribution
+        msg = f"""The shape of the provided dirichlet distribution
                  ({dirichlet_dist.shape}) must match the provided number
                   of partitions and classes ({num_partitions},{sensitive_values.size})"""
-        )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
     # Assuming balanced distribution
     empty_classes = sensitive_values.size * [False]
     for partition_id in range(num_partitions):

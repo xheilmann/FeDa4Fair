@@ -185,7 +185,16 @@ class TestGenerateMultiobjectiveBias(unittest.TestCase):
             {
                 "group_id": "g1",
                 "num_clients": 2,
-                "configs": [{"attribute": "SEX", "value": 1, "drop_mean": 0.3, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0}],
+                "configs": [
+                    {
+                        "attribute": "SEX",
+                        "value": 1,
+                        "drop_mean": 0.3,
+                        "drop_std": 0.0,
+                        "flip_mean": 0.0,
+                        "flip_std": 0.0,
+                    }
+                ],
             }
         ]
         mod_dict = generate_multiobjective_bias(
@@ -201,7 +210,14 @@ class TestGenerateMultiobjectiveBias(unittest.TestCase):
                 "group_id": "MY_GROUP",
                 "num_clients": 2,
                 "configs": [
-                    {"attribute": "SEX", "value": 2, "drop_mean": 0.1, "drop_std": 0.0, "flip_mean": 0.0, "flip_std": 0.0}
+                    {
+                        "attribute": "SEX",
+                        "value": 2,
+                        "drop_mean": 0.1,
+                        "drop_std": 0.0,
+                        "flip_mean": 0.0,
+                        "flip_std": 0.0,
+                    }
                 ],
             }
         ]

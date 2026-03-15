@@ -25,7 +25,4 @@ class PartitionUtils:
 
         """
         images, sensitive_attribute, labels = dataset
-        return [
-            [images[indexes], sensitive_attribute[indexes], labels[indexes]]
-            for indexes in splitted_indexes
-        ]
+        return [[images[indexes], sensitive_attribute[indexes], labels[indexes]] for indexes in splitted_indexes]

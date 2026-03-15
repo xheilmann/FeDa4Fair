@@ -47,13 +47,13 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         self.clipping = clipping
         self.lr = lr
         self.client_generator = client_generator
-        self.net = ModelUtils.get_model(dataset_name, device=self.train_parameters.device)
+        self.net = ModelUtils.get_model(dataset_name, _device=self.train_parameters.device)
         self.optimizer = self.get_optimizer(model=self.net)
 
         if self.train_parameters.regularization:
             self.model_regularization = ModelUtils.get_model(
                 self.dataset_name,
-                device=self.train_parameters.device,
+                _device=self.train_parameters.device,
             )
             self.optimizer_regularization = self.get_optimizer(model=self.model_regularization)
 
@@ -62,11 +62,13 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         if self.train_parameters.reweighing:
             counts = {}
             total_samples = 0
-            for _, sens_1, sens_2, _, target in train_loader:
+            for _, sens_1, sens_2, sens_3, target in train_loader:
                 if self.train_parameters.sensitive_attribute == "SEX":
                     sensitive_features = sens_1
                 elif self.train_parameters.sensitive_attribute == "MAR":
                     sensitive_features = sens_2
+                elif self.train_parameters.sensitive_attribute == "RAC1P":
+                    sensitive_features = sens_3
                 else:
                     sensitive_features = sens_1
 
@@ -166,8 +168,12 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
         num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
         train_loader = Utils.get_dataloader(
-            self.fed_dir, self.cid, batch_size=config["batch_size"],
-            workers=num_workers, dataset=self.dataset_name, partition="train",
+            self.fed_dir,
+            self.cid,
+            batch_size=config["batch_size"],
+            workers=num_workers,
+            dataset=self.dataset_name,
+            partition="train",
         )
 
         print(f"Client {self.cid} has {len(train_loader.dataset)} samples")
@@ -178,15 +184,23 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         loaded_pe, loaded_pe_reg, first_round = self._setup_privacy_and_noise(train_loader)
 
         (private_net, private_optimizer, train_loader, privacy_engine) = Utils.create_private_model(
-            model=self.net, epsilon=self.train_parameters.epsilon, original_optimizer=self.optimizer,
-            train_loader=train_loader, epochs=self.train_parameters.epochs, delta=self.delta,
-            MAX_GRAD_NORM=self.clipping, batch_size=self.train_parameters.batch_size,
-            noise_multiplier=self.noise_multiplier, accountant=loaded_pe,
+            model=self.net,
+            epsilon=self.train_parameters.epsilon,
+            original_optimizer=self.optimizer,
+            train_loader=train_loader,
+            epochs=self.train_parameters.epochs,
+            delta=self.delta,
+            MAX_GRAD_NORM=self.clipping,
+            batch_size=self.train_parameters.batch_size,
+            noise_multiplier=self.noise_multiplier,
+            accountant=loaded_pe,
         )
         private_net.to(self.train_parameters.device)
 
         max_disp_before = RegularizationLoss().violation_with_dataset(
-            model=private_net, dataset=train_loader, device=self.train_parameters.device,
+            model=private_net,
+            dataset=train_loader,
+            device=self.train_parameters.device,
             average_probabilities=average_probabilities,
         )
 
@@ -197,9 +211,16 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
         gc.collect()
         all_metrics, all_losses, history_lambda = self._run_training_epochs(
-            private_net, private_model_reg, private_optimizer, private_opt_reg,
-            train_loader, current_fl_round, average_probabilities, sigma_update_lambda,
-            reweighing_weights, max_disp_before
+            private_net,
+            private_model_reg,
+            private_optimizer,
+            private_opt_reg,
+            train_loader,
+            current_fl_round,
+            average_probabilities,
+            sigma_update_lambda,
+            reweighing_weights,
+            max_disp_before,
         )
 
         Utils.set_params(self.net, Utils.get_params(private_net))
@@ -253,10 +274,15 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         if not self.train_parameters.regularization:
             return None, None, None
         (pm_reg, po_reg, _, pe_reg) = Utils.create_private_model(
-            model=self.model_regularization, epsilon=self.train_parameters.epsilon,
-            original_optimizer=self.optimizer_regularization, train_loader=train_loader,
-            epochs=self.train_parameters.epochs, delta=self.delta, MAX_GRAD_NORM=self.clipping,
-            batch_size=self.train_parameters.batch_size, noise_multiplier=self.noise_multiplier,
+            model=self.model_regularization,
+            epsilon=self.train_parameters.epsilon,
+            original_optimizer=self.optimizer_regularization,
+            train_loader=train_loader,
+            epochs=self.train_parameters.epochs,
+            delta=self.delta,
+            MAX_GRAD_NORM=self.clipping,
+            batch_size=self.train_parameters.batch_size,
+            noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe_reg,
         )
         pm_reg.to(self.train_parameters.device)
@@ -266,11 +292,19 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         all_metrics, all_losses, history_lambda = [], [], []
         for epoch in range(self.train_parameters.epochs):
             metrics = Learning.train_private_model(
-                train_parameters=self.train_parameters, model=net, model_regularization=pm_reg,
-                optimizer=opt, optimizer_regularization=po_reg, train_loader=loader,
-                test_loader=None, current_epoch=epoch, current_fl_round=fl_round,
-                node_id=self.cid, average_probabilities=avg_prob,
-                sigma_update_lambda=sigma, reweighing_weights=weights,
+                train_parameters=self.train_parameters,
+                model=net,
+                model_regularization=pm_reg,
+                optimizer=opt,
+                optimizer_regularization=po_reg,
+                train_loader=loader,
+                test_loader=None,
+                current_epoch=epoch,
+                current_fl_round=fl_round,
+                node_id=self.cid,
+                average_probabilities=avg_prob,
+                sigma_update_lambda=sigma,
+                reweighing_weights=weights,
             )
             metrics["Max Disparity Train Before Local Epoch"] = max_disp
             history_lambda.extend(metrics["history_lambda"])
@@ -298,11 +332,17 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
     def _compute_counters(self, net, loader):
         (preds, s_attrs, _, _, targets, s_features, _, _, _) = Learning.test_prediction(
-            model=net, test_loader=loader, train_parameters=self.train_parameters, current_epoch=None,
+            model=net,
+            test_loader=loader,
+            train_parameters=self.train_parameters,
+            current_epoch=None,
         )
         probs, counters = RegularizationLoss.compute_probabilities(
-            predictions=preds, sensitive_attribute_list=s_attrs, device=self.train_parameters.device,
-            possible_sensitive_attributes=s_features, possible_targets=targets,
+            predictions=preds,
+            sensitive_attribute_list=s_attrs,
+            device=self.train_parameters.device,
+            possible_sensitive_attributes=s_features,
+            possible_targets=targets,
         )
         counters_no_noise = copy.deepcopy(counters)
         if self.train_parameters.epsilon_statistics is not None:
@@ -316,8 +356,11 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             meta = json.load(f)
         combs = meta["combinations"]
         sigma = get_noise_multiplier(
-            target_epsilon=self.train_parameters.epsilon_statistics, target_delta=self.delta,
-            sample_rate=1, steps=self.sampling_frequency * len(combs), accountant="rdp",
+            target_epsilon=self.train_parameters.epsilon_statistics,
+            target_delta=self.delta,
+            sample_rate=1,
+            steps=self.sampling_frequency * len(combs),
+            accountant="rdp",
         )
         for key in counters:
             if key in combs:
@@ -331,10 +374,18 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             avg_prob = None
         Utils.set_params(self.net, parameters)
         num_workers = int(ray.get_runtime_context().get_assigned_resources()["CPU"])
-        partition = "test" if self.train_parameters.cross_silo and not self.train_parameters.sweep else ("val" if self.train_parameters.sweep else "train")
+        partition = (
+            "test"
+            if self.train_parameters.cross_silo and not self.train_parameters.sweep
+            else ("val" if self.train_parameters.sweep else "train")
+        )
         dataset = Utils.get_dataloader(
-            self.fed_dir, self.cid, batch_size=self.train_parameters.batch_size,
-            workers=num_workers, dataset=self.dataset_name, partition=partition,
+            self.fed_dir,
+            self.cid,
+            batch_size=self.train_parameters.batch_size,
+            workers=num_workers,
+            dataset=self.dataset_name,
+            partition=partition,
         )
         self.net.to(self.train_parameters.device)
 
@@ -342,7 +393,9 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         res2 = Learning.test_2(self.net, dataset, self.train_parameters, None, avg_prob)
         res3 = Learning.test_3(self.net, dataset, self.train_parameters, None, avg_prob)
 
-        (preds, s1, s2, s3, targets, f1, f2, f3, _) = Learning.test_prediction(self.net, dataset, self.train_parameters, None)
+        (preds, s1, s2, s3, targets, f1, f2, f3, _) = Learning.test_prediction(
+            self.net, dataset, self.train_parameters, None
+        )
         p1, c1 = RegularizationLoss.compute_probabilities(preds, s1, self.train_parameters.device, f1, targets)
         p2, c2 = RegularizationLoss.compute_probabilities(preds, s2, self.train_parameters.device, f2, targets)
         p3, c3 = RegularizationLoss.compute_probabilities(preds, s3, self.train_parameters.device, f3, targets)
@@ -361,16 +414,35 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 "max_disparity_validation": float(r1[5]) if is_sex else float(r2[5]),
                 "max_disparity_validation_second": float(r2[5]) if is_sex else float(r1[5]),
                 "max_disparity_validation_third": float(r3[5]) if is_sex else float(r1[5]),
-                "validation_loss": r1[0], "probabilities": p1, "second_probabilities": p2, "cid": self.cid,
-                "counters": c1 if is_sex else c2, "second_counters": c2 if is_sex else c1, "third_counters": c3,
-                "f1_score": r1[2], "max_group_validation": r1[9], "max_group_validation_second": r2[7], "max_group_validation_third": r3[9],
+                "validation_loss": r1[0],
+                "probabilities": p1,
+                "second_probabilities": p2,
+                "cid": self.cid,
+                "counters": c1 if is_sex else c2,
+                "second_counters": c2 if is_sex else c1,
+                "third_counters": c3,
+                "f1_score": r1[2],
+                "max_group_validation": r1[9],
+                "max_group_validation_second": r2[7],
+                "max_group_validation_third": r3[9],
             }
         return {
-            "test_accuracy": float(r1[1]), "max_disparity_test": float(r1[5]),
-            "max_disparity_test_second": float(r2[5]), "max_disparity_test_third": float(r3[5]),
-            "test_loss": r1[0], "probabilities": p1, "second_probabilities": p2, "third_probabilities": p3,
-            "cid": self.cid, "counters": c1, "second_counters": c2, "third_counters": c3,
-            "f1_score": r1[2], "max_group_test": r1[9], "max_group_test_second": r2[7], "max_group_test_third": r3[9],
+            "test_accuracy": float(r1[1]),
+            "max_disparity_test": float(r1[5]),
+            "max_disparity_test_second": float(r2[5]),
+            "max_disparity_test_third": float(r3[5]),
+            "test_loss": r1[0],
+            "probabilities": p1,
+            "second_probabilities": p2,
+            "third_probabilities": p3,
+            "cid": self.cid,
+            "counters": c1,
+            "second_counters": c2,
+            "third_counters": c3,
+            "f1_score": r1[2],
+            "max_group_test": r1[9],
+            "max_group_test_second": r2[7],
+            "max_group_test_third": r3[9],
         }
 
     def compute_starting_lambda_with_avg(self):
@@ -419,7 +491,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         )
 
     def get_noise(self, dataset, target_epsilon=None):
-        model_noise = ModelUtils.get_model(self.dataset_name, device=self.train_parameters.device)
+        model_noise = ModelUtils.get_model(self.dataset_name, _device=self.train_parameters.device)
         privacy_engine = PrivacyEngine(accountant="rdp")
         optimizer_noise = Utils.get_optimizer(model_noise, self.train_parameters, self.lr)
         (

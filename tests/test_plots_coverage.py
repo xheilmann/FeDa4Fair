@@ -32,9 +32,9 @@ def _make_combined_df(n_partitions: int = 3) -> pd.DataFrame:
     rng = np.random.default_rng(0)
     data = {
         "SEX_DP": rng.uniform(0, 0.3, n_partitions),
-        "SEX_val": [f"{i}_{i+1}" for i in range(n_partitions)],
+        "SEX_val": [f"{i}_{i + 1}" for i in range(n_partitions)],
         "RAC1P_DP": rng.uniform(0, 0.3, n_partitions),
-        "RAC1P_val": [f"{i}_{i+1}" for i in range(n_partitions)],
+        "RAC1P_val": [f"{i}_{i + 1}" for i in range(n_partitions)],
         "Sample Count": [100] * n_partitions,
     }
     df = pd.DataFrame(data)
@@ -121,7 +121,7 @@ class TestPlotMultiAttributeFairness(unittest.TestCase):
             {
                 "f1": rng.uniform(0, 1, n),
                 "SEX": [1] * (n // 2) + [2] * (n // 2),
-                "RAC1P": ([1] * (n // 4) + [2] * (n // 4)) * 2,
+                "RAC1P": [1] * (n // 2) + [2] * (n // 2),
                 "label": [0] * (n // 2) + [1] * (n // 2),
             }
         )
@@ -195,7 +195,7 @@ class TestPlotMultiAttributeFairness(unittest.TestCase):
         self.assertIsInstance(fig, plt.Figure)
         self.assertTrue(any("EO" in col or "SEX" in col for col in df.columns))
 
-    @patch("FeDa4Fair.visualization.plots.compute_multi_fairness")
+    @patch("FeDa4Fair.metrics.fairness.compute_multi_fairness")
     def test_uses_compute_multi_fairness(self, mock_cmf):
         """plot_multi_attribute_fairness should call compute_multi_fairness internally."""
         # Return a minimal DataFrame

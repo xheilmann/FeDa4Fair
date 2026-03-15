@@ -41,7 +41,6 @@ class Utils:
             total_norm += param_norm.item() ** 2
         return total_norm**0.5
 
-
     @staticmethod
     def compute_per_sample_gradient_norm(model: torch.nn.Module, batch_size: int):
         # Compute the 2-norm of the gradients
@@ -53,7 +52,6 @@ class Utils:
                 tmp_norm += param_norm.item() ** 2
             total_norm = tmp_norm / batch_size
         return total_norm**0.5
-
 
     @staticmethod
     def compute_max_and_min_per_sample_gradient(optimizer: DPOptimizer):

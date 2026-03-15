@@ -317,8 +317,8 @@ def generate_clients_biased_data_mod(
     # check if the number of samples that we want in each node is
     # greater than the number of samples we have in the dataset
     if number_of_samples_per_node and number_of_samples_per_node >= len(y) // num_nodes:
-            msg = "Too many samples per node"
-            raise ValueError(msg)    # check if the ratio_fair_nodes is between 0 and 1
+        msg = "Too many samples per node"
+        raise ValueError(msg)  # check if the ratio_fair_nodes is between 0 and 1
     if ratio_unfair_nodes > 1:
         msg = "ratio_unfair_nodes must be less or equal than 1"
         raise ValueError(msg)
@@ -694,13 +694,24 @@ def _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cro
                 del dutch_df[col]
 
         feature_cols = [
-            "age", "household_position", "household_size", "prev_residence_place",
-            "citizenship", "country_birth", "edu_level", "economic_status",
-            "cur_eco_activity", "Marital_status", "sex_binary"
+            "age",
+            "household_position",
+            "household_size",
+            "prev_residence_place",
+            "citizenship",
+            "country_birth",
+            "edu_level",
+            "economic_status",
+            "cur_eco_activity",
+            "Marital_status",
+            "sex_binary",
         ]
         metadata = {
-            "name": "Dutch census", "code": ["DU1"], "protected_atts": ["sex_binary"],
-            "protected_att_values": [0], "protected_att_descriptions": ["Gender = Female"],
+            "name": "Dutch census",
+            "code": ["DU1"],
+            "protected_atts": ["sex_binary"],
+            "protected_att_values": [0],
+            "protected_att_descriptions": ["Gender = Female"],
             "target_variable": "occupation_binary",
         }
 
@@ -722,12 +733,16 @@ def _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cro
             X_train, X_val, Y_train, Y_val, Z_train, Z_val, W_train, W_val = train_test_split(
                 x_train_raw, y_train_raw, z_train_raw, w_train_raw, test_size=0.2, random_state=validation_seed
             )
-            val_ds = TabularDataset(x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32), z=Z_val, y=Y_val, w=W_val)
+            val_ds = TabularDataset(
+                x=np.hstack((X_val, np.ones((X_val.shape[0], 1)))).astype(np.float32), z=Z_val, y=Y_val, w=W_val
+            )
             torch.save(val_ds, client_dir / "val.pt")
         else:
             X_train, Y_train, Z_train, W_train = x_train_raw, y_train_raw, z_train_raw, w_train_raw
 
-        train_ds = TabularDataset(x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32), z=Z_train, y=Y_train, w=W_train)
+        train_ds = TabularDataset(
+            x=np.hstack((X_train, np.ones((X_train.shape[0], 1)))).astype(np.float32), z=Z_train, y=Y_train, w=W_train
+        )
         random.seed(seed)
         train_ds.shuffle(seed=seed)
         torch.save(train_ds, client_dir / "train.pt")
@@ -735,7 +750,9 @@ def _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cro
         if cross_silo:
             test_ds = TabularDataset(
                 x=np.hstack((x_full[len_train:], np.ones((x_full[len_train:].shape[0], 1)))).astype(np.float32),
-                z=z_full[len_train:], y=y_full[len_train:], w=w_full[len_train:]
+                z=z_full[len_train:],
+                y=y_full[len_train:],
+                w=w_full[len_train:],
             )
             torch.save(test_ds, client_dir / "test.pt")
 
@@ -757,12 +774,22 @@ def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cr
         for f in client_dir.glob("*.pt"):
             f.unlink()
 
-        transform = transforms.Compose([
-            transforms.Resize((64, 64)), transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
+        transform = transforms.Compose(
+            [
+                transforms.Resize((64, 64)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
 
-        splits = [("train", f"{dataset_path}/train_train_{client_name}.csv"), ("test", f"{dataset_path}/train_test_{client_name}.csv")] if cross_silo else [("train", f"{dataset_path}/train_{client_name}.csv")]
+        splits = (
+            [
+                ("train", f"{dataset_path}/train_train_{client_name}.csv"),
+                ("test", f"{dataset_path}/train_test_{client_name}.csv"),
+            ]
+            if cross_silo
+            else [("train", f"{dataset_path}/train_{client_name}.csv")]
+        )
 
         processed_data = {}
         for split_name, csv_path_str in splits:
@@ -778,22 +805,51 @@ def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cr
             z_attr = hair_attr if is_val_exp else male_attr
             w_attr = male_attr if is_val_exp else hair_attr
             img_ids = df["celeb_id"].tolist() if "celeb_id" in df.columns else []
-            processed_data[split_name] = {"image_ids": img_ids, "labels": labels, "sensitive": z_attr, "second_sensitive": w_attr}
+            processed_data[split_name] = {
+                "image_ids": img_ids,
+                "labels": labels,
+                "sensitive": z_attr,
+                "second_sensitive": w_attr,
+            }
 
         if processed_data.get("train"):
             t_data = processed_data["train"]
             if sweep:
                 X_tr, X_va, y_tr, y_va, z_tr, z_va, w_tr, w_va = train_test_split(
-                    t_data["image_ids"], t_data["labels"], t_data["sensitive"], t_data["second_sensitive"],
-                    test_size=0.2, random_state=validation_seed
+                    t_data["image_ids"],
+                    t_data["labels"],
+                    t_data["sensitive"],
+                    t_data["second_sensitive"],
+                    test_size=0.2,
+                    random_state=validation_seed,
                 )
                 torch.save(CelebaPreparedDataset(X_va, img_map, y_va, z_va, w_va, transform), client_dir / "val.pt")
                 t_data.update({"image_ids": X_tr, "labels": y_tr, "sensitive": z_tr, "second_sensitive": w_tr})
-            torch.save(CelebaPreparedDataset(t_data["image_ids"], img_map, t_data["labels"], t_data["sensitive"], t_data["second_sensitive"], transform), client_dir / "train.pt")
+            torch.save(
+                CelebaPreparedDataset(
+                    t_data["image_ids"],
+                    img_map,
+                    t_data["labels"],
+                    t_data["sensitive"],
+                    t_data["second_sensitive"],
+                    transform,
+                ),
+                client_dir / "train.pt",
+            )
 
         if processed_data.get("test"):
             t_data = processed_data["test"]
-            torch.save(CelebaPreparedDataset(t_data["image_ids"], img_map, t_data["labels"], t_data["sensitive"], t_data["second_sensitive"], transform), client_dir / "test.pt")
+            torch.save(
+                CelebaPreparedDataset(
+                    t_data["image_ids"],
+                    img_map,
+                    t_data["labels"],
+                    t_data["sensitive"],
+                    t_data["second_sensitive"],
+                    transform,
+                ),
+                client_dir / "test.pt",
+            )
 
     return f"{dataset_path}/{splitted_data_dir}"
 
@@ -807,11 +863,26 @@ def _save_fed_metadata(data_dir, possible_z, possible_y, client_data):
         all_combinations.extend([comb, "0" + comb[1:]])
 
     with (data_dir / "metadata.json").open("w") as f:
-        json.dump({"possible_z": possible_z_str, "possible_y": possible_y_str, "missing_combinations": missing_combinations, "all_combinations": all_combinations, "combinations": sent_disparity_combinations}, f, indent=4)
+        json.dump(
+            {
+                "possible_z": possible_z_str,
+                "possible_y": possible_y_str,
+                "missing_combinations": missing_combinations,
+                "all_combinations": all_combinations,
+                "combinations": sent_disparity_combinations,
+            },
+            f,
+            indent=4,
+        )
 
     preds = [[int(y) for y in c["y"]] for c in client_data]
     sfs = [[int(z) for z in c["z"]] for c in client_data]
-    Utils.plot_distributions("Distribution of the nodes", Utils.compute_distribution_debug(preds, sfs), [f"{i}" for i in range(len(client_data))], all_combinations)
+    Utils.plot_distributions(
+        "Distribution of the nodes",
+        Utils.compute_distribution_debug(preds, sfs),
+        [f"{i}" for i in range(len(client_data))],
+        all_combinations,
+    )
 
 
 def prepare_tabular_data(
@@ -836,13 +907,19 @@ def prepare_tabular_data(
     validation_seed: int = 42,
 ):
     if dataset_name in {"income", "employment", "employment_NO_RACE", "income_NO_RACE", "income_cross_device"}:
-        return _prepare_income_like_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed), None
+        return _prepare_income_like_data(
+            dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed
+        ), None
 
     if dataset_name == "dutch_prepared":
-        return _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed), None
+        return _prepare_dutch_prepared_data(
+            dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed, seed
+        ), None
 
     if dataset_name == "celeba_prepared":
-        return _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed), None
+        return _prepare_celeba_prepared_data(
+            dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed
+        ), None
 
     client_data, disparities, metadata = get_tabular_data(
         dataset_name=dataset_name,
@@ -887,10 +964,16 @@ def prepare_tabular_data(
     ):
         client_dir = data_dir / str(client_name)
         client_dir.mkdir(parents=True, exist_ok=True)
-        custom_dataset = TabularDataset(x=np.hstack((client["x"], np.ones((client["x"].shape[0], 1)))).astype(np.float32), z=client["z"], y=client["y"])
+        custom_dataset = TabularDataset(
+            x=np.hstack((client["x"], np.ones((client["x"].shape[0], 1)))).astype(np.float32),
+            z=client["z"],
+            y=client["y"],
+        )
         torch.save(custom_dataset, client_dir / "train.pt")
         with (client_dir / "metadata.json").open("w") as outfile:
-            json.dump(Utils.get_dataset_statistics(custom_dataset, client_disparity, client_metadata), outfile, indent=4)
+            json.dump(
+                Utils.get_dataset_statistics(custom_dataset, client_disparity, client_metadata), outfile, indent=4
+            )
 
     _save_fed_metadata(data_dir, possible_z, possible_y, client_data_formatted)
     return str(data_dir), client_data_formatted

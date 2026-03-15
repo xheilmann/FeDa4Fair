@@ -42,17 +42,17 @@
 
 # # # ACS INCOME
 
-# Comparison between XGBoost vs Reweighing model - Cross device - attribute
-# uv run python plots.py --dataset_name acs_income --experiment_name reweighing_device_attribute_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/cff2cpkf --local_results_path ../local_models/results/acs_income/baseline_attribute_cross_device/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json
+# Comparison between XGBoost vs Reweighing model - Cross device - attribute - BARPLOT OK
+#uv run python plots.py --dataset_name acs_income --experiment_name reweighing_device_attribute_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/cff2cpkf --local_results_path ../local_models/results/acs_income/baseline_attribute_cross_device/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_device_attribute_final/FL_data/federated/partitions_names.json
 
 # Comparison between XGBoost vs Reweighing model - Cross silo - attribute
-uv run python plots.py --num_clients 51 --dataset_name acs_income --experiment_name reweighing_silo_attribute_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/i39i4j66 --local_results_path ../local_models/results/acs_income/baseline_attribute_cross_silo/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json
+#uv run python plots.py --num_clients 51 --dataset_name acs_income --experiment_name reweighing_silo_attribute_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/i39i4j66 --local_results_path ../local_models/results/acs_income/baseline_attribute_cross_silo/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_silo_attribute_final/FL_data/federated/partitions_names.json --strip_dataset_suffix
 
-# Comparison between XGBoost vs Reweighing model - Cross device - value
-# uv run python plots.py --dataset_name acs_income --experiment_name reweighing_device_value_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/na1alzqf --local_results_path ../local_models/results/acs_income/baseline_value_cross_device/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json
+# Comparison between XGBoost vs Reweighing model - Cross device - value - BARPLOT OK
+uv run python plots.py --dataset_name acs_income --experiment_name reweighing_device_value_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/na1alzqf --local_results_path ../local_models/results/acs_income/baseline_value_cross_device/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_device_value_final/FL_data/federated/partitions_names.json
 # 
 # Comparison between XGBoost vs Reweighing model - Cross silo - value
-uv run python plots.py --num_clients 51 --dataset_name acs_income --experiment_name reweighing_silo_value_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/cm7blbsw --local_results_path ../local_models/results/acs_income/baseline_value_cross_silo/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json
+uv run python plots.py --num_clients 51 --dataset_name acs_income --experiment_name reweighing_silo_value_income --wandb_url lucacorbucci/Feda4Fair_results_facct/runs/cm7blbsw --local_results_path ../local_models/results/acs_income/baseline_value_cross_silo/model_perf_DP.csv --experiment_type reweighing --partition_names_path ../../datasets/acs_income/cross_silo_value_final/FL_data/federated/partitions_names.json --strip_dataset_suffix
 
 # # CELEBA
 # uv run python plots_celeba.py

@@ -81,7 +81,7 @@ def _get_initial_datasets(fairness_level, path_str):
     ffds = FairFederatedDataset(
         dataset="ACSIncome",
         fl_setting=None,
-        partitioners={"train": 1},
+        partitioners=None,
         fairness_metric="DP",
         fairness_level=fairness_level,
         mapping=mapping,
@@ -123,18 +123,9 @@ def _get_attribute_modifications(entry, df_entry, dr):
     sex_dp = df_entry["DP_SEX"].values
     count = sum(1 for i in range(len(df_entry)) if sex_dp[i] > race_dp[i])
 
-    if count == 2:
-        min_val = np.min(sex_dp)
-        if min_val >= 0.09:
-            return None
-        attr = "SEX"
-    elif count > 0:  # count == 1
-        min_val = np.min(sex_dp)
+    if count == 2 or count > 0:
         attr = "SEX"
     else:  # count == 0
-        min_val = np.min(race_dp)
-        if min_val >= 0.09:
-            return None
         attr = "RAC1P"
 
     mod = {attr: {"drop_rate": dr, "flip_rate": 0, "value": 2, "attribute": None, "attribute_value": None}}
@@ -168,7 +159,7 @@ def _apply_silo_modifications(states, modification_dict, fairness_level, path_st
     ffds = FairFederatedDataset(
         dataset="ACSIncome",
         fl_setting="cross-silo",
-        partitioners={"train": 1},
+        partitioners=None,
         states=states,
         fairness_metric="DP",
         fairness_level=fairness_level,

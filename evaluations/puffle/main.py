@@ -250,9 +250,7 @@ if __name__ == "__main__":
         DPL_value = args.regularization_lambda
     elif args.regularization_mode not in {"fixed", "tunable"}:
         msg = f"Starting lambda mode not recognized, your value is {args.regularization_mode}. You need to use either fixed or tunable "
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     print("The regularization_lambda is: ", args.regularization_lambda)
     print("The epsilon: ", args.epsilon)

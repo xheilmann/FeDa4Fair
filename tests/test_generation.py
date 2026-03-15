@@ -50,32 +50,31 @@ class TestGeneration(unittest.TestCase):
         self.assertEqual(x_train.shape[1], 0)  # PINCP, SEX, MAR, RAC1P dropped
         self.assertIn("SEX", sf)
 
-    def test_get_attribute_modifications_count_1(self):
+    def test_get_attribute_modifications_logic(self):
         """
-        When count == 1 (only 1 model has sex_dp > race_dp),
-        should still use SEX attribute but NOT return None.
+        Test that _get_attribute_modifications targets correct attributes based on count.
         """
+        # count == 1 (only first row) -> SEX
         df_entry = pd.DataFrame(
             {
                 "DP_RACE": [0.05, 0.06],
-                "DP_SEX": [0.10, 0.04],  # count == 1 (only first row)
+                "DP_SEX": [0.10, 0.04],
             }
         )
         result = _get_attribute_modifications("TX", df_entry, 0.3)
-
-        # With count == 1, should still produce a result (not None)
         self.assertIsNotNone(result)
+        self.assertEqual(result[1]["SEX"]["drop_rate"], 0.3)
 
-    def test_get_attribute_modifications_count_2_high_dp(self):
-        """When count == 2 and min_dp >= 0.09, should return None."""
-        df_entry = pd.DataFrame(
+        # count == 2 -> SEX
+        df_entry2 = pd.DataFrame(
             {
                 "DP_RACE": [0.05, 0.06],
-                "DP_SEX": [0.15, 0.12],  # count == 2, min >= 0.09
+                "DP_SEX": [0.15, 0.12],
             }
         )
-        result = _get_attribute_modifications("TX", df_entry, 0.3)
-        self.assertIsNone(result)
+        result2 = _get_attribute_modifications("TX", df_entry2, 0.3)
+        self.assertIsNotNone(result2)
+        self.assertIn("SEX", result2[1])
 
     def test_preprocess_data_cross_silo_no_mutation(self):
         """preprocess_data_cross_silo should not mutate the input DataFrame."""

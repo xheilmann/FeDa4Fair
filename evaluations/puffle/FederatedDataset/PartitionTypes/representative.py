@@ -78,12 +78,8 @@ class Representative:
         predictions = [labels[indexes] for indexes in fair_nodes + unfair_nodes]
         sensitive_features_result = [sensitive_features[indexes] for indexes in fair_nodes + unfair_nodes]
 
-        Representative.compute_disparities_debug(
-            predictions=predictions, sensitive_features=sensitive_features_result
-        )
-        Representative.compute_distribution_debug(
-            predictions=predictions, sensitive_features=sensitive_features_result
-        )
+        Representative.compute_disparities_debug(predictions=predictions, sensitive_features=sensitive_features_result)
+        Representative.compute_distribution_debug(predictions=predictions, sensitive_features=sensitive_features_result)
 
         return (
             fair_nodes + unfair_nodes,

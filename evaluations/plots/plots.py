@@ -363,9 +363,13 @@ def local_client_fairness_plot(
     df1: Local/Centralized
     df2: Federated
     """
-    merged = df1[[client_column, fairness_column]].rename(columns={fairness_column: "fairness1"}).merge(
-        df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
-        on=client_column,
+    merged = (
+        df1[[client_column, fairness_column]]
+        .rename(columns={fairness_column: "fairness1"})
+        .merge(
+            df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+            on=client_column,
+        )
     )
 
     fairness1 = merged["fairness1"]
@@ -1249,6 +1253,8 @@ def main():
                     custom_xticklabels = None
                     if args.dataset_name and "dutch" in args.dataset_name.lower():
                         custom_xticklabels = {0: "Female", 1: "Male"}
+                    elif args.dataset_name and "acs_income" in args.dataset_name.lower():
+                        custom_xticklabels = {1: "Male", 2: "Female"}
 
                     create_value_plot(
                         model_df_with_val,
@@ -1276,6 +1282,10 @@ def main():
 
             if "DP_RACE" in model_df_with_val.columns:
                 try:
+                    custom_xticklabels = None
+                    if args.dataset_name and "acs_income" in args.dataset_name.lower():
+                        custom_xticklabels = {1: "White", 2: "Black", 3: "Asian", 4: "Ala./Ind.", 5: "Others"}
+
                     create_value_plot(
                         model_df_with_val,
                         y_label="Dem. Disparity",
@@ -1283,6 +1293,7 @@ def main():
                         attribute="DP_RACE",
                         save=True,
                         save_path=str(base_output_dir / f"value_dist_race_{safe_model_name}.pdf"),
+                        custom_labels=custom_xticklabels,
                     )
                     print(f"Saved Value Distribution Plot (Race) for {model}")
                 except (ValueError, TypeError, RuntimeError) as e:
@@ -1308,6 +1319,8 @@ def main():
                     custom_xticklabels = None
                     if args.dataset_name and "dutch" in args.dataset_name.lower():
                         custom_xticklabels = {0: "Female", 1: "Male"}
+                    elif args.dataset_name and "acs_income" in args.dataset_name.lower():
+                        custom_xticklabels = {1: "Male", 2: "Female"}
 
                     visualize_value_change(
                         df1=model_df_with_val,
@@ -1330,6 +1343,10 @@ def main():
             # Race
             if "DP_RACE" in model_df_with_val.columns and "DP_RACE" in fl_df.columns:
                 try:
+                    custom_xticklabels = None
+                    if args.dataset_name and "acs_income" in args.dataset_name.lower():
+                        custom_xticklabels = {1: "White", 2: "Black", 3: "Asian", 4: "Ala./Ind.", 5: "Others"}
+
                     visualize_value_change(
                         df1=model_df_with_val,
                         df2=fl_df,
@@ -1340,6 +1357,7 @@ def main():
                         initial_state=model,
                         legend_filename=f"arrow_legend_race_{safe_model_name}.pdf",
                         save_path=str(base_output_dir / f"arrow_race_{safe_model_name}.pdf"),
+                        custom_labels=custom_xticklabels,
                     )
                     print(f"Saved Arrow Plot (Race) for {model}")
                 except (ValueError, TypeError, RuntimeError) as e:

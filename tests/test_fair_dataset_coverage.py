@@ -167,7 +167,9 @@ class TestApplyModificationToPartition(unittest.TestCase):
         ds = Dataset.from_pandas(df)
         mock_load.return_value = DatasetDict({"train": ds})
 
-        mod_dict = {0: {"SEX": {"drop_rate": 1.0, "flip_rate": 0, "value": 1, "attribute": None, "attribute_value": None}}}
+        mod_dict = {
+            0: {"SEX": {"drop_rate": 1.0, "flip_rate": 0, "value": 1, "attribute": None, "attribute_value": None}}
+        }
 
         fds = FairFederatedDataset(
             dataset="dummy",

@@ -166,7 +166,7 @@ class FairFederatedDataset(FederatedDataset):
         client_names: list[str] | None = None,
         sample_cap: int | None = None,
         auto_evaluate: bool = False,
-        auto_save: bool = False,
+        auto_save: bool = True,
         **load_dataset_kwargs: Any,
     ) -> None:
         # Initialize states only if using ACS datasets or if states are explicitly provided

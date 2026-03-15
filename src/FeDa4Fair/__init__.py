@@ -4,7 +4,6 @@ from FeDa4Fair.dataset.fair_dataset import FairFederatedDataset
 from FeDa4Fair.dataset.generation import (
     create_cross_device_data,
     create_cross_silo_data,
-    generate_bias_modifications,
 )
 from FeDa4Fair.dataset.partitioning import RepresentativeDiversityPartitioner
 from FeDa4Fair.metrics.evaluation import evaluate_fairness, evaluate_models_on_datasets
@@ -33,7 +32,6 @@ __all__ = [
     "evaluate_models_on_datasets",
     "flip_data",
     "generate_bias_by_groups",
-    "generate_bias_modifications",
     "generate_modification_dict",
     "generate_multiobjective_bias",
 ]

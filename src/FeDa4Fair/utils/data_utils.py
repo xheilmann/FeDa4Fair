@@ -233,9 +233,7 @@ def cap_samples(
         remaining_indices = list(set(df.index) - set(rows_to_keep))
         n_extra = cap - len(rows_to_keep)
         if remaining_indices and n_extra > 0:
-            extra = rng.choice(
-                remaining_indices, size=min(n_extra, len(remaining_indices)), replace=False
-            )
+            extra = rng.choice(remaining_indices, size=min(n_extra, len(remaining_indices)), replace=False)
             rows_to_keep.extend(extra)
 
     return df.loc[rows_to_keep].copy()

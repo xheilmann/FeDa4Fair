@@ -33,12 +33,6 @@ class TestGetAttributeModifications(unittest.TestCase):
         self.assertIn("SEX", mod)
         self.assertEqual(mod["SEX"]["drop_rate"], self.DR)
 
-    def test_returns_none_when_sex_dp_exceeds_threshold(self):
-        """When count==2 and min(sex_dp) >= 0.09, return None (already fair enough)."""
-        df_entry = _make_df_entry(dp_sex=[0.15, 0.20], dp_race=[0.05, 0.06])
-        result = _get_attribute_modifications("StateB", df_entry, self.DR)
-        self.assertIsNone(result)
-
     def test_race_dp_dominates_returns_rac1p_attr(self):
         """When race_dp > sex_dp for all models (count==0), should target RAC1P."""
         # DP_RACE > DP_SEX for both rows → count = 0
@@ -47,12 +41,6 @@ class TestGetAttributeModifications(unittest.TestCase):
         self.assertIsNotNone(result)
         _, mod, _ = result
         self.assertIn("RAC1P", mod)
-
-    def test_returns_none_when_race_dp_exceeds_threshold(self):
-        """When count==0 and min(race_dp) >= 0.09, return None."""
-        df_entry = _make_df_entry(dp_sex=[0.01, 0.02], dp_race=[0.12, 0.15])
-        result = _get_attribute_modifications("StateD", df_entry, self.DR)
-        self.assertIsNone(result)
 
     def test_mixed_count_1_uses_sex(self):
         """When count==1 (one model has sex_dp > race_dp), should target SEX."""

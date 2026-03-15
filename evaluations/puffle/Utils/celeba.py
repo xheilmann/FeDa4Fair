@@ -66,11 +66,7 @@ class CelebaDataset(Dataset):
             _type_: sample we want to retrieve
 
         """
-        img = (
-            Image.open(self.image_path / self.samples[index]).convert("RGB")
-            if self.debug
-            else self.images[index]
-        )
+        img = Image.open(self.image_path / self.samples[index]).convert("RGB") if self.debug else self.images[index]
 
         if self.transform:
             img = self.transform(img)

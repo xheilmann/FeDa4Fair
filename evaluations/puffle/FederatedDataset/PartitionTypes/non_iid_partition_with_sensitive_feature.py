@@ -29,9 +29,7 @@ class NonIIDPartitionWithSensitiveFeature:
         list_sensitive_features = {
             item.item() if isinstance(item, torch.Tensor) else item for item in sensitive_features
         }
-        labels_and_sensitive_feature = [
-            (label, sf) for label in list_labels for sf in list_sensitive_features
-        ]
+        labels_and_sensitive_feature = [(label, sf) for label in list_labels for sf in list_sensitive_features]
 
         if isinstance(labels, list):
             labels = np.array(labels)
@@ -97,9 +95,7 @@ class NonIIDPartitionWithSensitiveFeature:
         list_sensitive_features = {
             item.item() if isinstance(item, torch.Tensor) else item for item in sensitive_features
         }
-        labels_and_sensitive_feature = [
-            (label, sf) for label in list_labels for sf in list_sensitive_features
-        ]
+        labels_and_sensitive_feature = [(label, sf) for label in list_labels for sf in list_sensitive_features]
 
         if isinstance(labels, list):
             labels = np.array(labels)

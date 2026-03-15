@@ -97,7 +97,9 @@ class RegularizationLoss(nn.Module):
 
                 fairness_violations.append(violation_term)
 
-        fairness_violations_val = [item.item() if isinstance(item, torch.Tensor) else item for item in fairness_violations]
+        fairness_violations_val = [
+            item.item() if isinstance(item, torch.Tensor) else item for item in fairness_violations
+        ]
         max_idx = fairness_violations_val.index(max(fairness_violations_val))
 
         fairness_violations_tensor = torch.stack(fairness_violations)
@@ -129,13 +131,18 @@ class RegularizationLoss(nn.Module):
             for batch_images, batch_sensitive_attributes, _, _, batch_target in dataset:
                 output = model(batch_images.to(device))
                 predictions = torch.cat((predictions, output), 0)
-                sensitive_attribute_list = torch.cat((sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0)
+                sensitive_attribute_list = torch.cat(
+                    (sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0
+                )
                 targets += batch_target.tolist()
 
         return self.forward(
-            sensitive_attribute_list, device, predictions,
+            sensitive_attribute_list,
+            device,
+            predictions,
             list({item.item() for item in sensitive_attribute_list}),
-            list(set(targets)), average_probabilities=average_probabilities,
+            list(set(targets)),
+            average_probabilities=average_probabilities,
             return_group=return_group,
         )
 
@@ -156,13 +163,18 @@ class RegularizationLoss(nn.Module):
             for batch_images, _, batch_sensitive_attributes, _, batch_target in dataset:
                 output = model(batch_images.to(device))
                 predictions = torch.cat((predictions, output), 0)
-                sensitive_attribute_list = torch.cat((sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0)
+                sensitive_attribute_list = torch.cat(
+                    (sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0
+                )
                 targets += batch_target.tolist()
 
         return self.forward(
-            sensitive_attribute_list, device, predictions,
+            sensitive_attribute_list,
+            device,
+            predictions,
             list({item.item() for item in sensitive_attribute_list}),
-            list(set(targets)), average_probabilities=average_probabilities,
+            list(set(targets)),
+            average_probabilities=average_probabilities,
             return_group=return_group,
         )
 
@@ -183,13 +195,19 @@ class RegularizationLoss(nn.Module):
             for batch_images, _, _, batch_sensitive_attributes, batch_target in dataset:
                 output = model(batch_images.to(device))
                 predictions = torch.cat((predictions, output), 0)
-                sensitive_attribute_list = torch.cat((sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0)
+                sensitive_attribute_list = torch.cat(
+                    (sensitive_attribute_list, batch_sensitive_attributes.to(device)), 0
+                )
                 targets += batch_target.tolist()
 
+        print(sensitive_attribute_list)
         return self.forward(
-            sensitive_attribute_list, device, predictions,
+            sensitive_attribute_list,
+            device,
+            predictions,
             list({item.item() for item in sensitive_attribute_list}),
-            list(set(targets)), average_probabilities=average_probabilities,
+            list(set(targets)),
+            average_probabilities=average_probabilities,
             return_group=return_group,
         )
 
@@ -246,8 +264,12 @@ class RegularizationLoss(nn.Module):
         for z_val in sensitive_attrs:
             target_val = 1
             Z_eq_z = len(sens_attr_tensor[sens_attr_tensor == z_val])
-            Y_eq_k_and_Z_eq_z = torch.sum(softmax_[(predictions_argmax == target_val) & (sens_attr_tensor == z_val)][:, target_val])
-            Y_eq_k_and_Z_eq_z_argmax = len(predictions_argmax[(predictions_argmax == target_val) & (sens_attr_tensor == z_val)])
+            Y_eq_k_and_Z_eq_z = torch.sum(
+                softmax_[(predictions_argmax == target_val) & (sens_attr_tensor == z_val)][:, target_val]
+            )
+            Y_eq_k_and_Z_eq_z_argmax = len(
+                predictions_argmax[(predictions_argmax == target_val) & (sens_attr_tensor == z_val)]
+            )
 
             probabilities[f"{target_val}|{z_val}"] = Y_eq_k_and_Z_eq_z
             probabilities[f"{z_val}"] = Z_eq_z

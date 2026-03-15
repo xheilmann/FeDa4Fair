@@ -89,26 +89,52 @@ class AggregationFunctions:
                 }
 
                 max_group = metric.get("max_group_test" if not train_parameters.sweep else "max_group_validation")
+                max_group_second = metric.get(
+                    "max_group_test_second" if not train_parameters.sweep else "max_group_validation_second"
+                )
+                max_group_third = metric.get(
+                    "max_group_test_third" if not train_parameters.sweep else "max_group_validation_third"
+                )
                 if max_group:
                     agg_metrics[f"Max Group Client {node_name}"] = {
                         "client_id": node_name,
                         "max_y": max_group[0],
                         "max_z": max_group[1],
                     }
+                if max_group_second:
+                    agg_metrics[f"Max Group Second Client {node_name}"] = {
+                        "client_id": node_name,
+                        "max_y": max_group_second[0],
+                        "max_z": max_group_second[1],
+                    }
+                if max_group_third:
+                    agg_metrics[f"Max Group Third Client {node_name}"] = {
+                        "client_id": node_name,
+                        "max_y": max_group_third[0],
+                        "max_z": max_group_third[1],
+                    }
 
                 if wandb_run:
                     wandb_run.log(agg_metrics)
 
-            (_, _, _, max_disparity_statistics, combinations) = AggregationFunctions.handle_counters(self, "counters", fed_dir)
-            (_, _, _, max_disparity_statistics_second_value, _) = AggregationFunctions.handle_counters(self, "second_counters", fed_dir)
-            (_, _, _, max_disparity_statistics_third_value, _) = AggregationFunctions.handle_counters(self, "third_counters", fed_dir)
+            (_, _, _, max_disparity_statistics, combinations) = AggregationFunctions.handle_counters(
+                self, "counters", fed_dir
+            )
+            (_, _, _, max_disparity_statistics_second_value, _) = AggregationFunctions.handle_counters(
+                self, "second_counters", fed_dir
+            )
+            (_, _, _, max_disparity_statistics_third_value, _) = AggregationFunctions.handle_counters(
+                self, "third_counters", fed_dir
+            )
 
             if wandb_run:
                 for target, sv, disparity in combinations:
-                    wandb_run.log({
-                        "FL Round": server_round,
-                        f"Test Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
-                    })
+                    wandb_run.log(
+                        {
+                            "FL Round": server_round,
+                            f"Test Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
+                        }
+                    )
 
         if args.metric == "disparity":
             agg_metrics = {
@@ -142,13 +168,17 @@ class AggregationFunctions:
         f1_validation = sum([n * m["f1_score"] for n, m in self]) / total_examples
 
         if args.metric == "disparity":
-            (_, _, _, max_disparity_statistics, combinations) = AggregationFunctions.handle_counters(self, "counters", fed_dir)
+            (_, _, _, max_disparity_statistics, combinations) = AggregationFunctions.handle_counters(
+                self, "counters", fed_dir
+            )
             if wandb_run:
                 for target, sv, disparity in combinations:
-                    wandb_run.log({
-                        "FL Round": server_round,
-                        f"Validation Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
-                    })
+                    wandb_run.log(
+                        {
+                            "FL Round": server_round,
+                            f"Validation Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
+                        }
+                    )
 
         custom_metric = accuracy_evaluation
         if args.target and args.metric == "disparity":
@@ -197,13 +227,17 @@ class AggregationFunctions:
                 agg_metrics[f"Disparity Client {cid} After Local train"] = node_metrics["Disparity Train"]
 
         current_max_epsilon = max(current_max_epsilon, *epsilons)
-        agg_metrics.update({
-            "Train Loss": sum(losses) / total_examples,
-            "Train Accuracy": sum(accuracies) / total_examples,
-            "Train Loss with Regularization": sum(losses_with_reg) / total_examples,
-            "Aggregated Lambda": sum(lambdas) / len(lambdas) if args.regularization_mode == "tunable" else args.regularization_lambda,
-            "Train Epsilon": current_max_epsilon,
-        })
+        agg_metrics.update(
+            {
+                "Train Loss": sum(losses) / total_examples,
+                "Train Accuracy": sum(accuracies) / total_examples,
+                "Train Loss with Regularization": sum(losses_with_reg) / total_examples,
+                "Aggregated Lambda": sum(lambdas) / len(lambdas)
+                if args.regularization_mode == "tunable"
+                else args.regularization_lambda,
+                "Train Epsilon": current_max_epsilon,
+            }
+        )
 
         if wandb_run:
             wandb_run.log(agg_metrics)
@@ -212,20 +246,26 @@ class AggregationFunctions:
             (_, _, avg_proba, max_disp, _) = AggregationFunctions.handle_counters(self, "counters", fed_dir)
             with Path(f"{fed_dir}/avg_proba.pkl").open("wb") as file:
                 dill.dump(avg_proba, file)
-            (_, _, _, max_disp_no_noise, combinations_no_noise) = AggregationFunctions.handle_counters(self, "counters_no_noise", fed_dir)
+            (_, _, _, max_disp_no_noise, combinations_no_noise) = AggregationFunctions.handle_counters(
+                self, "counters_no_noise", fed_dir
+            )
 
             if wandb_run:
                 for target, sv, disparity in combinations_no_noise:
-                    wandb_run.log({
+                    wandb_run.log(
+                        {
+                            "FL Round": server_round,
+                            f"Train Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
+                        }
+                    )
+                wandb_run.log(
+                    {
+                        "Training Disparity with statistics": max_disp,
+                        "Training Disparity with statistics no noise": max_disp_no_noise,
                         "FL Round": server_round,
-                        f"Train Disparity P({target}, {sv}) - P({target}, NOT {sv})": abs(disparity),
-                    })
-                wandb_run.log({
-                    "Training Disparity with statistics": max_disp,
-                    "Training Disparity with statistics no noise": max_disp_no_noise,
-                    "FL Round": server_round,
-                    "Average Probabilities": avg_proba,
-                })
+                        "Average Probabilities": avg_proba,
+                    }
+                )
         return agg_metrics
 
     @staticmethod
@@ -233,7 +273,11 @@ class AggregationFunctions:
         with Path(f"{fed_dir}/metadata.json").open() as infile:
             meta = json.load(infile)
 
-        all_combs, combinations, missing_combs = meta["all_combinations"], meta["combinations"], meta["missing_combinations"]
+        all_combs, combinations, missing_combs = (
+            meta["all_combinations"],
+            meta["combinations"],
+            meta["missing_combinations"],
+        )
         possible_z, possible_y = meta["possible_z"], meta["possible_y"]
 
         sum_counters = dict.fromkeys(all_combs, 0)

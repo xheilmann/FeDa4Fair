@@ -305,9 +305,16 @@ class Utils:
     def get_dataset(path_to_data: Path, cid: str, partition: str, dataset: str):
         # generate path to cid's data
         path_to_data = path_to_data / cid / (partition + ".pt")
-        if (
-            dataset in {"dutch", "dutch_prepared", "income", "income_NO_RACE", "income_cross_device", "employment", "employment_NO_RACE", "celeba_prepared"}
-        ):
+        if dataset in {
+            "dutch",
+            "dutch_prepared",
+            "income",
+            "income_NO_RACE",
+            "income_cross_device",
+            "employment",
+            "employment_NO_RACE",
+            "celeba_prepared",
+        }:
             return torch.load(path_to_data)
         return TorchVisionFL(
             path_to_data,
@@ -412,9 +419,7 @@ class Utils:
         images, sensitive_attribute, labels = torch.load(path_to_dataset)
         mapping = {-1: 0, 1: 1, 0: 0}
         if train_parameters.metric in {"disparity", "equalised_odds"}:
-            sensitive_attribute = torch.tensor(
-                [mapping.get(item, item) for item in sensitive_attribute]
-            )
+            sensitive_attribute = torch.tensor([mapping.get(item, item) for item in sensitive_attribute])
         else:
             sensitive_attribute = torch.tensor(list(sensitive_attribute))
 
@@ -450,7 +455,13 @@ class Utils:
             splits_dir.mkdir(parents=True)
 
         return Utils._save_partitions(
-            splits_dir, pool_size, partitions, images, partition, possible_y=np.unique(labels), possible_z=np.unique(sensitive_attribute)
+            splits_dir,
+            pool_size,
+            partitions,
+            images,
+            partition,
+            possible_y=np.unique(labels),
+            possible_z=np.unique(sensitive_attribute),
         )
 
     @staticmethod
@@ -468,12 +479,11 @@ class Utils:
             predictions.append([int(item) for item in labels])
             sensitive_features_all.append([int(item) for item in sensitive_features])
 
-        tmp_nodes = [
-            [{"y": int(y), "z": int(z)} for y, z in zip(node["y"], node["z"], strict=False)]
-            for node in nodes
-        ]
+        tmp_nodes = [[{"y": int(y), "z": int(z)} for y, z in zip(node["y"], node["z"], strict=False)] for node in nodes]
         disparities = Utils.compute_disparities_debug(tmp_nodes)
-        Utils.plot_bar_plot(title="Distribution Disparities", disparities=disparities, nodes=[f"{i}" for i in range(len(nodes))])
+        Utils.plot_bar_plot(
+            title="Distribution Disparities", disparities=disparities, nodes=[f"{i}" for i in range(len(nodes))]
+        )
 
         possible_y_str = [str(int(item)) for item in possible_y_all.tolist()]
         possible_z_str = [str(int(item)) for item in possible_z_all.tolist()]
@@ -483,10 +493,20 @@ class Utils:
             missing_combinations.append(("0" + comb[1:], comb))
             all_combinations.extend([comb, "0" + comb[1:]])
 
-        json_file = {"possible_z": possible_z_str, "possible_y": possible_y_str, "missing_combinations": missing_combinations, "all_combinations": all_combinations, "combinations": sent_disparity_combinations}
+        json_file = {
+            "possible_z": possible_z_str,
+            "possible_y": possible_y_str,
+            "missing_combinations": missing_combinations,
+            "all_combinations": all_combinations,
+            "combinations": sent_disparity_combinations,
+        }
         with (splits_dir / "metadata.json").open("w") as outfile:
             json.dump(json_file, outfile, indent=4)
-        Utils.plot_distributions(title="Distribution of the nodes", counter_groups=Utils.compute_distribution_debug(predictions, sensitive_features_all), all_combinations=all_combinations)
+        Utils.plot_distributions(
+            title="Distribution of the nodes",
+            counter_groups=Utils.compute_distribution_debug(predictions, sensitive_features_all),
+            all_combinations=all_combinations,
+        )
         return splits_dir
 
     @staticmethod

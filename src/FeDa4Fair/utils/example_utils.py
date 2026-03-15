@@ -273,9 +273,7 @@ def _run_evaluation_loop(
             for attr_name, batch_idx in sensitive_attrs.items():
                 sens_buffers[attr_name].extend(batch[batch_idx])
 
-    sf_data = pd.DataFrame(
-        {name: [int(v) for v in vals] for name, vals in sens_buffers.items()}
-    )
+    sf_data = pd.DataFrame({name: [int(v) for v in vals] for name, vals in sens_buffers.items()})
 
     unfairness_dict: dict = {}
     for attr_name in sensitive_attrs:
@@ -308,7 +306,7 @@ def train(net, trainloader, optimizer, device="cpu"):
         optimizer.step()
 
 
-def test(net, testloader, device):
+def evaluate_tabular(net, testloader, device):
     """
     Validate the network on the entire test set.
 
@@ -370,8 +368,6 @@ class ImageDataset(Dataset):
             image = self.transform(image)
 
         return image, sensitive, sensitive, label
-
-
 
 
 class CelebaDataset(Dataset):
@@ -461,7 +457,7 @@ class SimpleCNN(nn.Module):
         return self.fc2(x)
 
 
-def test_image(net, testloader, device, sensitive_attribute_name="sensitive"):  # noqa: PT028
+def evaluate_image(net, testloader, device, sensitive_attribute_name="sensitive"):
     """
     Validate the network on the entire test set for image data.
 
@@ -502,7 +498,7 @@ def train_celeba(net, trainloader, optimizer, device="cpu"):
         optimizer.step()
 
 
-def test_celeba(net, testloader, device):
+def evaluate_celeba(net, testloader, device):
     """
     Validate the network on the entire test set.
 

@@ -236,7 +236,7 @@ def compute_multi_fairness(
                 res.update(fair_res.to_dict())
         else:
             # Data bias
-            y_true = train_df[[label_name]]
+            y_true = train_df[label_name]
             for attr in sens_atts:
                 sf_data = train_df[[attr]]
                 fair_res = _compute_fairness(y_true, y_true, sf_data, fairness_metric, attr, size_unit)
@@ -292,6 +292,6 @@ def _evaluate_data_bias_on_partition(partition, sens_att, fairness_metric, label
     if "__index_level_0__" in raw_df.columns:
         raw_df = raw_df.drop(columns=["__index_level_0__"])
 
-    y_true = raw_df[[label_name]]
+    y_true = raw_df[label_name]
     sf_data = raw_df[sens_att] if isinstance(sens_att, list) else raw_df[[sens_att]]
     return _compute_fairness(y_true, y_true, sf_data, fairness_metric, sens_att, size_unit)

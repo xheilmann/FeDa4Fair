@@ -184,3 +184,5 @@ plan.md
 .complexipy_cache/
 
 *.png
+
+celeba_images/

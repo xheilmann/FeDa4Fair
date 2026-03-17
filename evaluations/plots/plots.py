@@ -748,7 +748,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
     history = run.scan_history()
     df = pd.DataFrame(history)
 
-    attributes = ["- Third DP NEW.", "- Second DP NEW.", "- First DP NEW.", "- Acc.", "- Group 3"]
+    attributes = ["- Third DP NEW.", "- Second DP NEW.", "- First DP NEW.", "- Acc.", ".max_z"]
 
     # Default Mapping
     mapping = {
@@ -756,7 +756,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
         "- Second DP NEW.": "DP_MAR",
         "- First DP NEW.": "DP_SEX",
         "- Acc.": "accuracy",
-        "- Group 3": "Value",
+        ".max_z": "Value",
     }
 
     # Custom Mapping for Dutch
@@ -768,19 +768,19 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
             "- Second DP NEW.": "DP_RACE",  # Marital Status
             "- First DP NEW.": "DP_SEX",  # Sex
             "- Acc.": "accuracy",
-            "- Group 3": "Value",
+            ".max_z": "Value",
         }
 
     first_node_col = f"{attribute_name} 0 - Third DP NEW."
     if first_node_col not in df.columns:
         # Try old mapping
-        attributes = ["- Third Disp.", "- Second Disp.", "- Disp.", "- Acc.", "- Group 3"]
+        attributes = ["- Third Disp.", "- Second Disp.", "- Disp.", "- Acc.", ".max_z"]
         mapping = {
             "- Third Disp.": "DP_RACE",
             "- Second Disp.": "DP_MAR",
             "- Disp.": "DP_SEX",
             "- Acc.": "accuracy",
-            "- Group 3": "Value",
+            ".max_z": "Value",
         }
         if dataset_name and "dutch" in dataset_name.lower():
             mapping = {
@@ -788,7 +788,7 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
                 "- Second Disp.": "DP_RACE",  # Marital
                 "- Disp.": "DP_SEX",  # Sex
                 "- Acc.": "accuracy",
-                "- Group 3": "Value",
+                ".max_z": "Value",
             }
 
     # If partition_names is not provided, detect nodes from columns
@@ -816,6 +816,8 @@ def get_fl_experiment(wandb_url, partition_names=None, attribute_name="Test Node
 
         for attribute in attributes:
             current_attribute = f"{attribute_name} {node} {attribute}"
+            if attribute == ".max_z":
+                current_attribute = f"{attribute_name} {node}{attribute}"
             if current_attribute in df.columns:
                 node_has_data = True
                 values = df[current_attribute].to_numpy()
@@ -1086,7 +1088,7 @@ def main():
         # Pretty Print Model Name for Titles
         display_model_name = model
         if model == "LogisticRegression":
-            display_model_name = "Logistic Regression"
+            display_model_name = "Log. Regr."
         elif model == "XGBoost":
             display_model_name = "XGBoost"  # Already good, but being explicit
 
@@ -1140,7 +1142,7 @@ def main():
                     xlabel=f"{fl_method_label} Dem. Disparity",
                     title="MAR Unfairness Distribution"
                     if args.dataset_name and "dutch" in args.dataset_name.lower()
-                    else "RACE Unfairness Distribution",
+                    else "RACE", #"RACE Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
                     save_path=str(plot_path),
@@ -1168,7 +1170,7 @@ def main():
                     fairness_column="DP_SEX",
                     ylabel=f"{display_model_name} Dem. Disparity",
                     xlabel=f"{fl_method_label} Dem. Disparity",
-                    title="SEX Unfairness Distribution",
+                    title="SEX", #"SEX Unfairness Distribution",
                     unfairness_distribution=states_unfairness,
                     legend_labels=legend_labels,
                     save_path=str(plot_path),

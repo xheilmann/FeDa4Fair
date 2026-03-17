@@ -804,7 +804,11 @@ def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cr
             is_val_exp = "value" in dataset_path.lower()
             z_attr = hair_attr if is_val_exp else male_attr
             w_attr = male_attr if is_val_exp else hair_attr
-            img_ids = df["celeb_id"].tolist() if "celeb_id" in df.columns else []
+            img_ids = (
+                df["image_id"].tolist()
+                if "image_id" in df.columns
+                else (df["celeb_id"].tolist() if "celeb_id" in df.columns else [])
+            )
             processed_data[split_name] = {
                 "image_ids": img_ids,
                 "labels": labels,

@@ -114,12 +114,10 @@ class CelebaPreparedDataset(Dataset):
             transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
 
         """
-        smiling_dict = {False: 0, True: 1}
-
-        self.targets = [smiling_dict.get(item) for item in labels]
+        self.targets = [int(item) if item is not None else 0 for item in labels]
 
         # Safely map sensitive attributes if they match the dict, otherwise keep them
-        self.sensitive_attributes = [smiling_dict.get(item, item) for item in sensitive_attributes]
+        self.sensitive_attributes = [int(item) if item is not None else 0 for item in sensitive_attributes]
 
         if second_sensitive_attributes is not None:
             self.second_sensitive_attributes = second_sensitive_attributes

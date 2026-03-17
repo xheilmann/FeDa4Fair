@@ -15,7 +15,7 @@ run_sweep_and_agent () {
   rm temp_output.txt
   
   # Run the wandb agent command
-  uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 40
+  uv run wandb agent $SWEEP_ID --project "$PROJECT_NAME" --count 30
 }
 
 run_sweep_and_agent "baseline_attribute"

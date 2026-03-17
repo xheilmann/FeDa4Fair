@@ -29,7 +29,7 @@ command:
   - --dataset
   - celeba_prepared
   - --num_rounds
-  - 10
+  - 50
   - --num_client_cpus
   - 1
   - --num_client_gpus

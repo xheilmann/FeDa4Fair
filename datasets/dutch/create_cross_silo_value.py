@@ -63,7 +63,7 @@ def evaluate_level(fds, level_name, output_base):
             ax_dp.set_xlabel("Partition ID")
             ax_dp.grid(axis="y", linestyle="--", alpha=0.7)
             fig_dp.savefig(f"{output_base}/{level_name}_{att}_DP.png")
-            
+
             # Print stats
             max_dp = results_dp[[c_toward_0, c_toward_1]].max(axis=1)
             print(f"  {att} (Data Bias): Avg DP={max_dp.mean():.4f}")

@@ -1,5 +1,7 @@
 """Data manipulation and example training utilities."""
 
+from FeDa4Fair.utils.constants import *
+from FeDa4Fair.utils.data_types import ProcessedSiloData
 from FeDa4Fair.utils.data_utils import (
     balance_data,
     cap_samples,
@@ -11,6 +13,7 @@ from FeDa4Fair.utils.data_utils import (
 )
 
 __all__ = [
+    "ProcessedSiloData",
     "balance_data",
     "cap_samples",
     "drop_data",

@@ -11,7 +11,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Helper functions."""
+"""Helper functions for data manipulation."""
 
 from typing import Any
 
@@ -19,15 +19,18 @@ import numpy as np
 import pandas as pd
 from scipy.stats import truncnorm
 
+from FeDa4Fair.utils.constants import DEFAULT_SEED
+
 
 def drop_data(
     df: pd.DataFrame,
-    percentage: float,
-    column1: str,
-    value1: Any,
+    drop_rate: float,
+    sensitive_column: str,
+    sensitive_value: Any,
     label_column: str,
-    column2: str | None = None,
-    value2: Any | None = None,
+    secondary_column: str | None = None,
+    secondary_value: Any | None = None,
+    seed: int = DEFAULT_SEED,
 ) -> pd.DataFrame:
     """
     Drop a percentage of rows from a DataFrame that match specific criteria.
@@ -63,31 +66,40 @@ def drop_data(
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of matching rows removed.
-
     """
-    if not (0 <= percentage <= 1):
-        msg = "Fraction must be between 0 and 1"
+    if not (0 <= drop_rate <= 1):
+        msg = f"Drop rate must be between 0 and 1, got {drop_rate}"
         raise ValueError(msg)
 
-    condition = df[column1] == value1
-    if column2 is not None and value2 is not None:
-        condition &= df[column2] == value2
+    # Use a clear condition to avoid ambiguous indexing
+    condition = df[sensitive_column] == sensitive_value
+    if secondary_column is not None and secondary_value is not None:
+        condition &= (df[secondary_column] == secondary_value)
 
-    matching_rows = df[condition & (df[label_column].astype(bool))]
-    num_to_drop = int(len(matching_rows) * percentage)
-    rows_to_drop = matching_rows.sample(n=num_to_drop, random_state=42).index
+    # Filter for rows matching the attribute condition AND having a positive label (True or 1)
+    # Using .astype(bool) on the label column to handle both boolean and numeric (0/1) labels
+    positive_label_condition = df[label_column].astype(bool)
+
+    matching_rows = df[condition & positive_label_condition]
+    num_to_drop = int(len(matching_rows) * drop_rate)
+
+    if num_to_drop == 0:
+        return df
+
+    rows_to_drop = matching_rows.sample(n=num_to_drop, random_state=seed).index
 
     return df.drop(index=rows_to_drop)
 
 
 def flip_data(
     df: pd.DataFrame,
-    percentage: float,
-    column1: str,
-    value1: Any,
+    flip_rate: float,
+    sensitive_column: str,
+    sensitive_value: Any,
     label_column: str,
-    column2: str | None = None,
-    value2: Any | None = None,
+    secondary_column: str | None = None,
+    secondary_value: Any | None = None,
+    seed: int = DEFAULT_SEED,
 ) -> pd.DataFrame:
     """
     Flip the label_name from True to False of a percentage of rows matching specified criteria.
@@ -124,37 +136,41 @@ def flip_data(
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of labels flipped in the filtered subset.
-
     """
-    if not (0 <= percentage <= 1):
-        msg = "Fraction must be between 0 and 1"
+    if not (0 <= flip_rate <= 1):
+        msg = f"Flip rate must be between 0 and 1, got {flip_rate}"
         raise ValueError(msg)
 
-    condition = df[column1] == value1
-    if column2 is not None and value2 is not None:
-        condition &= df[column2] == value2
+    condition = df[sensitive_column] == sensitive_value
+    if secondary_column is not None and secondary_value is not None:
+        condition &= (df[secondary_column] == secondary_value)
 
-    matching_rows = df[condition & (df[label_column].astype(bool))]
-    num_to_flip = int(len(matching_rows) * percentage)
+    # Filter for rows matching the attribute condition AND having a positive label (True or 1)
+    positive_label_condition = df[label_column].astype(bool)
+
+    matching_rows = df[condition & positive_label_condition]
+    num_to_flip = int(len(matching_rows) * flip_rate)
 
     if num_to_flip == 0:
         return df
 
-    # Work on a copy to avoid mutating the caller's DataFrame
-    df = df.copy()
-    rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=42).index
-    if pd.api.types.is_bool_dtype(df[label_column]):
-        df.loc[rows_to_flip, label_column] = False
-    else:
-        df.loc[rows_to_flip, label_column] = 0
+    df_copy = df.copy()
+    rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=seed).index
 
-    return df
+    if pd.api.types.is_bool_dtype(df_copy[label_column]):
+        df_copy.loc[rows_to_flip, label_column] = False
+    else:
+        # For non-boolean types, assume they are numeric 0/1
+        df_copy.loc[rows_to_flip, label_column] = 0
+
+    return df_copy
 
 
 def balance_data(
     df: pd.DataFrame,
-    column1: str,
+    sensitive_column: str,
     label_column: str,
+    seed: int = DEFAULT_SEED,
 ) -> tuple[pd.DataFrame, int]:
     """
     Balances both group sizes and selection rates across groups defined by column1.
@@ -162,9 +178,8 @@ def balance_data(
 
     Returns:
         tuple[pd.DataFrame, int]: The balanced DataFrame and the total number of samples removed.
-
     """
-    groups = df[column1].unique()
+    groups = df[sensitive_column].unique()
     if len(groups) <= 1:
         return df, 0
 
@@ -172,7 +187,7 @@ def balance_data(
     pos_counts = {}
     neg_counts = {}
     for group in groups:
-        group_df = df[df[column1] == group]
+        group_df = df[df[sensitive_column] == group]
         pos_counts[group] = int((group_df[label_column].astype(bool)).sum())
         neg_counts[group] = int((~group_df[label_column].astype(bool)).sum())
 
@@ -181,12 +196,12 @@ def balance_data(
     target_neg = min(neg_counts.values())
 
     rows_to_keep = []
-    for group in groups:
-        group_indices_pos = df[(df[column1] == group) & (df[label_column].astype(bool))].index.tolist()
-        group_indices_neg = df[(df[column1] == group) & (~df[label_column].astype(bool))].index.tolist()
+    rng = np.random.default_rng(seed)
 
-        # Randomly sample to match target counts
-        rng = np.random.default_rng(42)
+    for group in groups:
+        group_indices_pos = df[(df[sensitive_column] == group) & (df[label_column].astype(bool))].index.tolist()
+        group_indices_neg = df[(df[sensitive_column] == group) & (~df[label_column].astype(bool))].index.tolist()
+
         kept_pos = rng.choice(group_indices_pos, size=target_pos, replace=False)
         kept_neg = rng.choice(group_indices_neg, size=target_neg, replace=False)
         rows_to_keep.extend(kept_pos)
@@ -201,7 +216,7 @@ def cap_samples(
     df: pd.DataFrame,
     cap: int,
     label_column: str,
-    seed: int = 42,
+    seed: int = DEFAULT_SEED,
 ) -> pd.DataFrame:
     """
     Randomly samples up to `cap` rows from the DataFrame while maintaining the
@@ -210,7 +225,6 @@ def cap_samples(
     if len(df) <= cap:
         return df
 
-    # Use a single RNG instance seeded once (modern numpy API)
     rng = np.random.default_rng(seed)
 
     # Calculate proportions of each label
@@ -219,9 +233,7 @@ def cap_samples(
     rows_to_keep = []
     for label, fraction in fractions.items():
         label_indices = df[df[label_column] == label].index.tolist()
-        # Number of samples to keep for this label to maintain distribution
         n_to_keep = round(fraction * cap)
-        # Ensure we don't try to keep more than we have (rounding safety)
         n_to_keep = min(n_to_keep, len(label_indices))
 
         if n_to_keep > 0:
@@ -274,7 +286,6 @@ def generate_modification_dict(
     -------
     dict[Any, dict[str, Any]]
         A dictionary mapping client IDs to modification configs.
-
     """
     clients = list(range(client_ids)) if isinstance(client_ids, int) else client_ids
 
@@ -334,9 +345,7 @@ def generate_bias_by_groups(
     -------
     dict[Any, dict[str, Any]]
         A modification dictionary mapping client IDs to their specific sampled modifications.
-
     """
-    # 1. Validation
     sum_clients = sum(g["num_clients"] for g in group_configs)
     if sum_clients != num_total_clients:
         msg = f"Sum of group clients ({sum_clients}) must equal total clients ({num_total_clients})"
@@ -347,21 +356,18 @@ def generate_bias_by_groups(
 
     current_client_idx = 0
 
-    for _g_idx, config in enumerate(group_configs):
+    for config in group_configs:
         num_g = config["num_clients"]
 
-        # Setup Truncated Normal Generators
         def get_tn_samples(mean, std, n):
             if std <= 0:
                 return [mean] * n
-            # Bounds for [0, 1]
             a, b = (0 - mean) / std, (1 - mean) / std
             return truncnorm.rvs(a, b, loc=mean, scale=std, size=n)
 
         drop_rates = get_tn_samples(config["drop_mean"], config["drop_std"], num_g)
         flip_rates = get_tn_samples(config["flip_mean"], config["flip_std"], num_g)
 
-        # Assign to clients
         for i in range(num_g):
             c_id = client_ids[current_client_idx]
             mod_dict[c_id] = {
@@ -412,7 +418,6 @@ def generate_multiobjective_bias(
     -------
     dict
         Modification dictionary compatible with FairFederatedDataset.
-
     """
     sum_clients = sum(g["num_clients"] for g in group_configs)
     if sum_clients != num_total_clients:
@@ -426,7 +431,6 @@ def generate_multiobjective_bias(
     def get_tn_samples(mean, std, n):
         if std <= 0:
             return [mean] * n
-        # Bounds for [0, 1]
         a, b = (0 - mean) / std, (1 - mean) / std
         return truncnorm.rvs(a, b, loc=mean, scale=std, size=n)
 
@@ -435,12 +439,10 @@ def generate_multiobjective_bias(
         group_id = group.get("group_id", "Unknown")
         configs = group.get("configs", [])
 
-        # Pre-calculate samples for each config for this group
-        # This structure: samples_by_config[config_idx] = {"drop": [...], "flip": [...]}
         samples_by_config = []
         for conf in configs:
             if conf.get("mitigate", False):
-                samples_by_config.append(None)  # No sampling needed
+                samples_by_config.append(None)
             else:
                 d_mean = conf.get("drop_mean", 0.0)
                 d_std = conf.get("drop_std", 0.0)
@@ -451,7 +453,6 @@ def generate_multiobjective_bias(
                     {"drop": get_tn_samples(d_mean, d_std, num_g), "flip": get_tn_samples(f_mean, f_std, num_g)}
                 )
 
-        # Assign to clients
         for i in range(num_g):
             c_id = client_ids[current_client_idx]
             mod_dict[c_id] = {}

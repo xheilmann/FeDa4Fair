@@ -23,6 +23,13 @@ from fairlearn.metrics import MetricFrame, false_positive_rate, selection_rate, 
 from flwr_datasets.partitioner import Partitioner
 from sklearn.metrics import accuracy_score
 
+from FeDa4Fair.utils.constants import (
+    DEMOGRAPHIC_PARITY,
+    EQUALIZED_ODDS,
+    LEVEL_ATTRIBUTE,
+    LEVEL_VALUE,
+)
+
 
 def _compute_fairness(
     y_true: Any,
@@ -54,9 +61,8 @@ def _compute_fairness(
     -------
     pd.Series
         Series containing the computed fairness metric values.
-
     """
-    if fairness_metric == "DP":
+    if fairness_metric == DEMOGRAPHIC_PARITY:
         # Demographic Parity: difference in selection rates
         sel_rate = MetricFrame(
             metrics={"sel": selection_rate},
@@ -70,7 +76,7 @@ def _compute_fairness(
         index = group_df.index.to_numpy()
         column_names = [f"{index[i]}_{index[j]}" for i, j in product(range(len(group_df)), repeat=2)]
 
-    elif fairness_metric == "EO":
+    elif fairness_metric == EQUALIZED_ODDS:
         # Equalized Odds: difference in TPR and FPR
         tpr = MetricFrame(
             metrics={"tpr": true_positive_rate, "fpr": false_positive_rate},
@@ -101,13 +107,13 @@ def _compute_fairness(
     sens_att_name = str(sens_att) if isinstance(sens_att, list) else sens_att
     diff_df = pd.Series(diff_matrix.flatten(), index=[f"{sens_att_name}_{c}" for c in column_names])
 
-    if size_unit == "value":
+    if size_unit == LEVEL_VALUE:
         # Return max diff and the pair responsible
         return pd.Series(
             [diff_df.max(), diff_df.idxmax()],
             index=[f"{sens_att_name}_{fairness_metric}", f"{sens_att_name}_val"],
         )
-    if size_unit == "attribute":
+    if size_unit == LEVEL_ATTRIBUTE:
         # Return max difference and the pair responsible (idxmax)
         return pd.Series(
             [diff_df.max(), diff_df.idxmax()],
@@ -124,10 +130,10 @@ def compute_fairness(
     model: Any,
     sens_att: str | list[str],
     max_num_partitions: int | None = None,
-    fairness_metric: Literal["DP", "EO"] = "DP",
+    fairness_metric: Literal["DP", "EO"] = DEMOGRAPHIC_PARITY,
     label_name: str = "label",
     sens_cols: list[str] | None = None,
-    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
+    size_unit: Literal["value", "attribute", "attribute-value"] = LEVEL_ATTRIBUTE,
     progress_callback: Callable[[int], None] | None = None,
     fds: Any | None = None,
     split: str | None = None,
@@ -179,9 +185,9 @@ def compute_multi_fairness(
     model: Any,
     sens_atts: list[str],
     max_num_partitions: int | None = None,
-    fairness_metric: Literal["DP", "EO"] = "DP",
+    fairness_metric: Literal["DP", "EO"] = DEMOGRAPHIC_PARITY,
     label_name: str = "label",
-    size_unit: Literal["value", "attribute", "attribute-value"] = "attribute",
+    size_unit: Literal["value", "attribute", "attribute-value"] = LEVEL_ATTRIBUTE,
     fds: Any | None = None,
     split: str | None = None,
     test_split: str | None = None,

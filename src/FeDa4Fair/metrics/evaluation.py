@@ -21,13 +21,17 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from flwr_datasets.partitioner import Partitioner
 from joblib import Parallel, delayed
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
 from FeDa4Fair.metrics.fairness import _compute_fairness
+from FeDa4Fair.utils.constants import (
+    DEFAULT_SENSITIVE_ATTRIBUTES,
+    LEVEL_ATTRIBUTE,
+    LEVEL_VALUE,
+)
 from FeDa4Fair.visualization.plots import (
     plot_comparison_fairness_distribution,
     plot_comparison_label_distribution,
@@ -63,7 +67,7 @@ def evaluate_fairness(
     legend_title: str | None = None,
     verbose_labels: bool = False,
     plot_kwargs_list: list[dict[str, Any] | None] | None = None,
-    legend_kwargs: dict[str, Any] | None = None,
+    legend_kwargs: dict[Any, Any] | None = None,
     model: Any | None = None,
     label_name: str = "label",
     path: str = "data_stats",
@@ -136,16 +140,13 @@ def evaluate_fairness(
     Returns
     -------
     None
-
     """
     if sens_columns is None:
-        sens_columns = ["SEX", "MAR", "RAC1P"]
+        sens_columns = DEFAULT_SENSITIVE_ATTRIBUTES
 
     if isinstance(sens_columns, str):
         sens_columns = [sens_columns]
 
-    # Define output_path unconditionally so it is always available
-    # for the fairness-distribution loop that follows.
     output_path = Path(path)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -175,7 +176,6 @@ def evaluate_fairness(
         with (output_path / "fig_ax_count.pkl").open("wb") as f:
             pickle.dump({"fig": fig_dis, "ax": axes_dis}, f)
 
-    all_sensitive_attributes = sens_columns
     names = list(partitioner_dict.keys())
     if model is not None:
         names = [key for key in partitioner_dict if "train" in key]
@@ -188,7 +188,7 @@ def evaluate_fairness(
         fig, axes, df_list = plot_comparison_fairness_distribution(
             partitioner_dict=partitioner_dict,
             sens_att=sens_att,
-            sens_cols=all_sensitive_attributes,
+            sens_cols=sens_columns,
             size_unit=fairness_level,
             max_num_partitions=max_num_partitions,
             partition_id_axis=partition_id_axis,
@@ -213,8 +213,8 @@ def evaluate_fairness(
 
 
 def local_client_fairness_plot(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+    before_fairness_df: pd.DataFrame,
+    after_fairness_df: pd.DataFrame,
     client_column: str = "Partition ID",
     fairness_column: str = "RAC1P_DP",
     title: str = "Fairness Before/After Comparison",
@@ -247,17 +247,16 @@ def local_client_fairness_plot(
     Returns
     -------
     matplotlib.figure.Figure
-
     """
-    if not df1[client_column].is_unique:
-        msg = "The client ID column must be unique."
+    if not before_fairness_df[client_column].is_unique:
+        msg = "The client ID column must be unique for before_fairness_df."
         raise ValueError(msg)
 
     merged = (
-        df1[[client_column, fairness_column]]
+        before_fairness_df[[client_column, fairness_column]]
         .rename(columns={fairness_column: "fairness1"})
         .merge(
-            df2[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
+            after_fairness_df[[client_column, fairness_column]].rename(columns={fairness_column: "fairness2"}),
             on=client_column,
         )
     )
@@ -309,28 +308,33 @@ def evaluate_model(
     acc = accuracy_score(y_test, preds)
     results = {"model": model_name, "accuracy": acc}
     for key, value in sf_data.items():
-        # Ensure value is treated as a DataFrame with the correct column name for fairlearn
         sf_df = pd.DataFrame(value, columns=[key])  # type: ignore[arg-type]
-        if fairness_level == "value":
+        if fairness_level == LEVEL_VALUE:
             results[f"value_{fairness_metric}_{key}"] = _compute_fairness(
-                y_test, preds, sf_df, fairness_metric, key, "value"
+                y_test, preds, sf_df, fairness_metric, key, LEVEL_VALUE
             ).to_numpy()[1]
 
         results[f"{fairness_metric}_{key}"] = _compute_fairness(
-            y_test, preds, sf_df, fairness_metric, key, "attribute"
+            y_test, preds, sf_df, fairness_metric, key, LEVEL_ATTRIBUTE
         ).to_numpy()[0]
 
     return results
 
 
 def evaluate_models_on_datasets(
-    datasets: list[tuple], n_jobs: int = -1, fairness_metric: str = "DP", fairness_level: str = "attribute"
+    datasets: list, n_jobs: int = -1, fairness_metric: str = "DP", fairness_level: str = "attribute"
 ) -> tuple[pd.DataFrame, Any]:
     """Evaluates multiple models on multiple datasets in parallel."""
     tasks = []
     models = _get_models()
 
-    for _name, x_train, y_train, x_test, y_test, sf_data in datasets:
+    for entry in datasets:
+        # Support both tuple and ProcessedSiloData
+        if hasattr(entry, "to_tuple"):
+            name, x_train, y_train, x_test, y_test, sf_data = entry.to_tuple()
+        else:
+            name, x_train, y_train, x_test, y_test, sf_data = entry
+
         for model_name, model in models.items():
             tasks.append(
                 delayed(evaluate_model)(
@@ -351,59 +355,14 @@ def evaluate_models_on_datasets(
     expanded_results = []
     for i, res in enumerate(results):
         dataset_index = i // len(models)
-        dataset_name = datasets[dataset_index][0]
+        entry = datasets[dataset_index]
+        dataset_name = entry.name if hasattr(entry, "name") else entry[0]
         res["dataset"] = dataset_name
         expanded_results.append(res)
 
     results_df = pd.DataFrame(expanded_results)
-
-    fairness_columns = [col for col in results_df.columns if col.startswith(f"{fairness_metric}_")]
-    models_list = list(results_df["model"].unique())
-    datasets_list = list(results_df["dataset"].unique())
-    total_hues = len(models_list)
-    bar_width = 0.8 / total_hues
-
-    for col in fairness_columns:
-        plt.figure(figsize=(12, 6))
-        sns.set_style("whitegrid")
-
-        ax = sns.barplot(data=results_df, x="dataset", y=col, hue="model", dodge=True)
-
-        bar_containers = ax.containers
-        bar_colors = []
-        for container in bar_containers:
-            for patch in container:
-                bar_colors.append(patch.get_facecolor())
-                break
-
-        for i, row in results_df.iterrows():
-            d_name = row["dataset"]
-            m_name = row["model"]
-            acc = row["accuracy"]
-
-            bar_index = datasets_list.index(d_name)
-            hue_index = models_list.index(m_name)
-            offset = (hue_index - (total_hues - 1) / 2) * bar_width
-            x_pos = bar_index + offset
-
-            color = bar_colors[hue_index]
-
-            ax.plot(x_pos, acc, marker="o", color=color, markersize=10, label="Accuracy" if i == 0 else "")
-
-        ax.set_title(f"{col} / accuracy")
-        ax.set_ylabel(f"{fairness_metric} / Accuracy")
-        ax.set_xlabel("Client")
-        handles, labels = ax.get_legend_handles_labels()
-
-        seen = set()
-        unique_handles_labels = [
-            (h, label) for h, label in zip(handles, labels, strict=False) if not (label in seen or seen.add(label))
-        ]
-        ax.legend(*zip(*unique_handles_labels, strict=False))
-
-        plt.tight_layout()
-        plt.show()
-    return results_df, plt
+    # The plotting logic is removed and should be called separately from visualization.plots
+    return results_df, None
 
 
 def merge_dataframes_with_names(dfs: list[pd.DataFrame], names: list[str], name_column: str = "state") -> pd.DataFrame:

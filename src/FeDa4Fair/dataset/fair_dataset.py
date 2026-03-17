@@ -32,6 +32,19 @@ from joblib import Parallel, delayed
 
 from datasets import ClassLabel, Dataset, DatasetDict, concatenate_datasets, load_dataset
 from FeDa4Fair.metrics.evaluation import evaluate_fairness
+from FeDa4Fair.utils.constants import (
+    ACS_EMPLOYMENT,
+    ACS_INCOME,
+    CROSS_DEVICE,
+    CROSS_SILO,
+    DEFAULT_SEED,
+    DEFAULT_SENSITIVE_ATTRIBUTES,
+    DEFAULT_TRAIN_VAL_TEST_SPLIT,
+    DEMOGRAPHIC_PARITY,
+    EMPLOYMENT_LABEL,
+    INCOME_LABEL,
+    LEVEL_ATTRIBUTE,
+)
 from FeDa4Fair.utils.data_utils import balance_data, cap_samples, drop_data, flip_data
 
 TRAIN_VAL_TEST_SPLIT_LEN = 3
@@ -94,7 +107,7 @@ class FairFederatedDataset(FederatedDataset):
         List of states to include for ACS datasets. If `None` and using ACS, defaults to all US states.
         For non-ACS datasets, this can be used to filter specific splits if applicable.
 
-    year : Optional[str], default="2018"
+    year : Optional[int], default=2018
         The ACS year to load (for ACS datasets).
 
     horizon : Optional[str], default="1-Year"
@@ -138,24 +151,23 @@ class FairFederatedDataset(FederatedDataset):
 
     **load_dataset_kwargs : dict
         Additional keyword arguments passed to `datasets.load_dataset`.
-
     """
 
     def __init__(
         self,
         *,
-        dataset: str = "ACSIncome",
+        dataset: str = ACS_INCOME,
         subset: str | None = None,
         preprocessor: Preprocessor | dict[str, tuple[str, ...]] | None = None,
         partitioners: dict[str, Partitioner | int],
         shuffle: bool = True,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
         states: list[str] | None = None,
         year: str | None = "2018",
         horizon: str | None = "1-Year",
         sensitive_attributes: list[str] | None = None,
-        fairness_level: Literal["attribute", "value", "attribute-value"] = "attribute",
-        fairness_metric: Literal["DP", "EO"] = "DP",
+        fairness_level: Literal["attribute", "value", "attribute-value"] = LEVEL_ATTRIBUTE,
+        fairness_metric: Literal["DP", "EO"] = DEMOGRAPHIC_PARITY,
         fl_setting: Literal["cross-silo", "cross-device"] | None = None,
         perc_train_val_test: list[float] | None = None,
         path: PathLike | None = None,
@@ -169,14 +181,34 @@ class FairFederatedDataset(FederatedDataset):
         auto_save: bool = True,
         **load_dataset_kwargs: Any,
     ) -> None:
+        # Initialize this before super().__init__ because super().__init__ might call
+        # _check_partitioners_correctness (which we override) or property partitioners
+        # which depends on _dataset_prepared.
+        self._dataset_prepared = False
+
+        # Infer label for known datasets if not provided
+        self._label = label_name
+        if self._label is None:
+            if dataset == ACS_INCOME:
+                self._label = INCOME_LABEL
+            elif dataset == ACS_EMPLOYMENT:
+                self._label = EMPLOYMENT_LABEL
+
         # Initialize states only if using ACS datasets or if states are explicitly provided
         self._states = states
-        if dataset in ["ACSIncome", "ACSEmployment"] and self._states is None:
+        if dataset in [ACS_INCOME, ACS_EMPLOYMENT] and self._states is None:
             self._states = self._get_default_us_states()
 
         # If partitioners is None, we need to defer its creation or set a default
         if partitioners is None:
             partitioners = dict.fromkeys(self._states, 1) if self._states else {"train": 1}
+
+        # Handle 'split' if it's 'all' to trigger merging splits in prepare
+        if load_dataset_kwargs.get("split") == "all":
+            load_dataset_kwargs.pop("split")
+            self._merge_splits = True
+        else:
+            self._merge_splits = False
 
         super().__init__(
             dataset=dataset,
@@ -194,11 +226,10 @@ class FairFederatedDataset(FederatedDataset):
         self._fairness_level = fairness_level
         self._fairness_metric = fairness_metric
         self._fl_setting = fl_setting
-        self._perc_train_test_split = perc_train_val_test if perc_train_val_test is not None else [0.7, 0.15, 0.15]
-        self._path = path
+        self._perc_train_test_split = perc_train_val_test if perc_train_val_test is not None else DEFAULT_TRAIN_VAL_TEST_SPLIT
+        self._path = Path(path) if path else None
         self._modification_dict = modification_dict
         self._mapping = mapping
-        self._label = label_name
         self._preloaded_data = preloaded_data
         self._client_names = client_names
         self._total_removed_samples = 0
@@ -207,13 +238,6 @@ class FairFederatedDataset(FederatedDataset):
         self.auto_save = auto_save
 
         self._validate_modification_dict()
-
-        # Infer label for known datasets if not provided
-        if self._label is None:
-            if dataset == "ACSIncome":
-                self._label = "PINCP"
-            elif dataset == "ACSEmployment":
-                self._label = "ESR"
 
     @property
     def label_column(self) -> str:
@@ -257,7 +281,7 @@ class FairFederatedDataset(FederatedDataset):
         if self._sample_cap is not None:
             partition_df = partition.to_pandas()
             if isinstance(partition_df, pd.DataFrame):
-                partition_df = cap_samples(partition_df, self._sample_cap, self.label_column, seed=self._seed or 42)
+                partition_df = cap_samples(partition_df, self._sample_cap, self.label_column, seed=self._seed or DEFAULT_SEED)
                 partition = Dataset.from_pandas(partition_df)
 
         return self._apply_modification_to_partition(partition, partition_id, split)
@@ -284,7 +308,7 @@ class FairFederatedDataset(FederatedDataset):
                 if isinstance(partition_df, pd.DataFrame):
                     partition_df = self._modify_data(partition_df, mod_key)
                     return Dataset.from_pandas(partition_df)
-            except Exception as e:  # noqa: BLE001
+            except (KeyError, ValueError, TypeError) as e:
                 warnings.warn(
                     f"Could not apply modification to partition {partition_id} ({mod_key}): {e}", stacklevel=2
                 )
@@ -300,6 +324,9 @@ class FairFederatedDataset(FederatedDataset):
 
         self._warn_sensitive_attributes_saving()
 
+        base_path = Path(dataset_path)
+        base_path.mkdir(parents=True, exist_ok=True)
+
         for key, value in self._partitioners.items():
             partitioner = value
             if isinstance(partitioner, int):
@@ -307,7 +334,7 @@ class FairFederatedDataset(FederatedDataset):
 
             num_partitions = partitioner.num_partitions
             for i in range(num_partitions):
-                self._save_partition(dataset_path, key, i)
+                self._save_partition(base_path, key, i)
 
     def _warn_sensitive_attributes_saving(self) -> None:
         """Warn user if sensitive attributes are present in the data being saved."""
@@ -318,10 +345,9 @@ class FairFederatedDataset(FederatedDataset):
                 stacklevel=2,
             )
 
-    def _save_partition(self, dataset_path: PathLike, key: str, partition_id: int) -> None:
+    def _save_partition(self, dataset_path: Path, key: str, partition_id: int) -> None:
         """Save a single partition to CSV."""
         partition = self.load_partition(partition_id, split=key)
-        Path(str(dataset_path)).mkdir(parents=True, exist_ok=True)
 
         p_name = (
             self._client_names[partition_id]
@@ -333,9 +359,9 @@ class FairFederatedDataset(FederatedDataset):
         try:
             partition_df = partition.to_pandas()
             if isinstance(partition_df, pd.DataFrame):
-                partition_df.to_csv(path_or_buf=f"{dataset_path}/{file_name}", index=False)
-        except Exception:  # noqa: BLE001
-            warnings.warn(f"Partition {file_name} could not be saved to CSV (likely non-tabular).", stacklevel=2)
+                partition_df.to_csv(path_or_buf=dataset_path / file_name, index=False)
+        except Exception as e: # noqa: BLE001
+            warnings.warn(f"Partition {file_name} could not be saved to CSV: {e}", stacklevel=2)
 
     def evaluate(self, file: PathLike | None = None) -> None:
         """
@@ -348,7 +374,7 @@ class FairFederatedDataset(FederatedDataset):
         titles = list(self._dataset.keys())
 
         # Determine sensitive columns to evaluate
-        sens_cols = self._sensitive_attributes if self._sensitive_attributes else ["SEX", "MAR", "RAC1P"]
+        sens_cols = self._sensitive_attributes if self._sensitive_attributes else DEFAULT_SENSITIVE_ATTRIBUTES
 
         # Only set intersectional_fairness if we have more than one attribute
         intersectional = (
@@ -365,6 +391,7 @@ class FairFederatedDataset(FederatedDataset):
             label_name=self.label_column,
             sens_columns=sens_cols,
             intersectional_fairness=intersectional,
+            path=str(file) if file else "data_stats"
         )
 
     def _split_into_train_val_test(self) -> None:
@@ -395,7 +422,7 @@ class FairFederatedDataset(FederatedDataset):
                 }
 
         divider = Divider(divide_config=divider_dict)
-        if self._fl_setting == "cross-silo":
+        if self._fl_setting == CROSS_SILO:
             for entry in keys_to_process:
                 # We need to ensure the partitioner for this entry exists
                 original_partitioner = self._partitioners.get(entry)
@@ -408,7 +435,7 @@ class FairFederatedDataset(FederatedDataset):
             if self._dataset is not None:
                 self._dataset = divider(self._dataset)
             self._partitioners = partitioners_dict
-        elif self._fl_setting != "cross-device":
+        elif self._fl_setting != CROSS_DEVICE:
             # If it is None, we do nothing. If it is something else, error?
             if self._fl_setting is not None:
                 msg = "This train-val-test split strategy is not supported."
@@ -423,7 +450,7 @@ class FairFederatedDataset(FederatedDataset):
         Prepare the dataset by downloading, shuffling, preprocessing, and modifying.
         """
         # Case 1: Special handling for ACS datasets (Folktables)
-        if self._dataset_name in ["ACSIncome", "ACSEmployment"]:
+        if self._dataset_name in [ACS_INCOME, ACS_EMPLOYMENT]:
             self._prepare_acs_dataset()
         else:
             # Case 2: Generic Hugging Face Dataset
@@ -448,7 +475,7 @@ class FairFederatedDataset(FederatedDataset):
         if self.auto_evaluate:
             try:
                 # Check if evaluation is possible (requires label and sensitive attribute)
-                if self._label and (self._sensitive_attributes or self._dataset_name in ["ACSIncome", "ACSEmployment"]):
+                if self._label and (self._sensitive_attributes or self._dataset_name in [ACS_INCOME, ACS_EMPLOYMENT]):
                     self.evaluate(self._path)
             except Exception as e:  # noqa: BLE001
                 warnings.warn(f"Could not perform initial fairness evaluation: {e}", stacklevel=2)
@@ -473,7 +500,7 @@ class FairFederatedDataset(FederatedDataset):
         def _load_state_raw(state):
             data_source = ACSDataSource(survey_year=year, horizon=horizon, survey="person")
             acs_data = data_source.get_data(states=[state], download=True)
-            if dataset_name == "ACSEmployment":
+            if dataset_name == ACS_EMPLOYMENT:
                 features, label, _group = ACSEmployment.df_to_pandas(acs_data)
             else:
                 features, label, _group = ACSIncome.df_to_pandas(acs_data)
@@ -485,7 +512,13 @@ class FairFederatedDataset(FederatedDataset):
 
     def _prepare_acs_dataset(self) -> None:
         """Helper to prepare ACSIncome/ACSEmployment datasets."""
-        self._check_partitioners_correctness()
+        # Use _partitioners directly to avoid triggering recursion via partitioners property
+        if self._states:
+            for state in self._states:
+                if state not in self._partitioners:
+                    warnings.warn(f"State {state} not found in partitioners. Using default 1 partition.", stacklevel=2)
+                    self._partitioners[state] = 1
+
         raw_data_dict = self._load_raw_data()
         self._dataset = DatasetDict()
 
@@ -498,208 +531,135 @@ class FairFederatedDataset(FederatedDataset):
         """Load raw ACS data from preloaded data or by downloading."""
         if self._preloaded_data is not None:
             return self._preloaded_data
-        if self._states is not None and self._year is not None and self._horizon is not None:
-            return self.load_acs_raw_data(self._dataset_name, self._states, self._year, self._horizon)
-        return {}
+
+        return self.load_acs_raw_data(self._dataset_name, self._states, self._year, self._horizon)
 
     def _apply_acs_modifications(self, state: str, data: pd.DataFrame) -> pd.DataFrame:
-        """Apply mappings and modifications to ACS data."""
-        if self._mapping is not None:
-            for key, value in self._mapping.items():
-                if key in data.columns:
-                    data[key] = data[key].replace(value)
+        """Apply mapping and other modifications to ACS data."""
+        if self._mapping:
+            for col, col_mapping in self._mapping.items():
+                if col in data.columns:
+                    data[col] = data[col].map(col_mapping).fillna(data[col])
 
-        if self._modification_dict is not None and state in self._modification_dict:
-            modifications = self._modification_dict[state]
-            for col_name, config in modifications.items():
-                if config.get("mitigate", False):
-                    data, removed = balance_data(data, col_name, self.label_column)
-                    self._total_removed_samples += removed
-                else:
-                    data = self._apply_single_modification(data, col_name, config)
+        # Apply split-level modifications if any
+        if self._modification_dict and state in self._modification_dict:
+            data = self._modify_data(data, state)
+
         return data
-
-    def _apply_single_modification(self, data: pd.DataFrame, col_name: str, config: dict) -> pd.DataFrame:
-        """Apply a single drop or flip modification."""
-        drop_rate = config.get("drop_rate", 0)
-        flip_rate = config.get("flip_rate", 0)
-        value1 = config.get("value")
-        column2 = config.get("attribute")
-        value2 = config.get("attribute_value")
-
-        if drop_rate > 0:
-            data = drop_data(data, drop_rate, col_name, value1, self.label_column, column2, value2)
-        if flip_rate > 0:
-            data = flip_data(data, flip_rate, col_name, value1, self.label_column, column2, value2)
-        return data
-
-    def _create_and_cast_dataset(self, data: pd.DataFrame) -> Dataset:
-        """Create a Dataset from pandas DataFrame and cast label to ClassLabel."""
-        try:
-            unique_labels = sorted(data[self._label].unique())
-            num_classes = len(unique_labels)
-            label_to_id = {label: i for i, label in enumerate(unique_labels)}
-            data[self._label] = data[self._label].map(label_to_id)
-
-            ds = Dataset.from_pandas(data)
-            return ds.cast_column(
-                self._label,
-                ClassLabel(num_classes=num_classes, names=[str(label_val) for label_val in unique_labels]),
-            )
-        except (ValueError, TypeError, KeyError):
-            return Dataset.from_pandas(data)
-
-    def _prepare_generic_dataset(self) -> None:
-        """Helper to prepare generic Hugging Face datasets."""
-        # Load dataset using Hugging Face datasets library
-
-        if self._preloaded_data is not None:
-            self._prepare_from_preloaded_data()
-        else:
-            self._prepare_from_hf_dataset()
-
-        # Apply modifications if specified (assuming tabular/pandas compatible for now)
-        if self._modification_dict:
-            self._apply_modifications_to_dataset()
-
-    def _prepare_from_preloaded_data(self) -> None:
-        """Helper to prepare dataset from preloaded pandas DataFrames."""
-        self._dataset = DatasetDict()
-        if isinstance(self._preloaded_data, pd.DataFrame):
-            self._dataset["train"] = Dataset.from_pandas(self._preloaded_data)
-        elif isinstance(self._preloaded_data, dict):
-            for split_name, split_df in self._preloaded_data.items():
-                self._dataset[split_name] = Dataset.from_pandas(split_df)
-        else:
-            msg = f"Unsupported type for preloaded_data: {type(self._preloaded_data)}"
-            raise TypeError(msg)
-
-    def _prepare_from_hf_dataset(self) -> None:
-        """Helper to load and prepare dataset from Hugging Face."""
-        if self._load_dataset_kwargs.get("split") == "all":
-            loaded_data = self._load_and_merge_all_splits()
-        else:
-            loaded_data = load_dataset(self._dataset_name, **self._load_dataset_kwargs)
-
-        if isinstance(loaded_data, Dataset):
-            # If a single split is returned, wrap it in a DatasetDict
-            split_name = self._load_dataset_kwargs.get("split", "train")
-            self._dataset = DatasetDict({str(split_name): loaded_data})
-        elif isinstance(loaded_data, DatasetDict):
-            self._dataset = loaded_data
-        else:
-            msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
-            raise TypeError(msg)
-
-    def _apply_modifications_to_dataset(self) -> None:
-        """Apply data modifications to specific splits in the dataset."""
-        if self._dataset is None or self._modification_dict is None:
-            return
-
-        for split_name in self._dataset:
-            if split_name in self._modification_dict:
-                try:
-                    split_df = self._dataset[split_name].to_pandas()
-                    if isinstance(split_df, pd.DataFrame):
-                        split_df = self._modify_data(split_df, split_name)
-                        self._dataset[split_name] = Dataset.from_pandas(split_df)
-                except Exception as e:  # noqa: BLE001
-                    warnings.warn(f"Could not apply modification to split {split_name}: {e}", stacklevel=2)
-
-    def _load_and_merge_all_splits(self) -> DatasetDict:
-        """Load all splits and concatenate them into a single 'train' split."""
-        # Remove \"split\" from kwargs to let load_dataset load all splits as a DatasetDict
-        load_kwargs = self._load_dataset_kwargs.copy()
-        load_kwargs.pop("split", None)
-
-        loaded_data = load_dataset(self._dataset_name, **load_kwargs)
-
-        if isinstance(loaded_data, DatasetDict):
-            # Concatenate all splits
-            merged_dataset = concatenate_datasets(list(loaded_data.values()))
-            # Assign to a default key \"train\" as we are working on a single merged dataset
-            return DatasetDict({"train": merged_dataset})
-        if isinstance(loaded_data, Dataset):
-            # Should not happen if split is removed, but handle just in case
-            return DatasetDict({"train": loaded_data})
-
-        msg = f"Unsupported return type from load_dataset: {type(loaded_data)}"
-        raise TypeError(msg)
-
-    def _get_default_us_states(self) -> list[str]:
-        return [
-            "AL",
-            "AK",
-            "AZ",
-            "AR",
-            "CA",
-            "CO",
-            "CT",
-            "DE",
-            "FL",
-            "GA",
-            "HI",
-            "ID",
-            "IL",
-            "IN",
-            "IA",
-            "KS",
-            "KY",
-            "LA",
-            "ME",
-            "MD",
-            "MA",
-            "MI",
-            "MN",
-            "MS",
-            "MO",
-            "MT",
-            "NE",
-            "NV",
-            "NH",
-            "NJ",
-            "NM",
-            "NY",
-            "NC",
-            "ND",
-            "OH",
-            "OK",
-            "OR",
-            "PA",
-            "RI",
-            "SC",
-            "SD",
-            "TN",
-            "TX",
-            "UT",
-            "VT",
-            "VA",
-            "WA",
-            "WV",
-            "WI",
-            "WY",
-            "PR",
-        ]
 
     def _modify_data(self, data: pd.DataFrame, key: Any) -> pd.DataFrame:
-        """
-        Modifies a pandas dataframe representing a split/state
-        according to the values given in _modification_dict.
-        """
+        """Internal helper to apply modifications from modification_dict."""
         if self._modification_dict is None or key not in self._modification_dict:
             return data
 
-        modifications = self._modification_dict[key]
-
-        # Delegate to _apply_single_modification to avoid duplicating logic
-        for col_name, config in modifications.items():
+        mods = self._modification_dict[key]
+        for col, config in mods.items():
             if config.get("mitigate", False):
-                data, removed = balance_data(data, col_name, self.label_column)
+                data, removed = balance_data(data, col, self.label_column, seed=self._seed or DEFAULT_SEED)
                 self._total_removed_samples += removed
             else:
-                data = self._apply_single_modification(data, col_name, config)
+                drop_rate = config.get("drop_rate", 0)
+                flip_rate = config.get("flip_rate", 0)
+                target_value = config.get("value")
+                secondary_col = config.get("attribute")
+                secondary_val = config.get("attribute_value")
+
+                if drop_rate > 0:
+                    data = drop_data(data, drop_rate, col, target_value, self.label_column, secondary_col, secondary_val, seed=self._seed or DEFAULT_SEED)
+
+                if flip_rate > 0:
+                    data = flip_data(data, flip_rate, col, target_value, self.label_column, secondary_col, secondary_val, seed=self._seed or DEFAULT_SEED)
 
         return data
+
+    def _create_and_cast_dataset(self, data: pd.DataFrame) -> Dataset:
+        """Create a Hugging Face Dataset from pandas and ensure correct types."""
+        # Original implementation of _create_and_cast_dataset also handled ClassLabel casting
+        # Checking if we should restore that to fix test_casts_label_to_classlabel_when_possible
+        label_col = self._label
+        if not label_col:
+            if self._dataset_name == ACS_INCOME:
+                label_col = INCOME_LABEL
+            elif self._dataset_name == ACS_EMPLOYMENT:
+                label_col = EMPLOYMENT_LABEL
+
+        data_copy = data.copy()
+        if label_col and label_col in data_copy.columns:
+            try:
+                unique_labels = sorted(data_copy[label_col].unique())
+                if all(isinstance(x, (int, bool, np.integer, np.bool_)) for x in unique_labels) and len(unique_labels) <= 10:
+                    # Convert to standard python types to help HF Dataset casting
+                    data_copy[label_col] = data_copy[label_col].apply(lambda x: int(x) if not isinstance(x, bool) else x)
+            except Exception: # noqa: BLE001
+                pass
+
+        ds = Dataset.from_pandas(data_copy)
+        # Handle index level column if it exists
+        if "__index_level_0__" in ds.column_names:
+            ds = ds.remove_columns(["__index_level_0__"])
+
+        if label_col and label_col in ds.column_names:
+            try:
+                unique_labels = sorted(data_copy[label_col].unique())
+                if all(isinstance(x, (int, bool)) for x in unique_labels) and len(unique_labels) <= 10:
+                    ds = ds.cast_column(label_col, ClassLabel(names=[str(x) for x in unique_labels]))
+            except Exception: # noqa: BLE001
+                pass
+
+        return ds
+    def _prepare_generic_dataset(self) -> None:
+        """Prepare a generic Hugging Face dataset."""
+        if self._preloaded_data is not None:
+            self._dataset = DatasetDict()
+            if isinstance(self._preloaded_data, pd.DataFrame):
+                self._dataset["train"] = self._create_and_cast_dataset(self._preloaded_data)
+            elif isinstance(self._preloaded_data, dict):
+                for split_name, df in self._preloaded_data.items():
+                    self._dataset[split_name] = self._create_and_cast_dataset(df)
+            else:
+                msg = f"Unexpected preloaded_data type: {type(self._preloaded_data)}"
+                raise TypeError(msg)
+        else:
+            # Load dataset using standard HF load_dataset
+            self._dataset = load_dataset(self._dataset_name, self._subset, **self._load_dataset_kwargs)
+
+        if self._merge_splits and isinstance(self._dataset, DatasetDict):
+            all_datasets = [self._dataset[split] for split in self._dataset]
+            self._dataset = DatasetDict({"train": concatenate_datasets(all_datasets)})
+
+        if not isinstance(self._dataset, DatasetDict):
+            if isinstance(self._dataset, Dataset):
+                self._dataset = DatasetDict({"train": self._dataset})
+            else:
+                msg = f"Unexpected dataset type: {type(self._dataset)}"
+                raise TypeError(msg)
+
+        # Apply modifications if specified
+        if self._modification_dict:
+            for split_name in list(self._dataset.keys()):
+                if split_name in self._modification_dict:
+                    df = self._dataset[split_name].to_pandas()
+                    df = self._modify_data(df, split_name)
+                    self._dataset[split_name] = self._create_and_cast_dataset(df)
+
+    def _get_default_us_states(self) -> list[str]:
+        """Return a list of all US state abbreviations."""
+        return [
+            "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+            "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+            "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+            "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+            "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "PR"
+        ]
+
+    def _check_partitioners_correctness(self) -> None:
+        """Check if partitioners match the expected splits."""
+        # Use _partitioners directly to avoid triggering recursion via partitioners property
+        if self._states:
+            for state in self._states:
+                if state not in self._partitioners:
+                    warnings.warn(f"State {state} not found in partitioners. Using default 1 partition.", stacklevel=2)
+                    self._partitioners[state] = 1
 
     def to_json(self, **json_kw: Any) -> str:
         """

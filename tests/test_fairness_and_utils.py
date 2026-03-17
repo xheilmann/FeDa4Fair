@@ -109,7 +109,7 @@ class TestUtils(unittest.TestCase):
         # Matching rows: 4 rows (indices 0, 1, 2, 3)
         # Drop 50% -> 2 rows should be dropped.
 
-        new_df = drop_data(df=self.df.copy(), percentage=0.5, column1="col1", value1=1, label_column="label")
+        new_df = drop_data(df=self.df.copy(), drop_rate=0.5, sensitive_column="col1", sensitive_value=1, label_column="label")
 
         # Original length 10. Expected length 8.
         self.assertEqual(len(new_df), 8)
@@ -128,7 +128,7 @@ class TestUtils(unittest.TestCase):
         # Matching rows: 4 rows
         # Flip 50% -> 2 rows should have label changed to False.
 
-        new_df = flip_data(df=self.df.copy(), percentage=0.5, column1="col1", value1=1, label_column="label")
+        new_df = flip_data(df=self.df.copy(), flip_rate=0.5, sensitive_column="col1", sensitive_value=1, label_column="label")
 
         # Length should remain same
         self.assertEqual(len(new_df), 10)

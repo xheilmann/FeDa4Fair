@@ -45,10 +45,10 @@ class TestGeneration(unittest.TestCase):
         datasets = []
         res = preprocess_data_cross_silo(df, datasets, "attribute", "State1")
         self.assertEqual(len(res), 1)
-        name, x_train, _y_train, _x_test, _y_test, sf = res[0]
-        self.assertEqual(name, "State1")
-        self.assertEqual(x_train.shape[1], 0)  # PINCP, SEX, MAR, RAC1P dropped
-        self.assertIn("SEX", sf)
+        entry = res[0]
+        self.assertEqual(entry.name, "State1")
+        self.assertEqual(entry.x_train.shape[1], 0)  # PINCP, SEX, MAR, RAC1P dropped
+        self.assertIn("SEX", entry.sf_data)
 
     def test_get_attribute_modifications_logic(self):
         """

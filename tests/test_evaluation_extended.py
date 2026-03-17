@@ -73,4 +73,4 @@ class TestEvaluationExtended(unittest.TestCase):
         expected_len = 2 if XGBOOST_AVAILABLE else 1
         self.assertEqual(len(res_df), expected_len)
         self.assertEqual(res_df.iloc[0]["dataset"], "State1")
-        self.assertEqual(plt_obj, plt)
+        self.assertIsNone(plt_obj)

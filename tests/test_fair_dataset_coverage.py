@@ -103,6 +103,7 @@ class TestCreateAndCastDataset(unittest.TestCase):
 
     def test_casts_label_to_classlabel_when_possible(self):
         fds = self._make_fds()
+        fds._label = "PINCP"
         df = pd.DataFrame({"feature": [1, 2, 3], "PINCP": [0, 1, 0]})
         result = fds._create_and_cast_dataset(df)
         # PINCP is the default label column for ACSIncome

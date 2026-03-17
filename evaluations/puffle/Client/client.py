@@ -296,7 +296,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 optimizer=opt,
                 optimizer_regularization=po_reg,
                 train_loader=loader,
-                test_loader=None,
+                _test_loader=None,
                 average_probabilities=avg_prob,
                 current_epoch=epoch,
                 current_fl_round=fl_round,
@@ -340,7 +340,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             sensitive_attribute_list=s_attrs,
             device=self.train_parameters.device,
             possible_sensitive_attributes=s_features,
-            possible_targets=targets,
+            _possible_targets=targets,
         )
         counters_no_noise = copy.deepcopy(counters)
         if self.train_parameters.epsilon_statistics is not None:

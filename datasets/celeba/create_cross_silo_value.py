@@ -41,7 +41,7 @@ def add_hair_color_multi(df):
     return df
 
 
-def get_celeba_dataframe(img_dict_path):
+def get_celeba_dataframe(img_dir_path):
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
     ds_merged = concatenate_datasets(list(ds_dict.values()))
@@ -49,26 +49,17 @@ def get_celeba_dataframe(img_dict_path):
     print("Adding image IDs...")
     ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
 
-    # Check if image dict exists
-    if not img_dict_path.exists():
-        print(f"Creating image dictionary at {img_dict_path}...")
-        img_map = {}
+    # Check if image directory exists
+    if not img_dir_path.exists():
+        print(f"Saving individual images to {img_dir_path}...")
+        img_dir_path.mkdir(parents=True, exist_ok=True)
         for item in ds_merged:
             idx = item["image_id"]
             img = item["image"]
-            b = io.BytesIO()
-            img.save(b, format="PNG")
-            b64_str = base64.b64encode(b.getvalue()).decode("utf-8")
-            img_map[idx] = b64_str
-
-        print("Saving JSON...")
-        img_dict_path.parent.mkdir(parents=True, exist_ok=True)
-        with img_dict_path.open("w") as f:
-            json.dump(img_map, f)
-        print("JSON saved.")
-        del img_map
+            img.save(img_dir_path / f"{idx}.png")
+        print("Images saved.")
     else:
-        print(f"Image dictionary found at {img_dict_path}, skipping creation.")
+        print(f"Image directory found at {img_dir_path}, skipping creation.")
 
     print("Dropping image column...")
     ds_merged = ds_merged.remove_columns("image")
@@ -147,9 +138,9 @@ def evaluate_benchmark(fds, output_base, level_name):
 def create_benchmarks():
     num_clients = 50
     output_base = "datasets/celeba/cross_silo_value"
-    img_dict_path = Path("datasets/celeba/celeba_img_dict.json")
+    img_dir_path = Path("datasets/celeba/images")
 
-    df = get_celeba_dataframe(img_dict_path)
+    df = get_celeba_dataframe(img_dir_path)
 
     counts = df["hair_color"].value_counts()
     print("Hair Color Counts:\n", counts)

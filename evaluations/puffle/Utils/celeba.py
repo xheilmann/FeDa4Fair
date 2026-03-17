@@ -95,7 +95,7 @@ class CelebaPreparedDataset(Dataset):
     def __init__(
         self,
         image_ids: list,
-        images_dict: dict,
+        image_dir: str | Path,
         labels: list,
         sensitive_attributes: list,
         second_sensitive_attributes: list | None = None,
@@ -107,7 +107,7 @@ class CelebaPreparedDataset(Dataset):
         Args:
         ----
             image_ids (list): List of image IDs.
-            images_dict (dict): Dictionary mapping image IDs to base64 encoded images.
+            image_dir (str | Path): Path to directory containing image files.
             labels (list): List of labels.
             sensitive_attributes (list): List of sensitive attributes.
             second_sensitive_attributes (list, optional): List of second sensitive attributes.
@@ -127,7 +127,7 @@ class CelebaPreparedDataset(Dataset):
         self.third_sensitive_attributes = [0] * len(image_ids)
 
         self.samples = image_ids
-        self.images_dict = images_dict
+        self.image_dir = Path(image_dir)
         self.n_samples = len(image_ids)
         self.transform = transform
         self.indexes = range(len(self.samples))
@@ -145,11 +145,10 @@ class CelebaPreparedDataset(Dataset):
 
         """
         img_id = str(self.samples[index])
+        img_path = self.image_dir / f"{img_id}.png"
 
-        if img_id in self.images_dict:
-            b64_str = self.images_dict[img_id]
-            img_bytes = base64.b64decode(b64_str)
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        if img_path.exists():
+            img = Image.open(img_path).convert("RGB")
         else:
             # Fallback for missing images
             img = Image.new("RGB", (64, 64))

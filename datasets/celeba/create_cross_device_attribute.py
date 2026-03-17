@@ -33,7 +33,7 @@ def add_hair_color(df):
 def create_benchmarks():
     num_clients = 150
     output_base = "datasets/celeba/cross_device_attribute"
-    img_dict_path = Path("datasets/celeba/celeba_img_dict.json")
+    img_dir_path = Path("datasets/celeba/images")
 
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
@@ -43,28 +43,18 @@ def create_benchmarks():
     print("Adding image IDs...")
     ds_merged = ds_merged.add_column("image_id", range(len(ds_merged)))
 
-    # Check if image dict exists
-    if not img_dict_path.exists():
-        print(f"Creating image dictionary at {img_dict_path}...")
-        img_map = {}
-        # Iterate to extract and encode
+    # Check if image directory exists
+    if not img_dir_path.exists():
+        print(f"Saving individual images to {img_dir_path}...")
+        img_dir_path.mkdir(parents=True, exist_ok=True)
+        # Iterate to extract and save
         for item in ds_merged:
             idx = item["image_id"]
             img = item["image"]
-            b = io.BytesIO()
-            img.save(b, format="PNG")
-            b64_str = base64.b64encode(b.getvalue()).decode("utf-8")
-            img_map[idx] = b64_str
-
-        print("Saving JSON...")
-        # Ensure dir exists
-        img_dict_path.parent.mkdir(parents=True, exist_ok=True)
-        with img_dict_path.open("w") as f:
-            json.dump(img_map, f)
-        print("JSON saved.")
-        del img_map
+            img.save(img_dir_path / f"{idx}.png")
+        print("Images saved.")
     else:
-        print(f"Image dictionary found at {img_dict_path}, skipping creation.")
+        print(f"Image directory found at {img_dir_path}, skipping creation.")
 
     print("Dropping image column...")
     ds_merged = ds_merged.remove_columns("image")

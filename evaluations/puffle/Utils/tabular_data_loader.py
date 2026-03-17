@@ -762,11 +762,7 @@ def _prepare_dutch_prepared_data(dataset_path, splitted_data_dir, num_nodes, cro
 def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cross_silo, sweep, validation_seed):
     clean_path = Path(dataset_path.rstrip("/"))
     celeba_root = clean_path.parent.parent
-    json_path = celeba_root / "celeba_img_dict.json"
-    img_map = {}
-    if json_path.exists():
-        with json_path.open() as f:
-            img_map = json.load(f)
+    img_dir = celeba_root / "images"
 
     for client_name in range(num_nodes):
         client_dir = Path(dataset_path) / splitted_data_dir / str(client_name)
@@ -827,12 +823,12 @@ def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cr
                     test_size=0.2,
                     random_state=validation_seed,
                 )
-                torch.save(CelebaPreparedDataset(X_va, img_map, y_va, z_va, w_va, transform), client_dir / "val.pt")
+                torch.save(CelebaPreparedDataset(X_va, img_dir, y_va, z_va, w_va, transform), client_dir / "val.pt")
                 t_data.update({"image_ids": X_tr, "labels": y_tr, "sensitive": z_tr, "second_sensitive": w_tr})
             torch.save(
                 CelebaPreparedDataset(
                     t_data["image_ids"],
-                    img_map,
+                    img_dir,
                     t_data["labels"],
                     t_data["sensitive"],
                     t_data["second_sensitive"],
@@ -846,7 +842,7 @@ def _prepare_celeba_prepared_data(dataset_path, splitted_data_dir, num_nodes, cr
             torch.save(
                 CelebaPreparedDataset(
                     t_data["image_ids"],
-                    img_map,
+                    img_dir,
                     t_data["labels"],
                     t_data["sensitive"],
                     t_data["second_sensitive"],

@@ -75,9 +75,9 @@ def create_benchmarks():
                 {
                     "attribute": "Male",
                     "value": 1,
-                    "drop_mean": 0.3,
+                    "drop_mean": 0.2,
                     "drop_std": 0.05,
-                    "flip_mean": 0.28,
+                    "flip_mean": 0.2,
                     "flip_std": 0.02,
                     "mitigate": False,
                 },
@@ -92,10 +92,10 @@ def create_benchmarks():
                 {
                     "attribute": "hair_color",
                     "value": 0,
-                    "drop_mean": 0.3,
+                    "drop_mean": 0.2,
                     "drop_std": 0.05,
-                    "flip_mean": 0.60,
-                    "flip_std": 0.02,  # Increased
+                    "flip_mean": 0.2,
+                    "flip_std": 0.02, 
                     "mitigate": False,
                 },
             ],

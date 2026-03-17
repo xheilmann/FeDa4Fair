@@ -81,9 +81,14 @@ def drop_data(
     if secondary_column is not None and secondary_value is not None:
         condition &= (df[secondary_column] == secondary_value)
 
-    # Filter for rows matching the attribute condition AND having a positive label (True or 1)
-    # Using .astype(bool) on the label column to handle both boolean and numeric (0/1) labels
-    positive_label_condition = df[label_column].astype(bool)
+    # Filter for rows matching the attribute condition AND having a positive label
+    # We identify the positive label as the maximum value in the column (e.g., 1 in [0, 1] or True in [False, True])
+    unique_labels = sorted(df[label_column].unique())
+    if not unique_labels:
+        return df
+    
+    pos_label = unique_labels[-1]
+    positive_label_condition = df[label_column] == pos_label
 
     matching_rows = df[condition & positive_label_condition]
     num_to_drop = int(len(matching_rows) * drop_rate)
@@ -155,8 +160,14 @@ def flip_data(
     if secondary_column is not None and secondary_value is not None:
         condition &= (df[secondary_column] == secondary_value)
 
-    # Filter for rows matching the attribute condition AND having a positive label (True or 1)
-    positive_label_condition = df[label_column].astype(bool)
+    # Filter for rows matching the attribute condition AND having a positive label
+    unique_labels = sorted(df[label_column].unique())
+    if len(unique_labels) < 2:
+        return df # Can't flip if only one class
+
+    pos_label = unique_labels[-1]
+    neg_label = unique_labels[0]
+    positive_label_condition = df[label_column] == pos_label
 
     matching_rows = df[condition & positive_label_condition]
     num_to_flip = int(len(matching_rows) * flip_rate)
@@ -167,11 +178,7 @@ def flip_data(
     df_copy = df.copy()
     rows_to_flip = matching_rows.sample(n=num_to_flip, random_state=seed).index
 
-    if pd.api.types.is_bool_dtype(df_copy[label_column]):
-        df_copy.loc[rows_to_flip, label_column] = False
-    else:
-        # For non-boolean types, assume they are numeric 0/1
-        df_copy.loc[rows_to_flip, label_column] = 0
+    df_copy.loc[rows_to_flip, label_column] = neg_label
 
     return df_copy
 
@@ -194,13 +201,20 @@ def balance_data(
     if len(groups) <= 1:
         return df, 0
 
+    unique_labels = sorted(df[label_column].unique())
+    if len(unique_labels) != 2:
+        # Balancing only makes sense for binary classification
+        return df, 0
+
+    neg_label, pos_label = unique_labels[0], unique_labels[1]
+
     # Count positive and negative samples per group
     pos_counts = {}
     neg_counts = {}
     for group in groups:
         group_df = df[df[sensitive_column] == group]
-        pos_counts[group] = int((group_df[label_column].astype(bool)).sum())
-        neg_counts[group] = int((~group_df[label_column].astype(bool)).sum())
+        pos_counts[group] = int((group_df[label_column] == pos_label).sum())
+        neg_counts[group] = int((group_df[label_column] == neg_label).sum())
 
     # Target: use the minimum count found across all groups for both classes
     target_pos = min(pos_counts.values())
@@ -210,8 +224,8 @@ def balance_data(
     rng = np.random.default_rng(seed)
 
     for group in groups:
-        group_indices_pos = df[(df[sensitive_column] == group) & (df[label_column].astype(bool))].index.tolist()
-        group_indices_neg = df[(df[sensitive_column] == group) & (~df[label_column].astype(bool))].index.tolist()
+        group_indices_pos = df[(df[sensitive_column] == group) & (df[label_column] == pos_label)].index.tolist()
+        group_indices_neg = df[(df[sensitive_column] == group) & (df[label_column] == neg_label)].index.tolist()
 
         kept_pos = rng.choice(group_indices_pos, size=target_pos, replace=False)
         kept_neg = rng.choice(group_indices_neg, size=target_neg, replace=False)

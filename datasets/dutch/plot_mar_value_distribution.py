@@ -1,8 +1,10 @@
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from sklearn.linear_model import LogisticRegression
+
 from FeDa4Fair.dataset import FairFederatedDataset
 from FeDa4Fair.metrics.fairness import compute_multi_fairness
 from FeDa4Fair.utils.data_utils import generate_multiobjective_bias
@@ -80,7 +82,7 @@ def run_evaluation_and_plot():
     num_clients = 50
     output_dir = Path("./cross_silo_value/plots")
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     config = {
         "drop_mean": 0.5,
         "drop_std": 0.05,
@@ -136,13 +138,13 @@ def run_evaluation_and_plot():
         fl_setting="cross-silo",
         perc_train_val_test=[0.8, 0.2],
     )
-    
+
     fds.prepare()
-    
+
     models = {
         "LogisticRegression": LogisticRegression(max_iter=1000, solver="liblinear")
     }
-    
+
     if XGBOOST_AVAILABLE:
         models["XGBoost"] = XGBClassifier(n_estimators=100, random_state=42)
     else:
@@ -162,14 +164,14 @@ def run_evaluation_and_plot():
             test_split="train_test",
             size_unit="attribute"
         )
-        
+
         # Process results for create_value_plot
         plot_df = pd.DataFrame()
         plot_df["DP_MAR"] = results["Marital_status_DP"]
         plot_df["Value"] = results["Marital_status_val"].apply(lambda x: int(float(x.split("_")[-2])))
-        
+
         custom_xticklabels = {1: "Never", 2: "Married", 3: "Divorced", 4: "Widowed"}
-        
+
         print(f"Generating Value Bias Distribution Plot for {model_name}...")
         safe_model_name = model_name.lower().replace(" ", "_")
         create_value_plot(

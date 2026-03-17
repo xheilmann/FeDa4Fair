@@ -11,13 +11,14 @@ class Utils:
         sensitivity: float | None = None,
         sigma: float | None = None,
     ):
+        rng = np.random.default_rng()
         if mechanism_type == "laplace":
-            return np.random.laplace(loc=0, scale=sensitivity / epsilon, size=1)
+            return rng.laplace(loc=0, scale=sensitivity / epsilon, size=1)
         if mechanism_type == "geometric":
             p = 1 - np.exp(-epsilon / sensitivity)
-            return (np.random.geometric(p=p, size=1) - np.random.geometric(p=p, size=1))[0]
+            return (rng.geometric(p=p, size=1) - rng.geometric(p=p, size=1))[0]
         if mechanism_type == "gaussian":
-            return np.random.normal(loc=0, scale=sigma, size=1)[0]
+            return rng.normal(loc=0, scale=sigma, size=1)[0]
         msg = "The mechanism type must be either laplace, geometric or gaussian"
         raise ValueError(msg)
 

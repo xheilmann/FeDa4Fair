@@ -23,6 +23,7 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
 import pandas as pd
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import Partitioner
@@ -48,6 +49,7 @@ from FeDa4Fair.utils.constants import (
 from FeDa4Fair.utils.data_utils import balance_data, cap_samples, drop_data, flip_data
 
 TRAIN_VAL_TEST_SPLIT_LEN = 3
+LABEL_COUNT_THRESHOLD = 10
 
 
 def _clone_partitioner(obj: Any) -> Any:
@@ -588,10 +590,13 @@ class FairFederatedDataset(FederatedDataset):
         if label_col and label_col in data_copy.columns:
             try:
                 unique_labels = sorted(data_copy[label_col].unique())
-                if all(isinstance(x, (int, bool, np.integer, np.bool_)) for x in unique_labels) and len(unique_labels) <= 10:
+                if (
+                    all(isinstance(x, (int, bool, np.integer, np.bool_)) for x in unique_labels)
+                    and len(unique_labels) <= LABEL_COUNT_THRESHOLD
+                ):
                     # Convert to standard python types to help HF Dataset casting
                     data_copy[label_col] = data_copy[label_col].apply(lambda x: int(x) if not isinstance(x, bool) else x)
-            except Exception: # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 pass
 
         ds = Dataset.from_pandas(data_copy)
@@ -602,9 +607,9 @@ class FairFederatedDataset(FederatedDataset):
         if label_col and label_col in ds.column_names:
             try:
                 unique_labels = sorted(data_copy[label_col].unique())
-                if all(isinstance(x, (int, bool)) for x in unique_labels) and len(unique_labels) <= 10:
+                if all(isinstance(x, (int, bool)) for x in unique_labels) and len(unique_labels) <= LABEL_COUNT_THRESHOLD:
                     ds = ds.cast_column(label_col, ClassLabel(names=[str(x) for x in unique_labels]))
-            except Exception: # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 pass
 
         return ds

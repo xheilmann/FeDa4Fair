@@ -43,24 +43,27 @@ def drop_data(
     df : pd.DataFrame
         The input DataFrame to be filtered.
 
-    percentage : float
+    drop_rate : float
         A float between 0 and 1 representing the fraction of matching rows to drop.
 
-    column1 : str
-        The name of the first column to filter by.
-
-    value1 : Any
-        The value in `column1` that must match for a row to be considered for dropping.
-
     label_column : str
-        The name of the label_name column. Label values are expected to be binary.
+        The name of the label column. Label values are expected to be binary.
 
-    column2 : Optional[str], default=None
+    sensitive_column : str
+        The name of the sensitive column to filter by.
+
+    sensitive_value : Any
+        The value in `sensitive_column` that must match for a row to be considered for dropping.
+
+    secondary_column : Optional[str], default=None
         An optional second column to filter by.
 
-    value2 : Optional[Any], default=None
-        The value in `column2` that must also match (in conjunction with `column1`) for a
-        row to be considered for dropping. Only used if `column2` is provided.
+    secondary_value : Optional[Any], default=None
+        The value in `secondary_column` that must also match for a
+        row to be considered for dropping. Only used if `secondary_column` is provided.
+
+    seed : int, default=42
+        Seed for reproducibility.
 
     Returns
     -------
@@ -69,6 +72,7 @@ def drop_data(
 
     """
     if not (0 <= drop_rate <= 1):
+
         msg = f"Drop rate must be between 0 and 1, got {drop_rate}"
         raise ValueError(msg)
 
@@ -114,24 +118,27 @@ def flip_data(
     df : pd.DataFrame
         The input DataFrame whose labels will be modified.
 
-    percentage : float
-        A float between 0 and 1 representing the fraction of matching rows whose label_name should be flipped.
-
-    column1 : str
-        The name of the first column used to filter the rows to be considered for flipping.
-
-    value1 : Any
-        The value in `column1` that must match for a row to be eligible for label_name flipping.
+    flip_rate : float
+        A float between 0 and 1 representing the fraction of matching rows whose label should be flipped.
 
     label_column : str
         The name of the column containing the labels to be flipped. Label values are expected to be binary.
 
-    column2 : Optional[str], default=None
+    sensitive_column : str
+        The name of the sensitive column used to filter the rows to be considered for flipping.
+
+    sensitive_value : Any
+        The value in `sensitive_column` that must match for a row to be eligible for label flipping.
+
+    secondary_column : Optional[str], default=None
         An optional second column used to refine the filtering condition.
 
-    value2 : Optional[Any], default=None
-        The value in `column2` that must also match (in conjunction with `column1`) for a
-        row to be eligible for label_name flipping. Only used if `column2` is provided.
+    secondary_value : Optional[Any], default=None
+        The value in `secondary_column` that must also match for a
+        row to be eligible for label flipping. Only used if `secondary_column` is provided.
+
+    seed : int, default=42
+        Seed for reproducibility.
 
     Returns
     -------
@@ -140,6 +147,7 @@ def flip_data(
 
     """
     if not (0 <= flip_rate <= 1):
+
         msg = f"Flip rate must be between 0 and 1, got {flip_rate}"
         raise ValueError(msg)
 

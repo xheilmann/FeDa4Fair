@@ -145,11 +145,7 @@ class CelebaPreparedDataset(Dataset):
         img_id = str(self.samples[index])
         img_path = self.image_dir / f"{img_id}.png"
 
-        if img_path.exists():
-            img = Image.open(img_path).convert("RGB")
-        else:
-            # Fallback for missing images
-            img = Image.new("RGB", (64, 64))
+        img = Image.open(img_path).convert("RGB") if img_path.exists() else Image.new("RGB", (64, 64))
 
         if self.transform:
             img = self.transform(img)

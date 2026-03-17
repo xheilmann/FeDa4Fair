@@ -222,15 +222,15 @@ def local_client_fairness_plot(
     figsize: tuple = (6, 6),
     ylabel: str = "Fairness Value Before",
     xlabel: str = "Fairness Value After",
-) -> plt.Figure:
+    ) -> plt.Figure:
     """
     Plot a scatter comparison of fairness values from two dataframes.
 
     Parameters
     ----------
-    df1 : pd.DataFrame
+    before_fairness_df : pd.DataFrame
         First DataFrame.
-    df2 : pd.DataFrame
+    after_fairness_df : pd.DataFrame
         Second DataFrame.
     client_column : str, default="Partition ID"
         Name of client ID column.
@@ -333,9 +333,9 @@ def evaluate_models_on_datasets(
     for entry in datasets:
         # Support both tuple and ProcessedSiloData
         if hasattr(entry, "to_tuple"):
-            name, x_train, y_train, x_test, y_test, sf_data = entry.to_tuple()
+            _name, x_train, y_train, x_test, y_test, sf_data = entry.to_tuple()
         else:
-            name, x_train, y_train, x_test, y_test, sf_data = entry
+            _name, x_train, y_train, x_test, y_test, sf_data = entry
 
         for model_name, model in models.items():
             tasks.append(

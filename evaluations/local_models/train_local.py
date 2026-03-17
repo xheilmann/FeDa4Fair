@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -12,14 +11,18 @@ from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 
 # Add puffle to python path to import TabularDataset
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../puffle")))
+sys.path.append(str(Path(__file__).resolve().parent / "../puffle"))
 try:
-    from Utils.dutch import TabularDataset
     from Utils.tabular_data_loader import prepare_tabular_data
 except ImportError:
     # Fallback if the path structure is different, try adding ../../puffle
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../puffle")))
+    sys.path.append(str(Path(__file__).resolve().parent / "../../puffle"))
     from Utils.tabular_data_loader import prepare_tabular_data
+
+RANDOM_SEED = 42
+TEST_SIZE = 0.2
+MIN_SAMPLES = 5
+MAX_ITER = 1000
 
 
 def load_data(file_path):
@@ -27,14 +30,11 @@ def load_data(file_path):
     # TabularDataset stores data as lists or tensors
     # We need to stack them if they are tensors or convert lists to numpy
 
-    X = dataset.samples
-    if isinstance(X, list):
-        if isinstance(X[0], torch.Tensor):
-            X = torch.stack(X).numpy()
-        else:
-            X = np.array(X)
-    elif isinstance(X, torch.Tensor):
-        X = X.numpy()
+    x = dataset.samples
+    if isinstance(x, list):
+        x = torch.stack(x).numpy() if isinstance(x[0], torch.Tensor) else np.array(x)
+    elif isinstance(x, torch.Tensor):
+        x = x.numpy()
 
     y = dataset.targets
     if isinstance(y, list):
@@ -55,7 +55,7 @@ def load_data(file_path):
         elif isinstance(w, torch.Tensor):
             w = w.numpy()
 
-    return X, y, z, w
+    return x, y, z, w
 
 
 def calculate_fairness_metrics(y_true, y_pred, z):
@@ -77,10 +77,7 @@ def calculate_fairness_metrics(y_true, y_pred, z):
             positive_rates[g] = 0.0  # Or nan
 
     rates = list(positive_rates.values())
-    if len(rates) > 1:
-        demographic_disparity = max(rates) - min(rates)
-    else:
-        demographic_disparity = 0.0
+    demographic_disparity = max(rates) - min(rates) if len(rates) > 1 else 0.0
 
     # Equalized Odds (Max absolute difference in TPR and FPR between groups)
     # TPR: P(Y_pred=1 | Y_true=1, Z=z)
@@ -125,17 +122,18 @@ def calculate_fairness_metrics(y_true, y_pred, z):
 
 
 def train_and_eval(
-    X_train, y_train, X_test, y_test, z_test, w_test, model_type, sensitive_feature, second_sensitive_feature
+    x_train, y_train, x_test, y_test, z_test, w_test, model_type, sensitive_feature, second_sensitive_feature
 ):
     if model_type == "lr":
-        model = LogisticRegression(max_iter=1000)
+        model = LogisticRegression(max_iter=MAX_ITER)
     elif model_type == "xgb":
         model = XGBClassifier(eval_metric="logloss", use_label_encoder=False)
     else:
-        raise ValueError("Unknown model type")
+        msg = "Unknown model type"
+        raise ValueError(msg)
 
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
 
     acc = accuracy_score(y_test, y_pred)
     f1 = f1_score(y_test, y_pred, average="macro")
@@ -163,33 +161,16 @@ def main():
     parser = argparse.ArgumentParser(description="Train local models")
     parser.add_argument("--dataset_path", type=str, required=True, help="Path to the directory containing data")
     parser.add_argument(
-        "--dataset_type",
-        type=str,
-        required=True,
-        help="Identifier for the dataset type (e.g. dutch_cross_silo_attribute)",
+        "--dataset_type", type=str, required=True, help="Type of dataset (e.g., dutch_cross_device_value)"
     )
-    parser.add_argument(
-        "--scenario",
-        type=str,
-        default=None,
-        help="Scenario name (e.g. medium, mild, strong). If provided, results are nested under this key.",
-    )
-    parser.add_argument(
-        "--dataset_name", type=str, default="dutch_prepared", help="Dataset name for prepare_tabular_data"
-    )
-    parser.add_argument("--num_nodes", type=int, default=50, help="Number of nodes/clients")
-    parser.add_argument(
-        "--cross_silo", type=str, default="True", help="Cross silo flag"
-    )  # Changed type to str to handle shell input easier
     parser.add_argument("--splitted_data_dir", type=str, default="federated", help="Directory for splitted data")
+    parser.add_argument("--num_nodes", type=int, default=150, help="Number of clients")
+    parser.add_argument("--cross_silo", type=str, default="False", help="Whether to use cross-silo")
     parser.add_argument("--output_dir", type=str, default="results", help="Directory to save results")
-    parser.add_argument(
-        "--sensitive_feature", type=str, default="sex_binary", help="Name of the first sensitive feature"
-    )
-    parser.add_argument(
-        "--second_sensitive_feature", type=str, default="Marital_status", help="Name of the second sensitive feature"
-    )
-    parser.add_argument("--target", type=str, default="occupation_binary", help="Name of the target variable")
+    parser.add_argument("--dataset_name", type=str, default="", help="Name of the dataset (e.g., dutch)")
+    parser.add_argument("--scenario", type=str, default="", help="Scenario name")
+    parser.add_argument("--sensitive_attribute", type=str, default="", help="Sensitive attribute")
+    parser.add_argument("--second_sensitive_attribute", type=str, default="", help="Second sensitive attribute")
 
     args = parser.parse_args()
 
@@ -199,10 +180,8 @@ def main():
     print(f"Preparing data for {args.dataset_type} {f'({args.scenario})' if args.scenario else ''}...")
     try:
         # We call prepare_tabular_data to ensure .pt files exist
-        fed_dir, _ = prepare_tabular_data(
+        fed_dir = prepare_tabular_data(
             dataset_path=args.dataset_path,
-            dataset_name=args.dataset_name,
-            approach="egalitarian",  # dummy
             num_nodes=args.num_nodes,
             ratio_unfair_nodes=0,  # dummy
             opposite_direction=False,  # dummy
@@ -211,24 +190,24 @@ def main():
             splitted_data_dir=args.splitted_data_dir,
             cross_silo=cross_silo,
             sweep=False,
-            seed=42,
-            validation_seed=42,
+            seed=RANDOM_SEED,
+            validation_seed=RANDOM_SEED,
         )
         print(f"Data prepared in {fed_dir}")
-    except Exception as e:
+    except (ValueError, OSError, RuntimeError) as e:
         print(f"Error preparing data: {e}")
-        fed_dir = os.path.join(args.dataset_path, args.splitted_data_dir)
+        fed_dir = Path(args.dataset_path) / args.splitted_data_dir
         print(f"Attempting to continue with expected path {fed_dir}")
 
     dataset_path = Path(fed_dir)
-    os.makedirs(args.output_dir, exist_ok=True)
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     output_file = Path(args.output_dir) / f"{args.dataset_type}.json"
 
     # Load existing results if they exist
     full_results = {}
     if output_file.exists():
         try:
-            with open(output_file) as f:
+            with output_file.open() as f:
                 full_results = json.load(f)
         except json.JSONDecodeError:
             print("Warning: Could not decode existing JSON, starting fresh.")
@@ -244,94 +223,73 @@ def main():
     client_dirs = [d for d in dataset_path.iterdir() if d.is_dir() and d.name.isdigit()]
     client_dirs.sort(key=lambda x: int(x.name))
 
-    if not client_dirs:
-        print(f"No client directories found in {dataset_path}")
-        # Don't return yet, maybe we want to save empty? But better to skip.
-        return
-
     for client_dir in client_dirs:
         client_id = client_dir.name
-        # print(f"Processing client {client_id}...")
 
         train_path = client_dir / "train.pt"
         test_path = client_dir / "test.pt"
 
         if not train_path.exists():
-            print(f"  Missing train.pt for client {client_id}, skipping.")
             continue
 
         try:
             if test_path.exists():
-                X_train, y_train, z_train, w_train = load_data(train_path)
-                X_test, y_test, z_test, w_test = load_data(test_path)
+                x_train, y_train, z_train, w_train = load_data(train_path)
+                x_test, y_test, z_test, w_test = load_data(test_path)
             else:
                 # Split train.pt
-                X_all, y_all, z_all, w_all = load_data(train_path)
-                if len(y_all) < 5:
+                x_all, y_all, z_all, w_all = load_data(train_path)
+                if len(y_all) < MIN_SAMPLES:
                     print(f"  Client {client_id} has too few samples ({len(y_all)}), skipping.")
                     continue
 
                 if w_all is not None:
-                    X_train, X_test, y_train, y_test, z_train, z_test, w_train, w_test = train_test_split(
-                        X_all, y_all, z_all, w_all, test_size=0.2, random_state=42
+                    x_train, x_test, y_train, y_test, z_train, z_test, w_train, w_test = train_test_split(
+                        x_all, y_all, z_all, w_all, test_size=TEST_SIZE, random_state=RANDOM_SEED
                     )
                 else:
-                    X_train, X_test, y_train, y_test, z_train, z_test = train_test_split(
-                        X_all, y_all, z_all, test_size=0.2, random_state=42
+                    x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+                        x_all, y_all, z_all, test_size=TEST_SIZE, random_state=RANDOM_SEED
                     )
                     w_train, w_test = None, None
 
-            if len(np.unique(y_train)) < 2:
-                print(f"  Client {client_id} has only one class in training data, skipping.")
-                continue
-
-            client_results = {}
-
             # Train Logistic Regression
-            # print(f"  Training LR...")
             lr_metrics = train_and_eval(
-                X_train,
+                x_train,
                 y_train,
-                X_test,
+                x_test,
                 y_test,
                 z_test,
                 w_test,
                 "lr",
-                args.sensitive_feature,
-                args.second_sensitive_feature,
+                args.sensitive_attribute,
+                args.second_sensitive_attribute,
             )
-            client_results["lr"] = lr_metrics
 
             # Train XGBoost
-            # print(f"  Training XGB...")
             xgb_metrics = train_and_eval(
-                X_train,
+                x_train,
                 y_train,
-                X_test,
+                x_test,
                 y_test,
                 z_test,
                 w_test,
                 "xgb",
-                args.sensitive_feature,
-                args.second_sensitive_feature,
+                args.sensitive_attribute,
+                args.second_sensitive_attribute,
             )
-            client_results["xgb"] = xgb_metrics
 
-            current_results[client_id] = client_results
+            current_results[client_id] = {"lr": lr_metrics, "xgb": xgb_metrics, "num_samples": len(y_train) + len(y_test)}
 
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             print(f"  Error processing client {client_id}: {e}")
-            # import traceback
-            # traceback.print_exc()
+            continue
 
     # Update full results
-    if args.scenario:
-        full_results[args.scenario] = current_results
-    else:
-        full_results.update(current_results)  # If no scenario, assuming flat structure or overwriting
+    full_results[args.scenario if args.scenario else "default"] = current_results
 
     # Save results
-    with open(output_file, "w") as f:
+    with output_file.open("w") as f:
         json.dump(full_results, f, indent=4)
 
     print(f"Results saved to {output_file}")

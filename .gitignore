@@ -181,5 +181,5 @@ cython_debug/
 .pypirc
 plan.md
 .complexipy_cache/
-
+celeba_images/
 *.png

@@ -29,23 +29,23 @@ command:
   - --dataset
   - celeba_prepared
   - --num_rounds
-  - 50
+  - 40
   - --num_client_cpus
   - 1
   - --num_client_gpus
-  - 0.05
+  - 0.25
   - --pool_size
   - 100
   - --sampled_clients 
   - 0.2
   - --sampled_clients_test 
-  - 1.0
+  - 0
   - --sampled_clients_validation 
-  - 1.0
+  - 0.5
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/celeba/cross_device_attribute/medium/FL_data/
+  - ../../../../datasets/celeba/cross_device_attribute/medium/federated/
   - --dataset_path 
   - ../../../../datasets/celeba/cross_device_attribute/medium/
   - --seed 

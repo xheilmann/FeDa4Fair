@@ -190,7 +190,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             train_loader=train_loader,
             epochs=self.train_parameters.epochs,
             delta=self.delta,
-            MAX_GRAD_NORM=self.clipping,
+            max_grad_norm=self.clipping,
             batch_size=self.train_parameters.batch_size,
             noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe,
@@ -280,7 +280,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             train_loader=train_loader,
             epochs=self.train_parameters.epochs,
             delta=self.delta,
-            MAX_GRAD_NORM=self.clipping,
+            max_grad_norm=self.clipping,
             batch_size=self.train_parameters.batch_size,
             noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe_reg,
@@ -335,7 +335,6 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             model=net,
             test_loader=loader,
             train_parameters=self.train_parameters,
-            current_epoch=None,
         )
         probs, counters = RegularizationLoss.compute_probabilities(
             predictions=preds,
@@ -389,13 +388,11 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         )
         self.net.to(self.train_parameters.device)
 
-        res = Learning.test(self.net, dataset, self.train_parameters, None, avg_prob)
-        res2 = Learning.test_2(self.net, dataset, self.train_parameters, None, avg_prob)
-        res3 = Learning.test_3(self.net, dataset, self.train_parameters, None, avg_prob)
+        res = Learning.test(self.net, dataset, self.train_parameters, avg_prob)
+        res2 = Learning.test_2(self.net, dataset, self.train_parameters, avg_prob)
+        res3 = Learning.test_3(self.net, dataset, self.train_parameters, avg_prob)
 
-        (preds, s1, s2, s3, targets, f1, f2, f3, _) = Learning.test_prediction(
-            self.net, dataset, self.train_parameters, None
-        )
+        (preds, s1, s2, s3, targets, f1, f2, f3, _) = Learning.test_prediction(self.net, dataset, self.train_parameters)
         p1, c1 = RegularizationLoss.compute_probabilities(preds, s1, self.train_parameters.device, f1, targets)
         p2, c2 = RegularizationLoss.compute_probabilities(preds, s2, self.train_parameters.device, f2, targets)
         p3, c3 = RegularizationLoss.compute_probabilities(preds, s3, self.train_parameters.device, f3, targets)

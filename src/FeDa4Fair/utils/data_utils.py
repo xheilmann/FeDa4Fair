@@ -66,6 +66,7 @@ def drop_data(
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of matching rows removed.
+
     """
     if not (0 <= drop_rate <= 1):
         msg = f"Drop rate must be between 0 and 1, got {drop_rate}"
@@ -136,6 +137,7 @@ def flip_data(
     -------
     pd.DataFrame
         A new DataFrame with the specified percentage of labels flipped in the filtered subset.
+
     """
     if not (0 <= flip_rate <= 1):
         msg = f"Flip rate must be between 0 and 1, got {flip_rate}"
@@ -178,6 +180,7 @@ def balance_data(
 
     Returns:
         tuple[pd.DataFrame, int]: The balanced DataFrame and the total number of samples removed.
+
     """
     groups = df[sensitive_column].unique()
     if len(groups) <= 1:
@@ -286,6 +289,7 @@ def generate_modification_dict(
     -------
     dict[Any, dict[str, Any]]
         A dictionary mapping client IDs to modification configs.
+
     """
     clients = list(range(client_ids)) if isinstance(client_ids, int) else client_ids
 
@@ -345,6 +349,7 @@ def generate_bias_by_groups(
     -------
     dict[Any, dict[str, Any]]
         A modification dictionary mapping client IDs to their specific sampled modifications.
+
     """
     sum_clients = sum(g["num_clients"] for g in group_configs)
     if sum_clients != num_total_clients:
@@ -418,6 +423,7 @@ def generate_multiobjective_bias(
     -------
     dict
         Modification dictionary compatible with FairFederatedDataset.
+
     """
     sum_clients = sum(g["num_clients"] for g in group_configs)
     if sum_clients != num_total_clients:

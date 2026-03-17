@@ -191,7 +191,6 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             epochs=self.train_parameters.epochs,
             delta=self.delta,
             max_grad_norm=self.clipping,
-            batch_size=self.train_parameters.batch_size,
             noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe,
         )
@@ -281,7 +280,6 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             epochs=self.train_parameters.epochs,
             delta=self.delta,
             max_grad_norm=self.clipping,
-            batch_size=self.train_parameters.batch_size,
             noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe_reg,
         )
@@ -299,11 +297,12 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 optimizer_regularization=po_reg,
                 train_loader=loader,
                 test_loader=None,
+                average_probabilities=avg_prob,
                 current_epoch=epoch,
                 current_fl_round=fl_round,
                 node_id=self.cid,
-                average_probabilities=avg_prob,
                 sigma_update_lambda=sigma,
+                epoch=epoch,
                 reweighing_weights=weights,
             )
             metrics["Max Disparity Train Before Local Epoch"] = max_disp

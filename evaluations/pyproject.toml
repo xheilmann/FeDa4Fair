@@ -25,6 +25,7 @@ dependencies = [
     "opacus>=1.5.4",
     "wandb>=0.23.1",
     "setuptools>=80.9.0",
+    "ty>=0.0.23",
 ]
 
 [tool.uv.sources]

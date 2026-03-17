@@ -5,9 +5,6 @@ Scenario: Cross-Device (150 clients)
 Target DP Level: Medium (0.30)
 """
 
-import base64
-import io
-import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt

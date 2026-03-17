@@ -151,6 +151,7 @@ class FairFederatedDataset(FederatedDataset):
 
     **load_dataset_kwargs : dict
         Additional keyword arguments passed to `datasets.load_dataset`.
+
     """
 
     def __init__(

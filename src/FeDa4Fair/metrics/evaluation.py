@@ -140,6 +140,7 @@ def evaluate_fairness(
     Returns
     -------
     None
+
     """
     if sens_columns is None:
         sens_columns = DEFAULT_SENSITIVE_ATTRIBUTES
@@ -247,6 +248,7 @@ def local_client_fairness_plot(
     Returns
     -------
     matplotlib.figure.Figure
+
     """
     if not before_fairness_df[client_column].is_unique:
         msg = "The client ID column must be unique for before_fairness_df."

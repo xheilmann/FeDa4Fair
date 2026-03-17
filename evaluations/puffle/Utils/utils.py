@@ -686,11 +686,14 @@ class Utils:
                 precision,
                 recall,
                 max_disparity_test,
+                y_true,
+                y_pred,
+                colors,
+                max_group,
             ) = Learning.test(
                 model=model,
                 test_loader=testloader,
                 train_parameters=train_parameters,
-                current_epoch=server_round,
             )
             if wandb_run:
                 wandb_run.log(

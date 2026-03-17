@@ -61,6 +61,7 @@ def _compute_fairness(
     -------
     pd.Series
         Series containing the computed fairness metric values.
+
     """
     if fairness_metric == DEMOGRAPHIC_PARITY:
         # Demographic Parity: difference in selection rates

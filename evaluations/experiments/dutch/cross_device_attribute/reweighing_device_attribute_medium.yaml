@@ -45,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_device_attribute/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_device_attribute/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_device_attribute/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_device_attribute/medium/
   - --seed 
   - 41 
   - --wandb 

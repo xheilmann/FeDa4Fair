@@ -56,6 +56,9 @@ class FlowerClientDisparity(fl.client.NumPyClient):
                 _device=self.train_parameters.device,
             )
             self.optimizer_regularization = self.get_optimizer(model=self.model_regularization)
+        else:
+            self.model_regularization = None
+            self.optimizer_regularization = None
 
     def _compute_reweighing_weights(self, train_loader):
         reweighing_weights = None
@@ -162,6 +165,11 @@ class FlowerClientDisparity(fl.client.NumPyClient):
 
         Utils.set_params(self.net, parameters)
 
+        # Re-initialize optimizers to ensure they point to current parameters
+        self.optimizer = self.get_optimizer(self.net)
+        if self.model_regularization:
+            self.optimizer_regularization = self.get_optimizer(self.model_regularization)
+
         with (self.fed_dir / "counter_sampling.pkl").open("rb") as f:
             counter_sampling = dill.load(f)  # noqa: S301
             self.sampling_frequency = counter_sampling[str(self.cid)]
@@ -194,6 +202,7 @@ class FlowerClientDisparity(fl.client.NumPyClient):
             noise_multiplier=self.noise_multiplier,
             accountant=loaded_pe,
         )
+
         private_net.to(self.train_parameters.device)
 
         max_disp_before = RegularizationLoss().violation_with_dataset(
@@ -206,7 +215,18 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         if not first_round and self.train_parameters.target and is_tunable:
             self.train_parameters.regularization_lambda = self.compute_starting_lambda_with_disparity(max_disp_before)
 
-        private_model_reg, private_opt_reg, pe_reg = self._setup_regularization_model(train_loader, loaded_pe_reg)
+        if self.train_parameters.regularization and (
+            self.train_parameters.epsilon is not None or self.noise_multiplier > 0
+        ):
+            private_model_reg, private_opt_reg, pe_reg = self._setup_regularization_model(train_loader, loaded_pe_reg)
+        elif self.train_parameters.regularization:
+            private_model_reg = self.model_regularization
+            private_opt_reg = self.optimizer_regularization
+            pe_reg = None
+        else:
+            private_model_reg = None
+            private_opt_reg = None
+            pe_reg = None
 
         gc.collect()
         all_metrics, all_losses, history_lambda = self._run_training_epochs(
@@ -223,7 +243,8 @@ class FlowerClientDisparity(fl.client.NumPyClient):
         )
 
         Utils.set_params(self.net, Utils.get_params(private_net))
-        self._save_privacy_state(privacy_engine, pe_reg)
+        if self.train_parameters.epsilon is not None:
+            self._save_privacy_state(privacy_engine, pe_reg)
 
         final_epsilon = self._compute_final_epsilon()
         probabilities, counters, counters_no_noise = self._compute_counters(private_net, train_loader)

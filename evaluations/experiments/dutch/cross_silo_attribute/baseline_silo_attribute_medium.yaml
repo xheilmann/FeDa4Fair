@@ -46,9 +46,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_silo_attribute/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_silo_attribute/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_silo_attribute/medium/
   - --seed 
   - 41 
   - --wandb 

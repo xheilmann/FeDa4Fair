@@ -91,8 +91,8 @@ class Learning:
             max_physical_batch_size=512,
             optimizer=optimizer,
         ) as memory_safe_loader:
-            for batch_number, (batch_data, sens_1, sens_2, _, batch_target) in enumerate(memory_safe_loader, 0):
-                sens_feature = Learning._get_sensitive_feature(train_parameters, sens_1, sens_2)
+            for batch_number, (batch_data, sens_1, sens_2, sens_3, batch_target) in enumerate(memory_safe_loader, 0):
+                sens_feature = Learning._get_sensitive_feature(train_parameters, sens_1, sens_2, sens_3)
                 if model_regularization is not None:
                     Utils.sync_models(model_regularization, model)
 
@@ -120,6 +120,7 @@ class Learning:
                 classic_loss = Learning._compute_classic_loss(
                     outputs, target, sens_feature, train_parameters, reweighing_weights
                 )
+
                 loss = Learning._handle_backward_and_gradients(
                     train_parameters, reg_term, classic_loss, model, model_regularization, optimizer
                 )
@@ -171,12 +172,17 @@ class Learning:
         }
 
     @staticmethod
-    def _get_sensitive_feature(train_parameters, sens_1, sens_2):
+    def _get_sensitive_feature(train_parameters, sens_1, sens_2, sens_3=None):
         if train_parameters.sensitive_attribute == "SEX":
             return sens_1
         if train_parameters.sensitive_attribute == "MAR":
             return sens_2
-        return None
+        if train_parameters.sensitive_attribute == "RAC1P":
+            return sens_3 if sens_3 is not None else sens_2  # Fallback
+
+        # If it's none of the hardcoded names, we assume it's the first one (sens_1)
+        # as is the case for CelebA "Male" which maps to sens_1
+        return sens_1
 
     @staticmethod
     def _handle_regularization(
@@ -260,8 +266,15 @@ class Learning:
         loss.backward()
         if regularization_term and train_parameters.regularization_lambda > 0:
             for p1, p2 in zip(model.parameters(), model_regularization.parameters(), strict=False):
-                if p1.grad_sample is not None and p2.grad_sample is not None:
+                if (
+                    hasattr(p1, "grad_sample")
+                    and p1.grad_sample is not None
+                    and hasattr(p2, "grad_sample")
+                    and p2.grad_sample is not None
+                ):
                     p1.grad_sample += p2.grad_sample
+                elif p1.grad is not None and p2.grad is not None:
+                    p1.grad += p2.grad
         optimizer.step()
         optimizer.zero_grad()
         return loss

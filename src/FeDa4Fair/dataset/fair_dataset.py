@@ -229,7 +229,9 @@ class FairFederatedDataset(FederatedDataset):
         self._fairness_level = fairness_level
         self._fairness_metric = fairness_metric
         self._fl_setting = fl_setting
-        self._perc_train_test_split = perc_train_val_test if perc_train_val_test is not None else DEFAULT_TRAIN_VAL_TEST_SPLIT
+        self._perc_train_test_split = (
+            perc_train_val_test if perc_train_val_test is not None else DEFAULT_TRAIN_VAL_TEST_SPLIT
+        )
         self._path = Path(path) if path else None
         self._modification_dict = modification_dict
         self._mapping = mapping
@@ -239,6 +241,7 @@ class FairFederatedDataset(FederatedDataset):
         self._sample_cap = sample_cap
         self.auto_evaluate = auto_evaluate
         self.auto_save = auto_save
+        self._global_unique_labels = None
 
         self._validate_modification_dict()
 
@@ -284,7 +287,9 @@ class FairFederatedDataset(FederatedDataset):
         if self._sample_cap is not None:
             partition_df = partition.to_pandas()
             if isinstance(partition_df, pd.DataFrame):
-                partition_df = cap_samples(partition_df, self._sample_cap, self.label_column, seed=self._seed or DEFAULT_SEED)
+                partition_df = cap_samples(
+                    partition_df, self._sample_cap, self.label_column, seed=self._seed or DEFAULT_SEED
+                )
                 partition = Dataset.from_pandas(partition_df)
 
         return self._apply_modification_to_partition(partition, partition_id, split)
@@ -363,7 +368,7 @@ class FairFederatedDataset(FederatedDataset):
             partition_df = partition.to_pandas()
             if isinstance(partition_df, pd.DataFrame):
                 partition_df.to_csv(path_or_buf=dataset_path / file_name, index=False)
-        except Exception as e: # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             warnings.warn(f"Partition {file_name} could not be saved to CSV: {e}", stacklevel=2)
 
     def evaluate(self, file: PathLike | None = None) -> None:
@@ -394,7 +399,7 @@ class FairFederatedDataset(FederatedDataset):
             label_name=self.label_column,
             sens_columns=sens_cols,
             intersectional_fairness=intersectional,
-            path=str(file) if file else "data_stats"
+            path=str(file) if file else "data_stats",
         )
 
     def _split_into_train_val_test(self) -> None:
@@ -525,6 +530,13 @@ class FairFederatedDataset(FederatedDataset):
         raw_data_dict = self._load_raw_data()
         self._dataset = DatasetDict()
 
+        # Calculate global unique labels across all states to ensure consistent mapping
+        all_labels = []
+        for state_data in raw_data_dict.values():
+            if self.label_column in state_data.columns:
+                all_labels.extend(state_data[self.label_column].unique())
+        self._global_unique_labels = sorted(list(set(all_labels)))
+
         for state, state_data in raw_data_dict.items():
             data_to_use = state_data.copy()
             data_to_use = self._apply_acs_modifications(state, data_to_use)
@@ -568,17 +580,33 @@ class FairFederatedDataset(FederatedDataset):
                 secondary_val = config.get("attribute_value")
 
                 if drop_rate > 0:
-                    data = drop_data(data, drop_rate, col, target_value, self.label_column, secondary_col, secondary_val, seed=self._seed or DEFAULT_SEED)
+                    data = drop_data(
+                        data,
+                        drop_rate,
+                        col,
+                        target_value,
+                        self.label_column,
+                        secondary_col,
+                        secondary_val,
+                        seed=self._seed or DEFAULT_SEED,
+                    )
 
                 if flip_rate > 0:
-                    data = flip_data(data, flip_rate, col, target_value, self.label_column, secondary_col, secondary_val, seed=self._seed or DEFAULT_SEED)
+                    data = flip_data(
+                        data,
+                        flip_rate,
+                        col,
+                        target_value,
+                        self.label_column,
+                        secondary_col,
+                        secondary_val,
+                        seed=self._seed or DEFAULT_SEED,
+                    )
 
         return data
 
     def _create_and_cast_dataset(self, data: pd.DataFrame) -> Dataset:
         """Create a Hugging Face Dataset from pandas and ensure correct types."""
-        # Original implementation of _create_and_cast_dataset also handled ClassLabel casting
-        # Checking if we should restore that to fix test_casts_label_to_classlabel_when_possible
         label_col = self._label
         if not label_col:
             if self._dataset_name == ACS_INCOME:
@@ -589,13 +617,19 @@ class FairFederatedDataset(FederatedDataset):
         data_copy = data.copy()
         if label_col and label_col in data_copy.columns:
             try:
-                unique_labels = sorted(data_copy[label_col].unique())
+                if self._global_unique_labels is not None:
+                    unique_labels = self._global_unique_labels
+                else:
+                    unique_labels = sorted(data_copy[label_col].unique())
+
                 if (
                     all(isinstance(x, (int, bool, np.integer, np.bool_)) for x in unique_labels)
                     and len(unique_labels) <= LABEL_COUNT_THRESHOLD
                 ):
                     # Convert to standard python types to help HF Dataset casting
-                    data_copy[label_col] = data_copy[label_col].apply(lambda x: int(x) if not isinstance(x, bool) else x)
+                    data_copy[label_col] = data_copy[label_col].apply(
+                        lambda x: int(x) if not isinstance(x, bool) else x
+                    )
             except Exception:  # noqa: BLE001
                 pass
 
@@ -606,20 +640,36 @@ class FairFederatedDataset(FederatedDataset):
 
         if label_col and label_col in ds.column_names:
             try:
-                unique_labels = sorted(data_copy[label_col].unique())
-                if all(isinstance(x, (int, bool)) for x in unique_labels) and len(unique_labels) <= LABEL_COUNT_THRESHOLD:
+                if self._global_unique_labels is not None:
+                    unique_labels = self._global_unique_labels
+                else:
+                    unique_labels = sorted(data_copy[label_col].unique())
+
+                if (
+                    all(isinstance(x, (int, bool)) for x in unique_labels)
+                    and len(unique_labels) <= LABEL_COUNT_THRESHOLD
+                ):
                     ds = ds.cast_column(label_col, ClassLabel(names=[str(x) for x in unique_labels]))
             except Exception:  # noqa: BLE001
                 pass
 
         return ds
+
     def _prepare_generic_dataset(self) -> None:
         """Prepare a generic Hugging Face dataset."""
         if self._preloaded_data is not None:
             self._dataset = DatasetDict()
             if isinstance(self._preloaded_data, pd.DataFrame):
+                self._global_unique_labels = sorted(self._preloaded_data[self.label_column].unique())
                 self._dataset["train"] = self._create_and_cast_dataset(self._preloaded_data)
             elif isinstance(self._preloaded_data, dict):
+                # Calculate global labels across all splits
+                all_labels = []
+                for df in self._preloaded_data.values():
+                    if self.label_column in df.columns:
+                        all_labels.extend(df[self.label_column].unique())
+                self._global_unique_labels = sorted(list(set(all_labels)))
+
                 for split_name, df in self._preloaded_data.items():
                     self._dataset[split_name] = self._create_and_cast_dataset(df)
             else:
@@ -628,6 +678,22 @@ class FairFederatedDataset(FederatedDataset):
         else:
             # Load dataset using standard HF load_dataset
             self._dataset = load_dataset(self._dataset_name, self._subset, **self._load_dataset_kwargs)
+
+            # For HF datasets, the mapping is usually consistent across splits,
+            # but we can force it if needed by analyzing all splits first.
+            if isinstance(self._dataset, DatasetDict):
+                all_labels = []
+                for split in self._dataset:
+                    if self.label_column in self._dataset[split].column_names:
+                        # Extract unique labels from this split
+                        unique_in_split = self._dataset[split].unique(self.label_column)
+                        all_labels.extend(unique_in_split)
+                self._global_unique_labels = sorted(list(set(all_labels)))
+
+                # Re-cast all splits with global labels
+                for split in self._dataset:
+                    df = self._dataset[split].to_pandas()
+                    self._dataset[split] = self._create_and_cast_dataset(df)
 
         if self._merge_splits and isinstance(self._dataset, DatasetDict):
             all_datasets = [self._dataset[split] for split in self._dataset]
@@ -651,11 +717,57 @@ class FairFederatedDataset(FederatedDataset):
     def _get_default_us_states(self) -> list[str]:
         """Return a list of all US state abbreviations."""
         return [
-            "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-            "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-            "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-            "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-            "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "PR"
+            "AL",
+            "AK",
+            "AZ",
+            "AR",
+            "CA",
+            "CO",
+            "CT",
+            "DE",
+            "FL",
+            "GA",
+            "HI",
+            "ID",
+            "IL",
+            "IN",
+            "IA",
+            "KS",
+            "KY",
+            "LA",
+            "ME",
+            "MD",
+            "MA",
+            "MI",
+            "MN",
+            "MS",
+            "MO",
+            "MT",
+            "NE",
+            "NV",
+            "NH",
+            "NJ",
+            "NM",
+            "NY",
+            "NC",
+            "ND",
+            "OH",
+            "OK",
+            "OR",
+            "PA",
+            "RI",
+            "SC",
+            "SD",
+            "TN",
+            "TX",
+            "UT",
+            "VT",
+            "VA",
+            "WA",
+            "WV",
+            "WI",
+            "WY",
+            "PR",
         ]
 
     def _check_partitioners_correctness(self) -> None:

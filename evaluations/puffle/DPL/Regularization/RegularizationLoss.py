@@ -200,7 +200,7 @@ class RegularizationLoss(nn.Module):
                 )
                 targets += batch_target.tolist()
 
-        print(sensitive_attribute_list)
+        # print(sensitive_attribute_list)
         return self.forward(
             sensitive_attribute_list,
             device,

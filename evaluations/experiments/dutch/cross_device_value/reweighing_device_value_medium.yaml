@@ -45,9 +45,9 @@ command:
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/dutch/cross_device_value/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_device_value/medium/
   - --dataset_path 
-  - ../../../../datasets/dutch/cross_device_value/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/dutch/cross_device_value/medium/
   - --seed 
   - 41 
   - --wandb 
@@ -72,3 +72,5 @@ command:
   - 0.5
   - --reweighing
   - True
+  - --sensitive_attribute
+  - SEX

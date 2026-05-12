@@ -41,13 +41,13 @@ command:
   - --sampled_clients_test 
   - 0
   - --sampled_clients_validation 
-  - 0.5
+  - 1.0
   - --debug
   - False
   - --base_path
-  - ../../../../datasets/celeba/cross_device_attribute/medium/federated/
+  - /home/lcorbucci/FeDa4Fair/datasets/celeba/cross_device_attribute/medium/federated/
   - --dataset_path 
-  - ../../../../datasets/celeba/cross_device_attribute/medium/
+  - /home/lcorbucci/FeDa4Fair/datasets/celeba/cross_device_attribute/medium/
   - --seed 
   - 41 
   - --wandb 

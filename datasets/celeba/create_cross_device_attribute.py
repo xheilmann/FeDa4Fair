@@ -29,8 +29,8 @@ def add_hair_color(df):
 
 def create_benchmarks():
     num_clients = 150
-    output_base = "datasets/celeba/cross_device_attribute"
-    img_dir_path = Path("datasets/celeba/images")
+    output_base = "./cross_device_attribute"
+    img_dir_path = Path("./images")
 
     print("Loading CelebA dataset...")
     ds_dict = load_dataset("flwrlabs/celeba")
@@ -95,7 +95,7 @@ def create_benchmarks():
                     "drop_mean": 0,
                     "drop_std": 0,
                     "flip_mean": 0,
-                    "flip_std": 0, 
+                    "flip_std": 0,
                     "mitigate": False,
                 },
             ],

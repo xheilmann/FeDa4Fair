@@ -39,7 +39,7 @@ class CelebaDataset(Dataset):
             targets = [0 if item == -1 else 1 for item in labels]
         else:
             targets = [int(item) for item in labels]
-            
+
         self.targets = targets
         self.sensitive_attributes = dataframe["Male"].tolist()
         self.samples = list(dataframe["image_id"])
@@ -52,9 +52,18 @@ class CelebaDataset(Dataset):
         if not self.debug:
             self.images = []
             for sample in self.samples:
-                img_path = self.image_path / sample
+                img_id = str(sample)
+                img_path = self.image_path / img_id
                 if not img_path.exists():
-                    raise FileNotFoundError(f"Image not found: {img_path}")
+                    # Try with extension if missing
+                    found = False
+                    for ext in [".jpg", ".png", ".jpeg"]:
+                        if (self.image_path / (img_id + ext)).exists():
+                            img_path = self.image_path / (img_id + ext)
+                            found = True
+                            break
+                    if not found:
+                        raise FileNotFoundError(f"Image not found: {img_path}")
                 self.images.append(Image.open(img_path).convert("RGB"))
 
     def __getitem__(self, index: int):
@@ -73,12 +82,12 @@ class CelebaDataset(Dataset):
             img_id = str(self.samples[index])
             img_path = self.image_path / img_id
             if not img_path.exists():
-                 # Try with extension if missing
-                 for ext in [".jpg", ".png", ".jpeg"]:
-                     if (self.image_path / (img_id + ext)).exists():
-                         img_path = self.image_path / (img_id + ext)
-                         break
-            
+                # Try with extension if missing
+                for ext in [".jpg", ".png", ".jpeg"]:
+                    if (self.image_path / (img_id + ext)).exists():
+                        img_path = self.image_path / (img_id + ext)
+                        break
+
             if not img_path.exists():
                 raise FileNotFoundError(f"Image not found for ID {img_id} at {self.image_path}")
             img = Image.open(img_path).convert("RGB")
@@ -131,7 +140,11 @@ class CelebaPreparedDataset(Dataset):
             transform (Callable | None, optional): Transformation to apply to the images. Defaults to None.
 
         """
-        self.targets = [int(item) if item is not None else 0 for item in labels]
+        # Handle targets
+        if set(labels).issubset({-1, 1}):
+            self.targets = [0 if item == -1 else 1 for item in labels]
+        else:
+            self.targets = [int(item) if item is not None else 0 for item in labels]
 
         # Safely map sensitive attributes if they match the dict, otherwise keep them
         self.sensitive_attributes = [int(item) if item is not None else 0 for item in sensitive_attributes]
@@ -163,7 +176,7 @@ class CelebaPreparedDataset(Dataset):
         """
         img_id = str(self.samples[index])
         img_path = self.image_dir / f"{img_id}.png"
-        
+
         if not img_path.exists():
             # Fallback to .jpg or just the ID if .png is missing
             img_path = self.image_dir / f"{img_id}.jpg"
